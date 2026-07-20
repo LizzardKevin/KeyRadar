@@ -18,6 +18,35 @@ public static partial class UpdateManifestVerifier
         ReadOnlySpan<byte> assetBytes,
         Uri trustedRepository)
     {
+        var manifestResult = VerifyManifest(
+            manifestBytes,
+            signatureBytes,
+            publicKeyBytes,
+            trustedRepository);
+        if (!manifestResult.IsValid)
+        {
+            return manifestResult;
+        }
+
+        var manifest = manifestResult.Manifest!;
+        var expectedHash = Convert.FromHexString(manifest.Sha256);
+        var actualHash = SHA256.HashData(assetBytes);
+        if (!CryptographicOperations.FixedTimeEquals(expectedHash, actualHash))
+        {
+            return UpdateManifestValidationResult.Failure(
+                UpdateManifestValidationError.AssetHashMismatch,
+                "The downloaded update does not match the signed SHA-256 hash.");
+        }
+
+        return manifestResult;
+    }
+
+    public static UpdateManifestValidationResult VerifyManifest(
+        ReadOnlySpan<byte> manifestBytes,
+        ReadOnlySpan<byte> signatureBytes,
+        ReadOnlySpan<byte> publicKeyBytes,
+        Uri trustedRepository)
+    {
         ArgumentNullException.ThrowIfNull(trustedRepository);
 
         if (manifestBytes.IsEmpty || manifestBytes.Length > MaximumManifestBytes ||
@@ -55,15 +84,6 @@ public static partial class UpdateManifestVerifier
             return UpdateManifestValidationResult.Failure(
                 UpdateManifestValidationError.UntrustedDownload,
                 "The update download is outside the pinned HTTPS repository.");
-        }
-
-        var expectedHash = Convert.FromHexString(manifest.Sha256);
-        var actualHash = SHA256.HashData(assetBytes);
-        if (!CryptographicOperations.FixedTimeEquals(expectedHash, actualHash))
-        {
-            return UpdateManifestValidationResult.Failure(
-                UpdateManifestValidationError.AssetHashMismatch,
-                "The downloaded update does not match the signed SHA-256 hash.");
         }
 
         return UpdateManifestValidationResult.Success(manifest);

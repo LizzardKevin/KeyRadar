@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using KeyRadar.Conflicts;
 using KeyRadar.Rules;
 using KeyRadar.Shortcuts;
+using KeyRadar.Updater.Updates;
 using KeyRadar.Windows.Applications;
 using KeyRadar.Windows.Hotkeys;
 using Microsoft.UI.Xaml;
@@ -13,14 +15,18 @@ public sealed partial class MainPage : Page
 {
     private readonly RunningApplicationScanner _scanner =
         new(new SystemProcessSource(), new Win32WindowSource());
+    private readonly HttpClient _updateHttpClient = new() { Timeout = TimeSpan.FromSeconds(30) };
+    private readonly UpdateCheckClient _updateClient;
     private IReadOnlyList<ApplicationGroupViewModel> _allGroups = [];
 
     public ObservableCollection<ApplicationGroupViewModel> FilteredGroups { get; } = [];
 
     public MainPage()
     {
+        _updateClient = new UpdateCheckClient(_updateHttpClient, OfficialReleaseKey.GetBytes());
         InitializeComponent();
         Loaded += MainPage_Loaded;
+        Unloaded += MainPage_Unloaded;
     }
 
     public void ShowObservedGesture(ShortcutGesture gesture)
@@ -172,6 +178,120 @@ public sealed partial class MainPage : Page
     }
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e) => await ScanAsync();
+
+    private async void CheckUpdateButton_Click(object sender, RoutedEventArgs e)
+    {
+        CheckUpdateButton.IsEnabled = false;
+        CheckUpdateButtonText.Text = "检查中…";
+        try
+        {
+            var currentVersion = typeof(MainPage).Assembly.GetName().Version ?? new Version(1, 0, 0);
+            var result = await _updateClient.CheckAsync(currentVersion);
+            if (result.Status == UpdateCheckStatus.UpdateAvailable && result.Manifest is not null)
+            {
+                var dialog = new ContentDialog
+                {
+                    XamlRoot = XamlRoot,
+                    Title = $"发现 KeyRadar {result.Manifest.Version}",
+                    Content = "签名与下载地址已验证。是否下载并安装？更新器会保留本地 data，失败时自动回滚。",
+                    PrimaryButtonText = "下载并安装",
+                    CloseButtonText = "稍后",
+                    DefaultButton = ContentDialogButton.Primary,
+                };
+                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                {
+                    await DownloadAndInstallUpdateAsync(result.Manifest);
+                }
+
+                return;
+            }
+
+            await ShowUpdateMessageAsync(
+                result.Status == UpdateCheckStatus.UpToDate ? "已是最新版本" : "暂时无法检查更新",
+                result.Status == UpdateCheckStatus.UpToDate
+                    ? $"当前版本 {currentVersion.ToString(3)} 已是最新版本。"
+                    : "网络、限流、404 或签名校验失败时，KeyRadar 会保留当前版本。请稍后重试。");
+        }
+        finally
+        {
+            CheckUpdateButton.IsEnabled = true;
+            CheckUpdateButtonText.Text = "检查更新";
+        }
+    }
+
+    private async Task DownloadAndInstallUpdateAsync(UpdateManifest manifest)
+    {
+        CheckUpdateButtonText.Text = "正在下载…";
+        var updateRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "KeyRadar",
+            "updates",
+            $"{manifest.Version}-{Guid.NewGuid():N}");
+        var archivePath = Path.Combine(updateRoot, manifest.AssetName);
+        var stagingPath = Path.Combine(updateRoot, "staging");
+        var backupPath = Path.Combine(updateRoot, "backup");
+
+        var download = await _updateClient.DownloadAsync(manifest, archivePath);
+        if (!download.IsValid)
+        {
+            await ShowUpdateMessageAsync("下载验证失败", "更新包未通过完整性验证，当前版本未更改。");
+            return;
+        }
+
+        var extraction = UpdateArchiveExtractor.Extract(archivePath, stagingPath);
+        if (!extraction.IsValid)
+        {
+            await ShowUpdateMessageAsync("更新包无法使用", "更新包结构不安全或不完整，当前版本未更改。");
+            return;
+        }
+
+        var updaterPath = Path.Combine(stagingPath, "KeyRadar.Updater.exe");
+        var startInfo = new ProcessStartInfo(updaterPath)
+        {
+            UseShellExecute = true,
+            WorkingDirectory = stagingPath,
+        };
+        startInfo.ArgumentList.Add("--source");
+        startInfo.ArgumentList.Add(stagingPath);
+        startInfo.ArgumentList.Add("--target");
+        startInfo.ArgumentList.Add(AppContext.BaseDirectory);
+        startInfo.ArgumentList.Add("--backup");
+        startInfo.ArgumentList.Add(backupPath);
+        startInfo.ArgumentList.Add("--wait-pid");
+        startInfo.ArgumentList.Add(Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        startInfo.ArgumentList.Add("--restart");
+        startInfo.ArgumentList.Add("KeyRadar.exe");
+        startInfo.ArgumentList.Add("--health-marker");
+        startInfo.ArgumentList.Add(Path.Combine(updateRoot, "health.ok"));
+
+        try
+        {
+            Process.Start(startInfo);
+            ((App)Application.Current).RequestShutdown();
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            await ShowUpdateMessageAsync("无法启动更新器", "当前版本未更改。请确认解压目录可写后重试。");
+        }
+    }
+
+    private async Task ShowUpdateMessageAsync(string title, string message)
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = title,
+            Content = message,
+            CloseButtonText = "确定",
+        };
+        await dialog.ShowAsync();
+    }
+
+    private void MainPage_Unloaded(object sender, RoutedEventArgs e)
+    {
+        Unloaded -= MainPage_Unloaded;
+        _updateHttpClient.Dispose();
+    }
 
     private void SearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {

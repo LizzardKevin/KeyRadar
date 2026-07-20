@@ -45,6 +45,25 @@ public sealed class FileUpdateTransactionTests : IDisposable
         Assert.Equal("old-a", File.ReadAllText(Path.Combine(target, "a.txt")));
     }
 
+    [Fact]
+    public void Rollback_restores_replaced_files_and_removes_new_files()
+    {
+        var source = Directory.CreateDirectory(Path.Combine(_root, "source")).FullName;
+        var target = Directory.CreateDirectory(Path.Combine(_root, "target")).FullName;
+        var backup = Path.Combine(_root, "backup");
+        File.WriteAllText(Path.Combine(source, "KeyRadar.exe"), "new");
+        File.WriteAllText(Path.Combine(source, "new-runtime.dll"), "new-runtime");
+        File.WriteAllText(Path.Combine(target, "KeyRadar.exe"), "old");
+
+        Assert.True(FileUpdateTransaction.Apply(source, target, backup).Succeeded);
+
+        var rolledBack = FileUpdateTransaction.Rollback(source, target, backup);
+
+        Assert.True(rolledBack);
+        Assert.Equal("old", File.ReadAllText(Path.Combine(target, "KeyRadar.exe")));
+        Assert.False(File.Exists(Path.Combine(target, "new-runtime.dll")));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root))

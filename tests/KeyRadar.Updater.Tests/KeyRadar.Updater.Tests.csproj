@@ -16,6 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\KeyRadar.Update\KeyRadar.Update.csproj" />
     <ProjectReference Include="..\..\src\KeyRadar.Updater\KeyRadar.Updater.csproj" />
   </ItemGroup>
 </Project>

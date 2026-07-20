@@ -11,5 +11,8 @@
     <RepositoryType>git</RepositoryType>
     <Authors>LizzardKevin and KeyRadar contributors</Authors>
     <Copyright>Copyright © 2026 LizzardKevin</Copyright>
+    <VersionPrefix>1.0.0</VersionPrefix>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
   </PropertyGroup>
 </Project>

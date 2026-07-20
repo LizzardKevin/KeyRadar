@@ -151,6 +151,12 @@
           "NSec.Cryptography": "[26.4.0, )"
         }
       },
+      "keyradar.update": {
+        "type": "Project",
+        "dependencies": {
+          "NSec.Cryptography": "[26.4.0, )"
+        }
+      },
       "keyradar.windows": {
         "type": "Project",
         "dependencies": {

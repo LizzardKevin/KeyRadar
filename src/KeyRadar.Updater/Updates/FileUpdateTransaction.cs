@@ -69,6 +69,44 @@ public static class FileUpdateTransaction
         }
     }
 
+    public static bool Rollback(string sourceDirectory, string targetDirectory, string backupDirectory)
+    {
+        var source = ResolveExistingDirectory(sourceDirectory, nameof(sourceDirectory));
+        var target = ResolveExistingDirectory(targetDirectory, nameof(targetDirectory));
+        var backup = ResolveExistingDirectory(backupDirectory, nameof(backupDirectory));
+        EnsureDistinctPaths(source, target, backup);
+
+        try
+        {
+            var updateFiles = Directory
+                .EnumerateFiles(source, "*", SearchOption.AllDirectories)
+                .Select(path => new UpdateFile(path, GetSafeRelativePath(source, path)))
+                .Where(file => !IsPreservedDataPath(file.RelativePath))
+                .OrderByDescending(file => file.RelativePath, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var updateFile in updateFiles)
+            {
+                var destination = ResolveWithin(target, updateFile.RelativePath);
+                var backupPath = ResolveWithin(backup, updateFile.RelativePath);
+                if (File.Exists(backupPath))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                    File.Copy(backupPath, destination, overwrite: true);
+                }
+                else if (File.Exists(destination))
+                {
+                    File.Delete(destination);
+                }
+            }
+
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
     private static bool TryRollback(
         string target,
         string backup,

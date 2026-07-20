@@ -36,6 +36,7 @@
   <ItemGroup>
     <ProjectReference Include="..\KeyRadar.Core\KeyRadar.Core.csproj" />
     <ProjectReference Include="..\KeyRadar.Rules\KeyRadar.Rules.csproj" />
+    <ProjectReference Include="..\KeyRadar.Update\KeyRadar.Update.csproj" />
     <ProjectReference Include="..\KeyRadar.Windows\KeyRadar.Windows.csproj" />
   </ItemGroup>
 </Project>

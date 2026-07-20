@@ -80,6 +80,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel>
                         <TextBlock FontSize="28" FontWeight="SemiBold" Text="快捷键雷达" />
@@ -89,6 +90,17 @@
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon FontSize="14" Glyph="&#xE72C;" />
                             <TextBlock Text="重新扫描" />
+                        </StackPanel>
+                    </Button>
+                    <Button
+                        x:Name="CheckUpdateButton"
+                        Grid.Column="2"
+                        Margin="8,0,0,0"
+                        HorizontalAlignment="Right"
+                        Click="CheckUpdateButton_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontSize="14" Glyph="&#xE896;" />
+                            <TextBlock x:Name="CheckUpdateButtonText" Text="检查更新" />
                         </StackPanel>
                     </Button>
                 </Grid>

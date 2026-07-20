@@ -17,15 +17,40 @@ internal static class Program
                 return result.RolledBack ? 2 : 3;
             }
 
-            Restart(options);
-            return 0;
+            PrepareHealthMarker(options.HealthMarker);
+            using var restartedProcess = Restart(options, includeHealthMarker: true);
+            if (string.IsNullOrWhiteSpace(options.HealthMarker) || restartedProcess is null)
+            {
+                return 0;
+            }
+
+            var healthy = UpdateHealthMonitor.WaitForMarkerAsync(
+                    options.HealthMarker,
+                    TimeSpan.FromSeconds(15))
+                .GetAwaiter()
+                .GetResult();
+            if (healthy)
+            {
+                return 0;
+            }
+
+            StopFailedProcess(restartedProcess);
+            var rolledBack = FileUpdateTransaction.Rollback(options.Source, options.Target, options.Backup);
+            if (rolledBack)
+            {
+                using var previousProcess = Restart(options, includeHealthMarker: false);
+            }
+
+            return rolledBack ? 4 : 5;
         }
         catch (Exception exception) when (
             exception is ArgumentException or
             DirectoryNotFoundException or
             InvalidDataException or
             FormatException or
-            InvalidOperationException)
+            InvalidOperationException or
+            IOException or
+            System.ComponentModel.Win32Exception)
         {
             return 1;
         }
@@ -49,7 +74,8 @@ internal static class Program
             Required(values, "target"),
             Required(values, "backup"),
             values.TryGetValue("wait-pid", out var processId) ? int.Parse(processId) : null,
-            values.GetValueOrDefault("restart"));
+            values.GetValueOrDefault("restart"),
+            values.GetValueOrDefault("health-marker"));
     }
 
     private static string Required(IReadOnlyDictionary<string, string> values, string name) =>
@@ -78,11 +104,11 @@ internal static class Program
         }
     }
 
-    private static void Restart(UpdaterOptions options)
+    private static Process? Restart(UpdaterOptions options, bool includeHealthMarker)
     {
         if (string.IsNullOrWhiteSpace(options.RestartExecutable))
         {
-            return;
+            return null;
         }
 
         var target = Path.GetFullPath(options.Target);
@@ -93,7 +119,44 @@ internal static class Program
             throw new InvalidDataException("The restart executable is outside the application directory or missing.");
         }
 
-        _ = Process.Start(new ProcessStartInfo(executable) { UseShellExecute = true });
+        var startInfo = new ProcessStartInfo(executable) { UseShellExecute = false };
+        if (includeHealthMarker && !string.IsNullOrWhiteSpace(options.HealthMarker))
+        {
+            startInfo.Environment["KEYRADAR_UPDATE_HEALTH_MARKER"] = Path.GetFullPath(options.HealthMarker);
+        }
+
+        return Process.Start(startInfo);
+    }
+
+    private static void PrepareHealthMarker(string? markerPath)
+    {
+        if (string.IsNullOrWhiteSpace(markerPath))
+        {
+            return;
+        }
+
+        var fullPath = Path.GetFullPath(markerPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        if (File.Exists(fullPath))
+        {
+            File.Delete(fullPath);
+        }
+    }
+
+    private static void StopFailedProcess(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+                process.WaitForExit(milliseconds: 5_000);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // The process exited between checks.
+        }
     }
 
     private sealed record UpdaterOptions(
@@ -101,5 +164,6 @@ internal static class Program
         string Target,
         string Backup,
         int? WaitProcessId,
-        string? RestartExecutable);
+        string? RestartExecutable,
+        string? HealthMarker);
 }

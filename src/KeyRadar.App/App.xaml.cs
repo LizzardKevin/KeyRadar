@@ -21,6 +21,8 @@ public partial class App : Application
         InitializeComponent();
     }
 
+    public void RequestShutdown() => _mainWindow?.Close();
+
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         _singleInstance = SingleInstanceGuard.TryAcquire("LizzardKevin.KeyRadar");
@@ -34,6 +36,7 @@ public partial class App : Application
         _mainWindow = new MainWindow();
         _mainWindow.Closed += MainWindow_Closed;
         _mainWindow.Activate();
+        TryWriteUpdateHealthMarker();
 
         _shortcutObserver = new GlobalShortcutObserver();
         _shortcutObserver.GestureObserved += ShortcutObserver_GestureObserved;
@@ -115,5 +118,36 @@ public partial class App : Application
         _singleInstance?.Dispose();
         _singleInstance = null;
         Exit();
+    }
+
+    private static void TryWriteUpdateHealthMarker()
+    {
+        var marker = Environment.GetEnvironmentVariable("KEYRADAR_UPDATE_HEALTH_MARKER");
+        if (string.IsNullOrWhiteSpace(marker))
+        {
+            return;
+        }
+
+        try
+        {
+            var fullPath = Path.GetFullPath(marker);
+            var updatesRoot = Path.GetFullPath(Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "KeyRadar",
+                "updates"));
+            var prefix = updatesRoot + Path.DirectorySeparatorChar;
+            if (!fullPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+            File.WriteAllText(fullPath, "ok");
+            Environment.SetEnvironmentVariable("KEYRADAR_UPDATE_HEALTH_MARKER", null);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // The updater will time out and restore the previous version.
+        }
     }
 }

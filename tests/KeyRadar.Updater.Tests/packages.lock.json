@@ -170,10 +170,16 @@
           "xunit.v3.runner.common": "[3.2.2]"
         }
       },
-      "keyradar.updater": {
+      "keyradar.update": {
         "type": "Project",
         "dependencies": {
           "NSec.Cryptography": "[26.4.0, )"
+        }
+      },
+      "keyradar.updater": {
+        "type": "Project",
+        "dependencies": {
+          "KeyRadar.Update": "[1.0.0, )"
         }
       }
     }

@@ -38,6 +38,23 @@ public sealed class UpdateManifestVerifierTests
     }
 
     [Fact]
+    public void VerifyManifest_AcceptsMetadataBeforeAssetIsDownloaded()
+    {
+        using var key = Key.Create(SignatureAlgorithm.Ed25519);
+        var manifestBytes = CreateManifestBytes(SHA256.HashData("release"u8));
+        var signature = SignatureAlgorithm.Ed25519.Sign(key, manifestBytes);
+
+        var result = UpdateManifestVerifier.VerifyManifest(
+            manifestBytes,
+            signature,
+            key.PublicKey.Export(KeyBlobFormat.RawPublicKey),
+            new Uri("https://github.com/LizzardKevin/KeyRadar/"));
+
+        Assert.True(result.IsValid);
+        Assert.Equal("1.0.0", result.Manifest?.Version);
+    }
+
+    [Fact]
     public void Verify_RejectsManifestChangedAfterSigning()
     {
         using var key = Key.Create(SignatureAlgorithm.Ed25519);
