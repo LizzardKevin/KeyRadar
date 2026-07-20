@@ -1,64 +1,29 @@
 {
-    "schemaVersion":  2,
-    "applicationId":  "windows-system",
-    "variantId":  "default",
-    "displayName":  {
-                        "zh-CN":  "Windows 系统",
-                        "en-US":  "Windows System"
-                    },
-    "match":  {
-                  "executables":  [
-
-                                  ],
-                  "publishers":  [
-
-                                 ],
-                  "versionRange":  null,
-                  "packageFamilyNames":  [
-
-                                         ],
-                  "distribution":  null
-              },
-    "hotkeys":  [
-                    {
-                        "gesture":  "Win+Shift+S",
-                        "function":  {
-                                         "zh-CN":  "打开截图工具"
-                                     },
-                        "scope":  "windowsSystem",
-                        "confidence":  "systemKnown"
-                    },
-                    {
-                        "gesture":  "Alt+Tab",
-                        "function":  {
-                                         "zh-CN":  "切换窗口"
-                                     },
-                        "scope":  "windowsSystem",
-                        "confidence":  "systemKnown"
-                    },
-                    {
-                        "gesture":  "Win+V",
-                        "function":  {
-                                         "zh-CN":  "打开剪贴板历史记录"
-                                     },
-                        "scope":  "windowsSystem",
-                        "confidence":  "systemKnown"
-                    },
-                    {
-                        "gesture":  "Win+L",
-                        "function":  {
-                                         "zh-CN":  "锁定电脑"
-                                     },
-                        "scope":  "windowsSystem",
-                        "confidence":  "systemKnown"
-                    },
-                    {
-                        "gesture":  "Win+G",
-                        "function":  {
-                                         "zh-CN":  "打开 Xbox Game Bar"
-                                     },
-                        "scope":  "windowsSystem",
-                        "confidence":  "systemKnown"
-                    }
-                ]
+  "schemaVersion": 2,
+  "applicationId": "windows-system",
+  "variantId": "default",
+  "displayName": {
+    "zh-CN": "Windows 系统",
+    "en-US": "Windows System"
+  },
+  "match": {
+    "executables": [],
+    "publishers": [],
+    "versionRange": null,
+    "packageFamilyNames": [],
+    "distribution": null
+  },
+  "hotkeys": [
+    { "gesture": "Alt+F4", "function": { "zh-CN": "关闭当前活动窗口或应用", "en-US": "Close the active window or app" }, "scope": "windowsSystem", "confidence": "systemKnown", "sources": ["https://support.microsoft.com/en-US/Windows/Hardware/input-devices/windows-keyboard-tips-and-tricks"] },
+    { "gesture": "Alt+Tab", "function": { "zh-CN": "切换窗口", "en-US": "Switch windows" }, "scope": "windowsSystem", "confidence": "systemKnown", "sources": ["https://support.microsoft.com/en-US/Windows/Hardware/input-devices/windows-keyboard-tips-and-tricks"] },
+    { "gesture": "Ctrl+Esc", "function": { "zh-CN": "打开开始菜单", "en-US": "Open Start" }, "scope": "windowsSystem", "confidence": "systemKnown", "sources": ["https://support.microsoft.com/en-US/Windows/Hardware/input-devices/windows-keyboard-tips-and-tricks"] },
+    { "gesture": "Win+D", "function": { "zh-CN": "显示或隐藏桌面", "en-US": "Show or hide the desktop" }, "scope": "windowsSystem", "confidence": "systemKnown", "sources": ["https://support.microsoft.com/en-US/Windows/Hardware/input-devices/windows-keyboard-tips-and-tricks"] },
+    { "gesture": "Win+E", "function": { "zh-CN": "打开文件资源管理器", "en-US": "Open File Explorer" }, "scope": "windowsSystem", "confidence": "systemKnown", "sources": ["https://support.microsoft.com/en-US/Windows/Hardware/input-devices/windows-keyboard-tips-and-tricks"] },
+    { "gesture": "Win+I", "function": { "zh-CN": "打开设置", "en-US": "Open Settings" }, "scope": "windowsSystem", "confidence": "systemKnown", "sources": ["https://support.microsoft.com/en-US/Windows/Hardware/input-devices/windows-keyboard-tips-and-tricks"] },
+    { "gesture": "Win+L", "function": { "zh-CN": "锁定电脑", "en-US": "Lock your PC" }, "scope": "windowsSystem", "confidence": "systemKnown", "sources": ["https://support.microsoft.com/en-US/Windows/Hardware/input-devices/windows-keyboard-tips-and-tricks"] },
+    { "gesture": "Win+R", "function": { "zh-CN": "打开“运行”对话框", "en-US": "Open the Run dialog" }, "scope": "windowsSystem", "confidence": "systemKnown", "sources": ["https://support.microsoft.com/en-US/Windows/Hardware/input-devices/windows-keyboard-tips-and-tricks"] },
+    { "gesture": "Win+Shift+S", "function": { "zh-CN": "打开截图工具", "en-US": "Open Snipping Tool" }, "scope": "windowsSystem", "confidence": "systemKnown", "sources": ["https://support.microsoft.com/en-US/Windows/Hardware/input-devices/windows-keyboard-tips-and-tricks"] },
+    { "gesture": "Win+V", "function": { "zh-CN": "打开剪贴板历史记录", "en-US": "Open clipboard history" }, "scope": "windowsSystem", "confidence": "systemKnown", "sources": ["https://support.microsoft.com/en-US/Windows/Hardware/input-devices/windows-keyboard-tips-and-tricks"] },
+    { "gesture": "Win+G", "function": { "zh-CN": "打开 Xbox Game Bar", "en-US": "Open Xbox Game Bar" }, "scope": "windowsSystem", "confidence": "systemKnown", "sources": ["https://support.microsoft.com/en-US/Windows/Hardware/input-devices/windows-keyboard-tips-and-tricks"] }
+  ]
 }

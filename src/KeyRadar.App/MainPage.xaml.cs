@@ -140,10 +140,6 @@ public sealed partial class MainPage : Page
         var occupancyByGesture = occupancyResults.ToDictionary(result => result.Gesture);
         var groups = new List<ApplicationGroupViewModel>();
         var windowsRules = catalog.FirstOrDefault(rule => rule.ApplicationId == "windows-system");
-        if (windowsRules is not null || windowsSession.PrintScreenOpensSnippingTool == true)
-        {
-            groups.Add(CreateWindowsGroup(windowsRules, windowsSession));
-        }
         var occupiedGlobalHotkeyCount = 0;
 
         var variantMatcher = new ApplicationVariantMatcher();
@@ -168,6 +164,36 @@ public sealed partial class MainPage : Page
                     .Select(item => new RunningApplicationVariant(item.Snapshot.Process, item.Match.Selected!))
                     .ToArray(),
                 cancellationToken);
+        var runningRuleHotkeys = (windowsRules?.Hotkeys ?? [])
+            .Select(hotkey => new RunningRuleHotkey(
+                "windows-system",
+                hotkey.Gesture,
+                hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
+                hotkey.Scope,
+                hotkey.Confidence,
+                string.Join(" · ", hotkey.Sources)))
+            .Concat(matchedSnapshots
+                .SelectMany(item => item.Match.Selected is not null
+                    ? [item.Match.Selected]
+                    : item.Match.Candidates.Select(candidate => candidate.Variant))
+                .SelectMany(variant => variant.Hotkeys.Select(hotkey => new RunningRuleHotkey(
+                    variant.ApplicationId,
+                    hotkey.Gesture,
+                    hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
+                    hotkey.Scope,
+                    hotkey.Confidence,
+                    string.Join(" · ", hotkey.Sources)))))
+            .DistinctBy(item => $"{item.ApplicationId}\u001F{item.Gesture}", StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var attribution = HotkeyAttributionCatalog.Create(
+            occupancyResults,
+            runningRuleHotkeys,
+            localConfigurations,
+            hardwareEnvironment.Profiles);
+        if (windowsRules is not null || windowsSession.PrintScreenOpensSnippingTool == true)
+        {
+            groups.Add(CreateWindowsGroup(windowsRules, windowsSession, attribution));
+        }
         var matched = matchedSnapshots
             .Where(item => item.Match.Selected is not null)
             .Select(item => new { item.Snapshot, Rules = item.Match.Selected! })
@@ -282,14 +308,9 @@ public sealed partial class MainPage : Page
                 hardwareRows));
         }
 
-        var knownGlobalGestures = groups
-            .SelectMany(group => group.Hotkeys)
-            .Where(hotkey => hotkey.IsGlobal)
-            .Select(hotkey => hotkey.Gesture)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var unknownOccupied = occupancyResults
             .Where(result => result.Availability != HotkeyProbeAvailability.AvailableAtScanTime)
-            .Where(result => !knownGlobalGestures.Contains(result.Gesture.ToString()))
+            .Where(result => attribution.UnknownProbeGestures.Contains(result.Gesture))
             .ToArray();
         if (unknownOccupied.Length > 0)
         {
@@ -305,7 +326,8 @@ public sealed partial class MainPage : Page
 
         var availableAtScanTime = occupancyResults
             .Where(result => result.Availability == HotkeyProbeAvailability.AvailableAtScanTime)
-            .Where(result => !knownGlobalGestures.Contains(result.Gesture.ToString()))
+            .Where(result => attribution.TryGet(result.Gesture, out var item) &&
+                item.Ownership is HotkeyOwnershipStatus.Unknown or HotkeyOwnershipStatus.OccupiedOwnerUnknown)
             .ToArray();
         if (availableAtScanTime.Length > 0)
         {
@@ -334,24 +356,7 @@ public sealed partial class MainPage : Page
             .ThenBy(group => group.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
 
-        var runningRuleHotkeys = matchedSnapshots
-            .SelectMany(item => item.Match.Selected is not null
-                ? [item.Match.Selected]
-                : item.Match.Candidates.Select(candidate => candidate.Variant))
-            .SelectMany(variant => variant.Hotkeys.Select(hotkey => new RunningRuleHotkey(
-                variant.ApplicationId,
-                hotkey.Gesture,
-                hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
-                hotkey.Scope,
-                hotkey.Confidence,
-                string.Join(" · ", hotkey.Sources))))
-            .DistinctBy(item => $"{item.ApplicationId}\u001F{item.Gesture}", StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        var mergedEvidence = HotkeyEvidenceMerger.Merge(
-            occupancyResults,
-            localConfigurations,
-            hardwareEnvironment.Profiles,
-            runningRuleHotkeys);
+        var mergedEvidence = attribution.Items;
         var conflicts = mergedEvidence
             .Where(item => item.Conflict != HotkeyConflictStatus.None)
             .ToArray();
@@ -397,13 +402,20 @@ public sealed partial class MainPage : Page
             "扫描完成；KeyRadar 未发送、拦截或吞掉任何热键",
             "Scan complete; KeyRadar did not send, block, or consume any hotkey");
         ScanProgress.IsActive = false;
-        RuleStatusInfoBar.IsOpen = !RuntimeRuleCatalog.IsAvailable;
+        RuleStatusInfoBar.IsOpen = !RuntimeRuleCatalog.IsAvailable || RuntimeRuleCatalog.IsUsingDevelopmentFallback;
+        RuleStatusInfoBar.Severity = RuntimeRuleCatalog.IsUsingDevelopmentFallback
+            ? InfoBarSeverity.Warning
+            : InfoBarSeverity.Error;
+        RuleStatusInfoBar.Title = RuntimeRuleCatalog.IsUsingDevelopmentFallback
+            ? UiText.Pick("开发规则包", "Development rule pack")
+            : UiText.Pick("规则不可用", "Rules unavailable");
         RuleStatusInfoBar.Message = RuntimeRuleCatalog.StatusMessage;
     }
 
     private static ApplicationGroupViewModel CreateWindowsGroup(
         ApplicationVariantRule? rules,
-        WindowsSessionState session)
+        WindowsSessionState session,
+        HotkeyAttributionCatalog attribution)
     {
         var rows = (rules?.Hotkeys ?? []).Select(hotkey => HotkeyRowViewModel.Create(
             hotkey.Gesture.ToString(),
@@ -411,6 +423,7 @@ public sealed partial class MainPage : Page
             hotkey.Scope,
             hotkey.Confidence,
             processId: 0,
+            availabilityLabel: AvailabilityLabel(attribution, hotkey.Gesture),
             sources: hotkey.Sources)).ToList();
         if (session.PrintScreenOpensSnippingTool == true)
         {
@@ -431,6 +444,23 @@ public sealed partial class MainPage : Page
             "\uE782",
             false,
             rows);
+    }
+
+    private static string? AvailabilityLabel(HotkeyAttributionCatalog attribution, HotkeyGesture gesture)
+    {
+        if (!attribution.TryGet(gesture, out var item))
+        {
+            return null;
+        }
+
+        return item.Availability switch
+        {
+            HotkeyProbeAvailability.Occupied => UiText.Pick(" · 当前已占用", " · currently occupied"),
+            HotkeyProbeAvailability.AvailableAtScanTime => UiText.Pick(" · 扫描瞬间可注册", " · available at scan time"),
+            HotkeyProbeAvailability.SystemReserved => UiText.Pick(" · 系统保留或无法探测", " · system reserved or not probeable"),
+            HotkeyProbeAvailability.ProbeError => UiText.Pick(" · 无法探测", " · not probeable"),
+            _ => null,
+        };
     }
 
     private static IReadOnlyList<HotkeyRowViewModel> CreateHardwareRows(HardwareEnvironmentSnapshot environment)
@@ -523,7 +553,7 @@ public sealed partial class MainPage : Page
 
         return string.Join(
             " · ",
-            new[] { process.ExecutableName, architecture, privilege, publisher, version, distribution, UiText.Pick("官方签名规则包", "signed official rule pack") }
+            new[] { process.ExecutableName, architecture, privilege, publisher, version, distribution, RuntimeRuleCatalog.RulePackEvidenceLabel }
                 .Where(value => !string.IsNullOrWhiteSpace(value)));
     }
 

@@ -130,6 +130,51 @@ public sealed class HotkeyEvidenceMergerTests
         Assert.Equal(HotkeyOwnershipStatus.PossibleOwner, item.Ownership);
     }
 
+    [Fact]
+    public void Windows_system_knowledge_overrides_an_unknown_occupied_probe()
+    {
+        var target = HotkeyGesture.Parse("Alt+F4");
+
+        var result = HotkeyEvidenceMerger.Merge(
+            [Probe(target)],
+            [],
+            [],
+            [new RunningRuleHotkey(
+                "windows-system",
+                target,
+                "Close the active window or app",
+                HotkeyScope.WindowsSystem,
+                OwnershipConfidence.SystemKnown,
+                "Microsoft documentation")]);
+
+        var item = Assert.Single(result);
+        Assert.Equal(HotkeyProbeAvailability.Occupied, item.Availability);
+        Assert.Equal(HotkeyOwnershipStatus.WindowsKnown, item.Ownership);
+        Assert.Equal("windows-system", Assert.Single(item.Owners));
+    }
+
+    [Fact]
+    public void One_running_nvidia_overlay_rule_overrides_an_unknown_occupied_probe()
+    {
+        var target = HotkeyGesture.Parse("Alt+Z");
+
+        var result = HotkeyEvidenceMerger.Merge(
+            [Probe(target)],
+            [],
+            [],
+            [new RunningRuleHotkey(
+                "nvidia-app",
+                target,
+                "Open NVIDIA Overlay (default hotkey, configurable)",
+                HotkeyScope.Global,
+                OwnershipConfidence.OfficialDefault,
+                "NVIDIA documentation")]);
+
+        var item = Assert.Single(result);
+        Assert.Equal(HotkeyOwnershipStatus.OfficialDefault, item.Ownership);
+        Assert.Equal("nvidia-app", Assert.Single(item.Owners));
+    }
+
     private static HotkeyProbeResult Probe(HotkeyGesture gesture) => new(
         gesture,
         HotkeyProbeAvailability.Occupied,

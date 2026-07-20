@@ -1,40 +1,38 @@
 {
-    "schemaVersion":  2,
-    "applicationId":  "nvidia-app",
-    "variantId":  "default",
-    "displayName":  {
-                        "zh-CN":  "NVIDIA App",
-                        "en-US":  "NVIDIA App"
-                    },
-    "match":  {
-                  "executables":  [
-                                      "NVIDIA App.exe"
-                                  ],
-                  "publishers":  [
-
-                                 ],
-                  "versionRange":  null,
-                  "packageFamilyNames":  [
-
-                                         ],
-                  "distribution":  null
-              },
-    "hotkeys":  [
-                    {
-                        "gesture":  "Alt+Z",
-                        "function":  {
-                                         "zh-CN":  "打开 NVIDIA 覆盖层（默认键，可修改）"
-                                     },
-                        "scope":  "global",
-                        "confidence":  "suspected"
-                    },
-                    {
-                        "gesture":  "Alt+F1",
-                        "function":  {
-                                         "zh-CN":  "保存截图（默认键，可修改）"
-                                     },
-                        "scope":  "global",
-                        "confidence":  "suspected"
-                    }
-                ]
+  "schemaVersion": 2,
+  "applicationId": "nvidia-app",
+  "variantId": "overlay",
+  "displayName": {
+    "zh-CN": "NVIDIA App",
+    "en-US": "NVIDIA App"
+  },
+  "match": {
+    "executables": ["NVIDIA Overlay.exe"],
+    "publishers": ["NVIDIA Corporation"],
+    "versionRange": null,
+    "packageFamilyNames": [],
+    "distribution": null
+  },
+  "hotkeys": [
+    {
+      "gesture": "Alt+Z",
+      "function": {
+        "zh-CN": "打开 NVIDIA 覆盖层（默认热键，可修改）",
+        "en-US": "Open NVIDIA Overlay (default hotkey, configurable)"
+      },
+      "scope": "global",
+      "confidence": "officialDefault",
+      "sources": ["https://www.nvidia.com/en-us/geforce/news/nvidia-app-download-and-features/"]
+    },
+    {
+      "gesture": "Alt+F1",
+      "function": {
+        "zh-CN": "保存截图（默认热键，可修改）",
+        "en-US": "Save a screenshot (default hotkey, configurable)"
+      },
+      "scope": "global",
+      "confidence": "officialDefault",
+      "sources": ["https://www.nvidia.com/en-us/geforce/news/nvidia-app-download-and-features/"]
+    }
+  ]
 }

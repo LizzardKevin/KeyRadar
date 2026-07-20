@@ -97,8 +97,8 @@ public sealed class HotkeyRowViewModel : INotifyPropertyChanged
             function,
             ScopeLabelFor(scope),
             evidenceLabel ?? (sources is { Count: > 0 }
-                ? UiText.Pick("证据：厂商文档 · 官方签名规则包", "Evidence: vendor documentation · signed official rule pack")
-                : UiText.Pick("证据：官方签名规则包", "Evidence: signed official rule pack")),
+                ? UiText.Pick("证据：厂商文档 · ", "Evidence: vendor documentation · ") + RuntimeRuleCatalog.RulePackEvidenceLabel
+                : UiText.Pick("证据：", "Evidence: ") + RuntimeRuleCatalog.RulePackEvidenceLabel),
             ConfidenceLabelFor(confidence) + availabilityLabel,
             processId,
             canDeepConfirm ?? false,
