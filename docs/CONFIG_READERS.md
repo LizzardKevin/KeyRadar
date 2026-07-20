@@ -18,3 +18,14 @@ KeyRadar 只为当前正在运行、已通过规则变体匹配的应用调用�
 
 ShareX 的自定义 Personal Folder 可能位于任意用户目录。KeyRadar v1 不读取该任意
 路径；后续只有在用户明确授权某个位置后才能增加读取，不能通过全盘搜索定位。
+
+## Greenshot
+
+- 白名单文件：`%AppData%/Greenshot/greenshot.ini`。
+- 大小上限：2 MiB。
+- 只读取 `RegionHotkey`、`WindowHotkey`、`FullscreenHotkey`、
+  `LastregionHotkey`、`ClipboardHotkey`；忽略 INI 中的其他全部设置。
+- 官方结构证据：
+  [GreenshotMain.cs](https://github.com/greenshot/greenshot/blob/develop/src/Greenshot/GreenshotMain.cs)、
+  [HotkeyHelper.cs](https://github.com/greenshot/greenshot/blob/develop/src/Greenshot/Helpers/HotkeyHelper.cs)、
+  [ICoreConfiguration.cs](https://github.com/greenshot/greenshot/blob/develop/src/Greenshot.Base/Core/ICoreConfiguration.cs)。

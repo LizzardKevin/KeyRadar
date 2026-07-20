@@ -134,7 +134,7 @@ public sealed partial class MainPage : Page
             })
             .ToArray();
         var localConfigurations = await new RunningApplicationConfigurationRegistry(
-            [new ShareXConfigurationReader()])
+            [new ShareXConfigurationReader(), new GreenshotConfigurationReader()])
             .ReadAsync(
                 matchedSnapshots
                     .Where(item => item.Match.Selected is not null)
