@@ -2,6 +2,7 @@
 .vscode/
 .idea/
 .superpowers/
+.tools/
 **/bin/
 **/obj/
 artifacts/
@@ -16,4 +17,3 @@ portable.flag
 *.pfx
 *.snk
 *.key
-
