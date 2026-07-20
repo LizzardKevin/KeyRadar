@@ -102,6 +102,7 @@ internal static class Program
                         shortcut.Function,
                         scope = ScopeName(shortcut.Scope),
                         confidence = ConfidenceName(shortcut.Confidence),
+                        sources = shortcut.Sources,
                     }),
                 }, JsonOptions)))
             .ToArray();

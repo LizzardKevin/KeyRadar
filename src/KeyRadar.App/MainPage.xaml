@@ -212,6 +212,7 @@
                                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                     <TextBlock Text="{x:Bind Function}" />
                                                     <TextBlock FontSize="11" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind ScopeLabel}" />
+                                                    <TextBlock FontSize="11" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind EvidenceLabel}" />
                                                 </StackPanel>
                                                 <TextBlock Grid.Column="2" VerticalAlignment="Center" Foreground="{StaticResource RadarSuccessBrush}" Text="{x:Bind ConfidenceLabel, Mode=OneWay}" />
                                                 <StackPanel Grid.Column="3" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="6">

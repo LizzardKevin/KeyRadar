@@ -112,7 +112,8 @@ public sealed partial class MainPage : Page
                         shortcut.Scope,
                         shortcut.Confidence,
                         process.Id,
-                        availabilityLabel);
+                        availabilityLabel,
+                        shortcut.Sources);
                 }).ToArray(),
                 process.Id));
         }

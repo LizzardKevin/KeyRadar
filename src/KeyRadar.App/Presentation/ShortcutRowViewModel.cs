@@ -12,17 +12,17 @@ public sealed class ShortcutRowViewModel : INotifyPropertyChanged
         string gesture,
         string function,
         string scopeLabel,
+        string evidenceLabel,
         string confidenceLabel,
         int processId,
-        bool canJump,
         bool canDeepConfirm)
     {
         Gesture = gesture;
         Function = function;
         ScopeLabel = scopeLabel;
+        EvidenceLabel = evidenceLabel;
         _confidenceLabel = confidenceLabel;
         ProcessId = processId;
-        CanJump = canJump;
         CanDeepConfirm = canDeepConfirm;
     }
 
@@ -31,6 +31,8 @@ public sealed class ShortcutRowViewModel : INotifyPropertyChanged
     public string Function { get; set; }
 
     public string ScopeLabel { get; set; }
+
+    public string EvidenceLabel { get; set; }
 
     public string ConfidenceLabel
     {
@@ -45,8 +47,6 @@ public sealed class ShortcutRowViewModel : INotifyPropertyChanged
 
     public int ProcessId { get; set; }
 
-    public bool CanJump { get; set; }
-
     public bool CanDeepConfirm { get; set; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -59,14 +59,15 @@ public sealed class ShortcutRowViewModel : INotifyPropertyChanged
         ShortcutScope scope,
         OwnershipConfidence confidence,
         int processId,
-        string? availabilityLabel = null) =>
+        string? availabilityLabel = null,
+        IReadOnlyList<string>? sources = null) =>
         new(
             gesture,
             function,
             ScopeLabelFor(scope),
+            sources is { Count: > 0 } ? "证据：厂商官方文档" : "证据：KeyRadar 内置规则",
             ConfidenceLabelFor(confidence) + availabilityLabel,
             processId,
-            processId > 0,
             processId > 0 && scope == ShortcutScope.Global);
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
