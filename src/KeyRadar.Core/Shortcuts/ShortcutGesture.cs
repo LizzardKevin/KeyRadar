@@ -77,6 +77,26 @@ public readonly record struct ShortcutGesture(ShortcutModifiers Modifiers, strin
         return new ShortcutGesture(modifiers, primaryKey);
     }
 
+    public static bool TryParse(string? value, out ShortcutGesture gesture)
+    {
+        try
+        {
+            if (value is null)
+            {
+                gesture = default;
+                return false;
+            }
+
+            gesture = Parse(value);
+            return true;
+        }
+        catch (FormatException)
+        {
+            gesture = default;
+            return false;
+        }
+    }
+
     public override string ToString()
     {
         var parts = new List<string>(5);

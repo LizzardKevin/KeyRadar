@@ -38,7 +38,7 @@ if (Test-Path -LiteralPath $stagingPath) {
 }
 New-Item -ItemType Directory -Path $stagingPath -Force | Out-Null
 
-$appPublishPath = Join-Path $artifactsRoot "publish\app"
+$appBuildPath = Join-Path $repositoryRoot "src\KeyRadar.App\bin\x64\Release\net10.0-windows10.0.19041.0\win-x64"
 $updaterPublishPath = Join-Path $artifactsRoot "publish\updater"
 
 Push-Location $repositoryRoot
@@ -49,14 +49,29 @@ try {
     & $DotNetPath test KeyRadar.sln -c Release --no-restore --nologo -v:minimal
     if ($LASTEXITCODE -ne 0) { throw "Release tests failed." }
 
-    & $DotNetPath publish src/KeyRadar.App/KeyRadar.App.csproj -c Release -r win-x64 --self-contained true --no-restore -o $appPublishPath
-    if ($LASTEXITCODE -ne 0) { throw "KeyRadar.App publish failed." }
+    & .\eng\Build-Native.ps1 -Configuration Release
+    if ($LASTEXITCODE -ne 0) { throw "Native x86/x64 build failed." }
+
+    & $DotNetPath build src/KeyRadar.App/KeyRadar.App.csproj -c Release -p:Platform=x64 -t:Rebuild --no-restore --nologo -v:minimal
+    if ($LASTEXITCODE -ne 0) { throw "KeyRadar.App x64 self-contained build failed." }
+
+    foreach ($requiredAppFile in @("KeyRadar.exe", "KeyRadar.pri", "App.xbf", "MainPage.xbf", "MainWindow.xbf")) {
+        if (-not (Test-Path -LiteralPath (Join-Path $appBuildPath $requiredAppFile))) {
+            throw "KeyRadar.App deployable output is missing $requiredAppFile."
+        }
+    }
 
     & $DotNetPath publish src/KeyRadar.Updater/KeyRadar.Updater.csproj -c Release -r win-x64 --self-contained true --no-restore -o $updaterPublishPath
     if ($LASTEXITCODE -ne 0) { throw "KeyRadar.Updater publish failed." }
 
-    Copy-Item -Path (Join-Path $appPublishPath "*") -Destination $stagingPath -Recurse -Force
+    Copy-Item -Path (Join-Path $appBuildPath "*") -Destination $stagingPath -Recurse -Force
     Copy-Item -Path (Join-Path $updaterPublishPath "KeyRadar.Updater*") -Destination $stagingPath -Force
+    Copy-Item -LiteralPath `
+        "artifacts\native\x64\Release\KeyRadar.Native.x64.dll", `
+        "artifacts\native\x64\Release\KeyRadar.Native.Host.x64.exe", `
+        "artifacts\native\Win32\Release\KeyRadar.Native.x86.dll", `
+        "artifacts\native\Win32\Release\KeyRadar.Native.Host.x86.exe" `
+        -Destination $stagingPath -Force
     Copy-Item -LiteralPath LICENSE, README.md -Destination $stagingPath -Force
     Get-ChildItem -LiteralPath $stagingPath -File -Recurse -Filter "*.pdb" | Remove-Item -Force
 

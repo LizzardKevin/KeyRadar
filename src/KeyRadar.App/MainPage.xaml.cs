@@ -5,6 +5,7 @@ using KeyRadar.Rules;
 using KeyRadar.Shortcuts;
 using KeyRadar.Updater.Updates;
 using KeyRadar.Windows.Applications;
+using KeyRadar.Windows.DeepConfirmation;
 using KeyRadar.Windows.Hotkeys;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -18,6 +19,7 @@ public sealed partial class MainPage : Page
     private readonly HttpClient _updateHttpClient = new() { Timeout = TimeSpan.FromSeconds(30) };
     private readonly UpdateCheckClient _updateClient;
     private IReadOnlyList<ApplicationGroupViewModel> _allGroups = [];
+    private IReadOnlyList<ApplicationSnapshot> _latestSnapshots = [];
 
     public ObservableCollection<ApplicationGroupViewModel> FilteredGroups { get; } = [];
 
@@ -48,6 +50,7 @@ public sealed partial class MainPage : Page
         ScanStatusText.Text = "正在安全读取窗口、进程与规则证据";
 
         var snapshots = await Task.Run(() => _scanner.Scan(Environment.ProcessId));
+        _latestSnapshots = snapshots;
         var catalog = BuiltInRuleCatalog.Load();
         var availabilityProbe = new GlobalHotkeyAvailabilityProbe(new Win32HotkeyRegistrationApi());
         var groups = new List<ApplicationGroupViewModel> { CreateWindowsGroup() };
@@ -106,7 +109,8 @@ public sealed partial class MainPage : Page
                         shortcut.Confidence,
                         process.Id,
                         availabilityLabel);
-                }).ToArray()));
+                }).ToArray(),
+                process.Id));
         }
 
         _allGroups = groups
@@ -114,6 +118,28 @@ public sealed partial class MainPage : Page
             .ThenByDescending(group => group.PresenceLabel.Contains("前台", StringComparison.Ordinal))
             .ThenBy(group => group.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
+
+        var duplicateGestures = _allGroups
+            .SelectMany(group => group.Shortcuts.Select(shortcut => new { Group = group, Shortcut = shortcut }))
+            .Where(item => item.Shortcut.ScopeLabel == "全局")
+            .GroupBy(item => item.Shortcut.Gesture, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Select(item => item.Group.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+            .ToArray();
+        foreach (var duplicate in duplicateGestures)
+        {
+            foreach (var item in duplicate)
+            {
+                item.Group.IsExpanded = true;
+            }
+        }
+
+        ConflictInfoBar.IsOpen = duplicateGestures.Length > 0;
+        if (duplicateGestures.Length > 0)
+        {
+            ConflictInfoBar.Severity = InfoBarSeverity.Warning;
+            ConflictInfoBar.Title = "发现确定冲突";
+            ConflictInfoBar.Message = $"{duplicateGestures.Length} 个全局组合键被多个运行中应用声明。冲突应用已自动展开。";
+        }
 
         ApplyFilter(SearchBox.Text);
 
@@ -327,5 +353,89 @@ public sealed partial class MainPage : Page
         {
             _ = ApplicationActivator.TryActivate(processId);
         }
+    }
+
+    private async void DeepConfirmButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: ShortcutRowViewModel row } ||
+            !ShortcutGesture.TryParse(row.Gesture, out var gesture))
+        {
+            return;
+        }
+
+        ((Button)sender).IsEnabled = false;
+        ConflictInfoBar.Severity = InfoBarSeverity.Informational;
+        ConflictInfoBar.Title = $"正在深度确认 {row.Gesture}";
+        ConflictInfoBar.Message = "请在 30 秒内真实按下该组合键；原功能会正常执行，KeyRadar 不会拦截。";
+        ConflictInfoBar.IsOpen = true;
+
+        using var component = new NativeDeepConfirmationComponent();
+        var coordinator = new DeepConfirmationCoordinator(component);
+        var result = await coordinator.ConfirmAsync(
+            new DeepConfirmationRequest(row.ProcessId, gesture, TimeSpan.FromSeconds(30)),
+            CancellationToken.None);
+
+        switch (result)
+        {
+            case DeepConfirmationResult.Confirmed:
+                row.MarkConfirmed();
+                ConflictInfoBar.Severity = InfoBarSeverity.Success;
+                ConflictInfoBar.Title = "归属已确认";
+                ConflictInfoBar.Message = $"{row.Gesture} 的 WM_HOTKEY 接收进程与此应用一致。";
+                break;
+            case DeepConfirmationResult.TimedOut:
+                ConflictInfoBar.Severity = InfoBarSeverity.Warning;
+                ConflictInfoBar.Title = "未观察到目标快捷键";
+                ConflictInfoBar.Message = "30 秒内未收到匹配的 WM_HOTKEY；该应用也可能使用键盘钩子或原始输入。";
+                break;
+            default:
+                if (component.LastObservedProcessId is int observedOwnerPid && observedOwnerPid > 0)
+                {
+                    RegisterObservedConflict(row, observedOwnerPid);
+                }
+                ConflictInfoBar.Severity = InfoBarSeverity.Warning;
+                ConflictInfoBar.Title = "归属不一致或无法确认";
+                ConflictInfoBar.Message = component.LastObservedProcessId is int ownerPid && ownerPid > 0
+                    ? $"快捷键由 PID {ownerPid} 的其他进程接收。"
+                    : "观察组件未能确认此应用；当前可信度保持不变。";
+                break;
+        }
+
+        ((Button)sender).IsEnabled = row.CanDeepConfirm;
+    }
+
+    private void RegisterObservedConflict(ShortcutRowViewModel candidate, int ownerProcessId)
+    {
+        var ownerSnapshot = _latestSnapshots.FirstOrDefault(snapshot => snapshot.Process.Id == ownerProcessId);
+        var ownerExecutable = ownerSnapshot?.Process.ExecutableName ?? $"PID {ownerProcessId}";
+        var ownerRules = ApplicationRuleMatcher.FindByExecutableName(BuiltInRuleCatalog.Load(), ownerExecutable);
+        var ownerDisplayName = ownerRules?.DisplayName ?? ownerExecutable;
+        var groupId = $"confirmed-owner-{ownerProcessId}";
+        var confirmedRow = ShortcutRowViewModel.Create(
+            candidate.Gesture,
+            $"已确认接收；与候选应用的“{candidate.Function}”冲突",
+            ShortcutScope.Global,
+            OwnershipConfidence.Confirmed,
+            ownerProcessId);
+
+        foreach (var group in _allGroups.Where(group => group.Shortcuts.Contains(candidate)))
+        {
+            group.IsExpanded = true;
+        }
+
+        var ownerGroup = new ApplicationGroupViewModel(
+            groupId,
+            ownerDisplayName,
+            ownerSnapshot?.Presence == ApplicationPresence.Foreground ? "● 前台" : "后台",
+            $"按需深度确认 · WM_HOTKEY · PID {ownerProcessId}",
+            "\uE8A7",
+            true,
+            [confirmedRow],
+            ownerProcessId);
+        _allGroups = _allGroups
+            .Where(group => !group.Id.Equals(groupId, StringComparison.OrdinalIgnoreCase))
+            .Append(ownerGroup)
+            .ToArray();
+        ApplyFilter(SearchBox.Text);
     }
 }

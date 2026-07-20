@@ -1,23 +1,29 @@
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using KeyRadar.Conflicts;
 
 namespace KeyRadar;
 
-public sealed class ShortcutRowViewModel
+public sealed class ShortcutRowViewModel : INotifyPropertyChanged
 {
+    private string _confidenceLabel;
+
     public ShortcutRowViewModel(
         string gesture,
         string function,
         string scopeLabel,
         string confidenceLabel,
         int processId,
-        bool canJump)
+        bool canJump,
+        bool canDeepConfirm)
     {
         Gesture = gesture;
         Function = function;
         ScopeLabel = scopeLabel;
-        ConfidenceLabel = confidenceLabel;
+        _confidenceLabel = confidenceLabel;
         ProcessId = processId;
         CanJump = canJump;
+        CanDeepConfirm = canDeepConfirm;
     }
 
     public string Gesture { get; set; }
@@ -26,11 +32,26 @@ public sealed class ShortcutRowViewModel
 
     public string ScopeLabel { get; set; }
 
-    public string ConfidenceLabel { get; set; }
+    public string ConfidenceLabel
+    {
+        get => _confidenceLabel;
+        set
+        {
+            if (_confidenceLabel == value) return;
+            _confidenceLabel = value;
+            OnPropertyChanged();
+        }
+    }
 
     public int ProcessId { get; set; }
 
     public bool CanJump { get; set; }
+
+    public bool CanDeepConfirm { get; set; }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public void MarkConfirmed() => ConfidenceLabel = "● 已确认";
 
     public static ShortcutRowViewModel Create(
         string gesture,
@@ -45,7 +66,11 @@ public sealed class ShortcutRowViewModel
             ScopeLabelFor(scope),
             ConfidenceLabelFor(confidence) + availabilityLabel,
             processId,
-            processId > 0);
+            processId > 0,
+            processId > 0 && scope == ShortcutScope.Global);
+
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
     private static string ScopeLabelFor(ShortcutScope scope) => scope switch
     {

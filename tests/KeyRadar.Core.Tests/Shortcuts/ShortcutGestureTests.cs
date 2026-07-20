@@ -35,4 +35,11 @@ public sealed class ShortcutGestureTests
     {
         Assert.Throws<FormatException>(() => ShortcutGesture.Parse(input));
     }
+
+    [Fact]
+    public void TryParse_returns_false_without_throwing_for_invalid_text()
+    {
+        Assert.False(ShortcutGesture.TryParse("Ctrl+Alt", out _));
+        Assert.False(ShortcutGesture.TryParse(null, out _));
+    }
 }
