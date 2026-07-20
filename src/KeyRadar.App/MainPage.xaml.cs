@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using KeyRadar.Conflicts;
 using KeyRadar.Rules;
+using KeyRadar.Rules.Packs;
+using KeyRadar.Rules.Updates;
 using KeyRadar.Shortcuts;
 using KeyRadar.Updater.Updates;
 using KeyRadar.Windows.Applications;
@@ -18,6 +20,7 @@ public sealed partial class MainPage : Page
         new(new SystemProcessSource(), new Win32WindowSource());
     private readonly HttpClient _updateHttpClient = new() { Timeout = TimeSpan.FromSeconds(30) };
     private readonly UpdateCheckClient _updateClient;
+    private readonly RuleUpdateClient _ruleUpdateClient;
     private IReadOnlyList<ApplicationGroupViewModel> _allGroups = [];
     private IReadOnlyList<ApplicationSnapshot> _latestSnapshots = [];
 
@@ -26,6 +29,7 @@ public sealed partial class MainPage : Page
     public MainPage()
     {
         _updateClient = new UpdateCheckClient(_updateHttpClient, OfficialReleaseKey.GetBytes());
+        _ruleUpdateClient = new RuleUpdateClient(_updateHttpClient, OfficialReleaseKey.GetBytes());
         InitializeComponent();
         Loaded += MainPage_Loaded;
         Unloaded += MainPage_Unloaded;
@@ -242,6 +246,118 @@ public sealed partial class MainPage : Page
         {
             CheckUpdateButton.IsEnabled = true;
             CheckUpdateButtonText.Text = "检查更新";
+        }
+    }
+
+    private async void UpdateRulesButton_Click(object sender, RoutedEventArgs e)
+    {
+        UpdateRulesButton.IsEnabled = false;
+        UpdateRulesButtonText.Text = "检查中…";
+        try
+        {
+            var check = await _ruleUpdateClient.CheckAsync(RuntimeRuleCatalog.ActiveVersion);
+            if (check.Status == RuleUpdateStatus.UpdateAvailable && check.Manifest is not null)
+            {
+                var dialog = new ContentDialog
+                {
+                    XamlRoot = XamlRoot,
+                    Title = $"发现规则包 {check.Manifest.Version}",
+                    Content = "下载后会校验 SHA-256、发布签名和包内每条规则；上一版规则会保留用于回滚。",
+                    PrimaryButtonText = "下载并启用",
+                    CloseButtonText = "稍后",
+                    DefaultButton = ContentDialogButton.Primary,
+                };
+                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                {
+                    await DownloadAndActivateRulesAsync(check.Manifest);
+                }
+
+                return;
+            }
+
+            await ShowUpdateMessageAsync(
+                check.Status == RuleUpdateStatus.UpToDate ? "规则已是最新版" : "暂时无法更新规则",
+                check.Status == RuleUpdateStatus.UpToDate
+                    ? $"当前已启用官方规则包 {check.Manifest!.Version}。"
+                    : "断网、限流、404、哈希或签名失败时，KeyRadar 会继续使用当前规则。请稍后重试。");
+        }
+        finally
+        {
+            UpdateRulesButton.IsEnabled = true;
+            UpdateRulesButtonText.Text = "更新规则";
+        }
+    }
+
+    private async Task DownloadAndActivateRulesAsync(RuleUpdateManifest manifest)
+    {
+        UpdateRulesButtonText.Text = "下载中…";
+        Directory.CreateDirectory(RuntimeRuleCatalog.RulesDirectory);
+        var candidatePath = Path.Combine(
+            RuntimeRuleCatalog.RulesDirectory,
+            $"candidate-{Guid.NewGuid():N}.krpack");
+        try
+        {
+            var download = await _ruleUpdateClient.DownloadAsync(manifest, candidatePath);
+            if (!download.IsSuccess)
+            {
+                await ShowUpdateMessageAsync("规则包验证失败", download.Message);
+                return;
+            }
+
+            var activation = RulePackStore.Activate(
+                candidatePath,
+                RuntimeRuleCatalog.RulesDirectory,
+                OfficialReleaseKey.GetBytes());
+            if (!activation.IsSuccess)
+            {
+                await ShowUpdateMessageAsync("规则包未启用", activation.Message);
+                return;
+            }
+
+            RuntimeRuleCatalog.Reload();
+            await ScanAsync();
+            await ShowUpdateMessageAsync(
+                "规则库已更新",
+                $"官方签名规则包 {activation.ActiveVersion} 已启用；上一版可通过“回滚规则”恢复。");
+        }
+        finally
+        {
+            TryDeleteFile(candidatePath);
+        }
+    }
+
+    private async void RollbackRulesButton_Click(object sender, RoutedEventArgs e)
+    {
+        RollbackRulesButton.IsEnabled = false;
+        try
+        {
+            var rollback = RulePackStore.Rollback(
+                RuntimeRuleCatalog.RulesDirectory,
+                OfficialReleaseKey.GetBytes());
+            if (rollback.IsSuccess)
+            {
+                RuntimeRuleCatalog.Reload();
+                await ScanAsync();
+            }
+
+            await ShowUpdateMessageAsync(
+                rollback.IsSuccess ? "规则已回滚" : "无法回滚规则",
+                rollback.Message);
+        }
+        finally
+        {
+            RollbackRulesButton.IsEnabled = true;
+        }
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
         }
     }
 

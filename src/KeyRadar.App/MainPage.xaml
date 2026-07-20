@@ -81,6 +81,8 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel>
                         <TextBlock FontSize="28" FontWeight="SemiBold" Text="快捷键雷达" />
@@ -103,6 +105,22 @@
                             <TextBlock x:Name="CheckUpdateButtonText" Text="检查更新" />
                         </StackPanel>
                     </Button>
+                    <Button
+                        x:Name="UpdateRulesButton"
+                        Grid.Column="3"
+                        Margin="8,0,0,0"
+                        Click="UpdateRulesButton_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontSize="14" Glyph="&#xE8F1;" />
+                            <TextBlock x:Name="UpdateRulesButtonText" Text="更新规则" />
+                        </StackPanel>
+                    </Button>
+                    <Button
+                        x:Name="RollbackRulesButton"
+                        Grid.Column="4"
+                        Margin="8,0,0,0"
+                        Click="RollbackRulesButton_Click"
+                        Content="回滚规则" />
                 </Grid>
 
                 <AutoSuggestBox

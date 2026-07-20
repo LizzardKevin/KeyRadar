@@ -9,6 +9,7 @@ internal static class RuntimeRuleCatalog
 {
     private static readonly object Gate = new();
     private static IReadOnlyList<ApplicationRuleSet> _current = BuiltInRuleCatalog.Load();
+    private static string? _activeVersion;
 
     public static IReadOnlyList<ApplicationRuleSet> Current
     {
@@ -36,6 +37,17 @@ internal static class RuntimeRuleCatalog
 
     public static string RulesDirectory => Path.Combine(DataDirectory, "rules");
 
+    public static string? ActiveVersion
+    {
+        get
+        {
+            lock (Gate)
+            {
+                return _activeVersion;
+            }
+        }
+    }
+
     public static RulePackReadResult? Reload()
     {
         var activePackPath = Path.Combine(RulesDirectory, "active.krpack");
@@ -46,6 +58,7 @@ internal static class RuntimeRuleCatalog
         lock (Gate)
         {
             _current = catalog;
+            _activeVersion = result is { IsSuccess: true } ? result.Pack!.Version : null;
         }
 
         return result;
