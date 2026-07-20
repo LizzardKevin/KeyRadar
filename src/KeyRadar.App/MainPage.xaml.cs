@@ -11,6 +11,7 @@ using KeyRadar.Updater.Updates;
 using KeyRadar.Windows.Applications;
 using KeyRadar.Windows.DeepConfirmation;
 using KeyRadar.Windows.Hotkeys;
+using KeyRadar.Windows.Hardware;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -63,9 +64,16 @@ public sealed partial class MainPage : Page
 
         IReadOnlyList<ApplicationSnapshot> snapshots;
         IReadOnlyList<HotkeyProbeResult> occupancyResults;
+        HardwareEnvironmentSnapshot hardwareEnvironment;
         try
         {
             snapshots = await Task.Run(() => _scanner.Scan(Environment.ProcessId), cancellationToken);
+            var hidDevices = await Task.Run(
+                () => new RawInputHidDeviceSource().ReadConnected(),
+                cancellationToken);
+            hardwareEnvironment = HardwareEnvironmentScanner.Match(
+                snapshots.Select(snapshot => snapshot.Process).DistinctBy(process => process.Id).ToArray(),
+                hidDevices);
             var candidates = StandardGlobalHotkeyCandidateSource.Create();
             var progress = new Progress<HotkeyScanProgress>(item =>
                 ScanStatusText.Text = $"正在探测标准全局热键 {item.Completed}/{item.Total} · {item.Current}");
@@ -97,13 +105,25 @@ public sealed partial class MainPage : Page
         }
         var occupiedGlobalHotkeyCount = 0;
 
-        var matched = snapshots
+        var variantMatcher = new ApplicationVariantMatcher();
+        var matchedSnapshots = snapshots
             .Select(snapshot => new
             {
                 Snapshot = snapshot,
-                Rules = ApplicationRuleMatcher.FindByExecutableName(catalog, snapshot.Process.ExecutableName),
+                Match = variantMatcher.Match(
+                    new ApplicationIdentity(
+                        snapshot.Process.ExecutableName,
+                        snapshot.Process.Version,
+                        snapshot.Process.Publisher,
+                        snapshot.Process.CompanyName,
+                        snapshot.Process.PackageFamilyName,
+                        snapshot.Process.Distribution),
+                    catalog),
             })
-            .Where(item => item.Rules is not null)
+            .ToArray();
+        var matched = matchedSnapshots
+            .Where(item => item.Match.Selected is not null)
+            .Select(item => new { item.Snapshot, Rules = item.Match.Selected! })
             .GroupBy(item => item.Rules!.ApplicationId, StringComparer.OrdinalIgnoreCase);
 
         foreach (var applicationProcesses in matched)
@@ -154,6 +174,62 @@ public sealed partial class MainPage : Page
                         hotkey.Sources);
                 }).ToArray(),
                 process.Id));
+        }
+
+        foreach (var ambiguous in matchedSnapshots.Where(item => item.Match.Kind == VariantMatchKind.Ambiguous))
+        {
+            var process = ambiguous.Snapshot.Process;
+            var candidates = ambiguous.Match.Candidates
+                .Select(candidate => candidate.Variant)
+                .ToArray();
+            groups.Add(new ApplicationGroupViewModel(
+                $"variant-uncertain-{process.Id}",
+                "变体不确定",
+                ambiguous.Snapshot.Presence == ApplicationPresence.Foreground ? "● 前台" : "后台",
+                $"{process.ExecutableName} · 候选：{string.Join(" / ", candidates.Select(candidate => candidate.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name)))}",
+                "\uE9CE",
+                true,
+                candidates.SelectMany(candidate => candidate.Hotkeys).Select(hotkey => HotkeyRowViewModel.Create(
+                    hotkey.Gesture.ToString(),
+                    hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
+                    hotkey.Scope,
+                    OwnershipConfidence.Suspected,
+                    process.Id,
+                    sources: hotkey.Sources)).ToArray(),
+                process.Id));
+        }
+
+        if (hardwareEnvironment.Software.Count > 0)
+        {
+            var hardwareRows = hardwareEnvironment.Software.Select(software =>
+            {
+                var profile = hardwareEnvironment.Profiles.FirstOrDefault(item => item.SoftwareId == software.Id);
+                var device = hardwareEnvironment.Devices.FirstOrDefault(item =>
+                    software.Id.StartsWith("logi", StringComparison.Ordinal) && item.VendorId == "046D" ||
+                    software.Id == "razer-synapse" && item.VendorId == "1532" ||
+                    software.Id == "corsair-icue" && item.VendorId == "1B1C");
+                var state = profile is not null
+                    ? "当前 Profile · 无法安全读取"
+                    : software.IsRunning
+                        ? "管理软件正在运行 · 未检测到匹配设备"
+                        : "设备已连接 · 管理软件未运行";
+                return new HotkeyRowViewModel(
+                    device?.ModelName ?? software.DisplayName,
+                    state,
+                    "硬件映射",
+                    profile?.Evidence ?? "证据：运行进程与 HID 厂商/型号",
+                    profile is not null ? "! 无法完整发现" : "○ 当前未生效",
+                    software.ProcessId ?? 0,
+                    canDeepConfirm: false);
+            }).ToArray();
+            groups.Add(new ApplicationGroupViewModel(
+                "hardware-mappings",
+                "硬件映射",
+                "当前设备与 Profile",
+                "G HUB · Logi Options+ · Razer Synapse · Corsair iCUE",
+                "\uE7F8",
+                hardwareEnvironment.Profiles.Count > 0,
+                hardwareRows));
         }
 
         var knownGlobalGestures = groups
@@ -266,12 +342,15 @@ public sealed partial class MainPage : Page
             ProcessPrivilegeLevel.Standard => "标准权限",
             _ => "权限未知",
         };
-        var publisher = string.IsNullOrWhiteSpace(process.Publisher) ? null : process.Publisher.Trim();
+        var publisher = string.IsNullOrWhiteSpace(process.Publisher)
+            ? string.IsNullOrWhiteSpace(process.CompanyName) ? null : process.CompanyName.Trim()
+            : process.Publisher.Trim();
         var version = string.IsNullOrWhiteSpace(process.Version) ? null : process.Version.Trim();
+        var distribution = process.PackageFamilyName is null ? null : "Microsoft Store";
 
         return string.Join(
             " · ",
-            new[] { process.ExecutableName, architecture, privilege, publisher, version, "官方签名规则包" }
+            new[] { process.ExecutableName, architecture, privilege, publisher, version, distribution, "官方签名规则包" }
                 .Where(value => !string.IsNullOrWhiteSpace(value)));
     }
 

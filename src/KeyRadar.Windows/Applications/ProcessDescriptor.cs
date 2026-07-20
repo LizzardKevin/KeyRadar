@@ -7,4 +7,7 @@ public sealed record ProcessDescriptor(
     string? Version = null,
     string? Publisher = null,
     ProcessArchitecture Architecture = ProcessArchitecture.Unknown,
-    ProcessPrivilegeLevel PrivilegeLevel = ProcessPrivilegeLevel.Unknown);
+    ProcessPrivilegeLevel PrivilegeLevel = ProcessPrivilegeLevel.Unknown,
+    string? CompanyName = null,
+    string? PackageFamilyName = null,
+    string? Distribution = null);

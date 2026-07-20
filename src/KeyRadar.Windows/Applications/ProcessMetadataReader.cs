@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 
 namespace KeyRadar.Windows.Applications;
 
@@ -13,6 +15,8 @@ internal static partial class ProcessMetadataReader
         var executableName = $"{process.ProcessName}.exe";
         string? version = null;
         string? publisher = null;
+        string? companyName = null;
+        string? packageFamilyName = null;
 
         try
         {
@@ -22,7 +26,8 @@ internal static partial class ProcessMetadataReader
             {
                 var versionInfo = FileVersionInfo.GetVersionInfo(executablePath);
                 version = versionInfo.ProductVersion ?? versionInfo.FileVersion;
-                publisher = versionInfo.CompanyName;
+                companyName = versionInfo.CompanyName;
+                publisher = ReadAuthenticodePublisher(executablePath);
             }
         }
         catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or NotSupportedException)
@@ -37,7 +42,57 @@ internal static partial class ProcessMetadataReader
             version,
             publisher,
             ReadArchitecture(process),
-            ReadPrivilege(process));
+            ReadPrivilege(process),
+            companyName,
+            packageFamilyName = ReadPackageFamilyName(process),
+            packageFamilyName is null ? null : "microsoft-store");
+    }
+
+    private static string? ReadAuthenticodePublisher(string executablePath)
+    {
+        try
+        {
+#pragma warning disable SYSLIB0057 // No loader API extracts an Authenticode certificate directly from a signed PE file.
+            using var certificate = X509Certificate.CreateFromSignedFile(executablePath);
+#pragma warning restore SYSLIB0057
+            using var certificate2 = X509CertificateLoader.LoadCertificate(certificate.GetRawCertData());
+            return certificate2.GetNameInfo(X509NameType.SimpleName, forIssuer: false);
+        }
+        catch (CryptographicException)
+        {
+            return null;
+        }
+    }
+
+    private static unsafe string? ReadPackageFamilyName(Process process)
+    {
+        try
+        {
+            uint length = 0;
+            var status = GetPackageFamilyName(process.Handle, ref length, null);
+            if (status != 122 || length is 0 or > 256)
+            {
+                return null;
+            }
+
+            var value = new char[length];
+            fixed (char* valuePointer = value)
+            {
+                status = GetPackageFamilyName(process.Handle, ref length, valuePointer);
+            }
+
+            if (status != 0)
+            {
+                return null;
+            }
+
+            var terminator = Array.IndexOf(value, '\0');
+            return new string(value, 0, terminator >= 0 ? terminator : value.Length);
+        }
+        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            return null;
+        }
     }
 
     private static ProcessArchitecture ReadArchitecture(Process process)
@@ -105,4 +160,10 @@ internal static partial class ProcessMetadataReader
     [LibraryImport("kernel32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool CloseHandle(nint handle);
+
+    [LibraryImport("kernel32.dll")]
+    private static unsafe partial int GetPackageFamilyName(
+        nint processHandle,
+        ref uint packageFamilyNameLength,
+        char* packageFamilyName);
 }
