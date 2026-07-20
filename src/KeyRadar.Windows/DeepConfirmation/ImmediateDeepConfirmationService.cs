@@ -22,7 +22,8 @@ public enum DeepConfirmationConclusion
 public sealed record DeepConfirmationCandidate(
     string OwnerId,
     string DisplayName,
-    DeepConfirmationEvidenceKind Evidence);
+    DeepConfirmationEvidenceKind Evidence,
+    string? EvidenceIdentity = null);
 
 public sealed record ImmediateDeepConfirmationRequest(
     HotkeyGesture Target,
@@ -46,15 +47,31 @@ public sealed class ImmediateDeepConfirmationService(
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var refreshed = refreshEvidence is null
-            ? []
-            : await refreshEvidence(request.Target, cancellationToken).ConfigureAwait(false);
+        var refreshSucceeded = false;
+        var refreshFailed = false;
+        IReadOnlyList<DeepConfirmationCandidate> refreshed = [];
+        if (refreshEvidence is not null)
+        {
+            try
+            {
+                refreshed = await refreshEvidence(request.Target, cancellationToken).ConfigureAwait(false);
+                refreshSucceeded = true;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch
+            {
+                // Stale request evidence can describe context, but it cannot
+                // establish current ownership when the refresh is unavailable.
+                refreshFailed = true;
+            }
+        }
         cancellationToken.ThrowIfCancellationRequested();
 
-        var candidates = request.Candidates
-            .Concat(refreshed)
-            .DistinctBy(candidate => $"{candidate.OwnerId}\u001F{candidate.Evidence}", StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        var candidates = DeepConfirmationCandidateOrdering.Canonicalize(
+            refreshSucceeded ? refreshed : request.Candidates);
         var probe = reprobe(request.Target);
         var nativeProbes = nativeReprobe is null
             ? []
@@ -62,16 +79,24 @@ public sealed class ImmediateDeepConfirmationService(
         var nativeDisagrees = nativeProbes
             .Where(result => result.Availability != HotkeyProbeAvailability.ProbeError)
             .Any(result => result.Availability != probe.Availability);
-        var exact = candidates
+        var exact = refreshSucceeded
+            ? candidates
             .Where(candidate => candidate.Evidence is
                 DeepConfirmationEvidenceKind.LocalConfiguration or
                 DeepConfirmationEvidenceKind.ActiveHardwareProfile)
-            .ToArray();
-        var conclusion = exact.Length > 0
+            .ToArray()
+            : [];
+        var canConfirmExact = refreshSucceeded &&
+            exact.Length > 0 &&
+            probe.Availability == HotkeyProbeAvailability.Occupied &&
+            !nativeDisagrees;
+        var conclusion = refreshFailed
+            ? DeepConfirmationConclusion.UnableToConfirm
+            : canConfirmExact
             ? DeepConfirmationConclusion.ConfirmedOwner
             : nativeDisagrees
                 ? DeepConfirmationConclusion.UnableToConfirm
-            : probe.Availability == HotkeyProbeAvailability.Occupied && candidates.Length > 0
+            : probe.Availability == HotkeyProbeAvailability.Occupied && candidates.Count > 0
                 ? DeepConfirmationConclusion.PossibleOwner
                 : probe.Availability == HotkeyProbeAvailability.Occupied
                     ? DeepConfirmationConclusion.OccupiedOwnerUnknown

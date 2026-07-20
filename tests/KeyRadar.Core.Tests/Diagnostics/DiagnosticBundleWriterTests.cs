@@ -30,7 +30,28 @@ public sealed class DiagnosticBundleWriterTests
                         "global",
                         "configuration",
                         @"Imported from \\server\private\profile.json")]),
-            ]);
+            ]) with
+        {
+            ProbeTelemetry =
+            [
+                new DiagnosticProbeTelemetry(
+                    "F12",
+                    "Occupied",
+                    "RegisterHotKeyProbe",
+                    DateTimeOffset.Parse("2026-07-21T01:02:03Z", System.Globalization.CultureInfo.InvariantCulture),
+                    1409,
+                    "Unknown",
+                    "OccupiedOwnerUnknown"),
+                new DiagnosticProbeTelemetry(
+                    "BrowserBack",
+                    "AvailableAtScanTime",
+                    "RegisterHotKeyProbe",
+                    DateTimeOffset.Parse("2026-07-21T01:02:04Z", System.Globalization.CultureInfo.InvariantCulture),
+                    null,
+                    "Unknown",
+                    "Unknown"),
+            ],
+        };
 
         try
         {
@@ -46,6 +67,15 @@ public sealed class DiagnosticBundleWriterTests
             Assert.DoesNotContain(@"C:\Users", json, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain(Environment.UserName, json, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain(@"\\server\private", json, StringComparison.OrdinalIgnoreCase);
+
+            Assert.Contains("\"schemaVersion\": 2", json, StringComparison.Ordinal);
+            Assert.Contains("\"probeTelemetry\": [", json, StringComparison.Ordinal);
+            Assert.Contains("\"gesture\": \"F12\"", json, StringComparison.Ordinal);
+            Assert.Contains("\"availability\": \"Occupied\"", json, StringComparison.Ordinal);
+            Assert.Contains("\"mechanism\": \"RegisterHotKeyProbe\"", json, StringComparison.Ordinal);
+            Assert.Contains("\"ownerStatus\": \"Unknown\"", json, StringComparison.Ordinal);
+            Assert.Contains("\"diagnosticStatus\": \"OccupiedOwnerUnknown\"", json, StringComparison.Ordinal);
+            Assert.DoesNotContain("\"win32ErrorCode\": null", json, StringComparison.Ordinal);
         }
         finally
         {

@@ -14,7 +14,9 @@ public sealed record LocalConfigurationHotkey(
     HotkeyGesture Gesture,
     string Function,
     HotkeyScope Scope,
-    string Evidence);
+    string Evidence,
+    string? OwnerIdentity = null,
+    string? VariantId = null);
 
 public interface IApplicationConfigurationReader
 {

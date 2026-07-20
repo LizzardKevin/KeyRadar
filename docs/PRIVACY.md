@@ -1,30 +1,18 @@
-# KeyRadar Privacy Design
+# KeyRadar 隐私设计
 
-KeyRadar has no telemetry, account system, advertising identifier, or automatic
-cloud upload. Network access occurs only after the user selects a GitHub program
-or rule update action.
+KeyRadar 没有遥测、账户系统、广告标识符或自动云上传。只有用户主动选择检查 GitHub 程序或规则更新时才会访问网络。
 
-Normal scanning does not install a global keyboard hook and does not receive an
-ordinary key-event stream. Before each bounded RegisterHotKey probe, KeyRadar
-checks whether a physical keyboard key is currently held; it pauses or cancels
-instead of storing that key identity. A hotkey combination is captured only when
-the user explicitly selects **Record hotkey** in My rules. Ordinary typed text is
-never retained.
+正常扫描不安装全局键盘钩子，也不接收普通按键流。每次受限的 `RegisterHotKey` 探测前，KeyRadar 会检查物理键是否仍被按住；检测到按住、桌面切换或取消时停止扫描，而不存储该按键的身份。只有用户在“我的规则”中明确选择“记录热键”时才会记录一个组合；普通输入文本绝不会保留。
 
-Diagnostics are created only after the user selects **Export diagnostics**. The
-ZIP contains application IDs and display names, executable file names (never full
-paths), versions, publishers, architecture, privilege class, presence, and the
-hotkey results already visible in KeyRadar. It excludes usernames, window
-titles, ordinary key streams, configuration contents, machine identifiers, and
-telemetry identifiers. Nothing is uploaded automatically.
+诊断包只在用户选择“导出诊断”后创建。导出严格基于最近一次**完整扫描**的单一不可变快照；正在扫描、取消或尚未完成的结果不会与先前扫描混合，也不会导出部分新结果。
 
-Normal mode stores rules, update staging, and diagnostics under
-`%LocalAppData%\KeyRadar`. If a `data` directory exists beside `KeyRadar.exe`,
-portable mode uses that directory instead. Program updates never replace either
-data location. The bundled and updated `.krpack` files contain declarative public
-hotkey metadata only; KeyRadar never writes observed ordinary key presses into
-them.
+`diagnostics.json` 当前为 Schema v2，包含经过清洗和上限约束的：
 
-An imported hardware profile is copied only after validation and redaction.
-Macro contents and launch paths are replaced with fixed placeholders, and the
-original selected file path is not retained.
+- 应用 ID、显示名、可执行文件名（不含完整路径）、版本、发布者、架构、权限级别、存在状态，以及已纳入诊断快照的热键；
+- `probeTelemetry`：每个热键最新的 `RegisterHotKey` 探测结果、时间、可选 Win32 错误码、机制和经过枚举限制的归属/诊断状态。它可包含正常界面隐藏的探测项目，例如裸功能键或媒体键。
+
+诊断包不包含用户名、完整或用户路径、窗口标题、普通按键/文本流、宏文本、账户、机器标识符、配置文件内容或遥测标识符。诊断包不会自动上传。
+
+正常模式将规则、更新暂存和诊断放在 `%LocalAppData%\KeyRadar`。若 `KeyRadar.exe` 同级存在 `data` 目录，便携模式使用该目录。程序更新不会替换任一数据位置。随程序交付或更新的 `.krpack` 仅含声明式公开热键元数据；KeyRadar 不会把观察到的普通按键写入其中。
+
+导入的硬件 Profile 仅在验证与脱敏后复制保存。宏内容和启动路径会被固定占位符替代，原始所选文件路径不会保留。

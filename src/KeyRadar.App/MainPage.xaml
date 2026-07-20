@@ -125,7 +125,7 @@
                             <StackPanel Spacing="9">
                                 <FontIcon HorizontalAlignment="Left" Foreground="{StaticResource RadarSuccessBrush}" Glyph="&#xE73E;" />
                                 <TextBlock x:Name="AvailableCountText" FontSize="30" FontWeight="SemiBold" Text="0" />
-                                <TextBlock x:Uid="CardAvailable" Text="当前可注册" />
+                                <TextBlock x:Uid="CardAvailable" Text="已占用全局热键" />
                             </StackPanel>
                         </Border>
                         <Border Grid.Column="2" Padding="18" Background="#3A17364E" BorderBrush="#557AB8F5" BorderThickness="1" CornerRadius="12">

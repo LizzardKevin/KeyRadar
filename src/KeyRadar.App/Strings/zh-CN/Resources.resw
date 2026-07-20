@@ -8,7 +8,7 @@
   <data name="NavHotkeys.Text" xml:space="preserve"><value>热键总览</value></data>
   <data name="NavSettings.Text" xml:space="preserve"><value>设置</value></data>
   <data name="CardConflicts.Text" xml:space="preserve"><value>冲突</value></data>
-  <data name="CardAvailable.Text" xml:space="preserve"><value>当前可注册</value></data>
+  <data name="CardAvailable.Text" xml:space="preserve"><value>已占用全局热键</value></data>
   <data name="CardForeground.Text" xml:space="preserve"><value>前台热键</value></data>
   <data name="CardUnconfirmed.Text" xml:space="preserve"><value>待确认</value></data>
   <data name="CurrentSession.Text" xml:space="preserve"><value>当前桌面会话</value></data>

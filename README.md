@@ -1,84 +1,55 @@
-# KeyRadar · 键位雷达
+# KeyRadar · 热键雷达
 
-> 扫描全局，发现每一次占用。
+> 先看当前可操作、可归属的热键；需要排查时再查看完整诊断证据。
 
-KeyRadar is a Windows hotkey ownership and conflict diagnostic tool. It scans
-hotkeys exposed by Windows and currently running applications, explains
-where each result came from, and keeps uncertain results explicitly uncertain.
+KeyRadar 是 Windows 热键占用与归属诊断工具。它在当前桌面会话中结合运行应用、已声明的规则、本机允许读取的配置与安全的 `RegisterHotKey` 探测，说明一条热键为何出现；证据不足时会保留为未知，而不会猜测注册进程。
 
-## Product principles
+## 当前状态
 
-- On demand: closing the main window exits every KeyRadar component.
-- Passive by default: KeyRadar never synthesizes or suppresses keyboard input.
-- Evidence first: ownership and conflicts carry a visible confidence level.
-- Local by default: no telemetry, accounts, or background uploads.
-- Single-source rules: every formal hotkey rule lives in `rules/*.json` and is
-  delivered only through a signed `.krpack`; there is no compiled C# fallback.
+项目尚未创建 Release，也没有可下载的正式安装包。当前版本目标是首次公开 `v1.0.0`；在此之前请从源码构建，不要把版本号或文档中的未来发布资产理解为已发布。
 
-## KeyRadar v1
+## 正常界面与诊断
 
-- Probes safe standard global combinations with `RegisterHotKey`; every occupied
-  combination is retained even when its owner is unknown.
-- Groups hotkeys into collapsible application tags. Each application header has
-  one **Go to application** action; hotkey rows do not repeat it.
-- Shows Windows, foreground, background, hardware, and unknown hotkeys with
-  availability, confidence, evidence, and scan time.
-- Expands conflicts automatically and keeps uncertain ownership visibly uncertain.
-- Shows a translucent, always-on-top foreground overlay without taking focus.
-- Immediately rechecks one selected hotkey without asking the user to press it and
-  without simulating input. A pure unknown registration remains explicitly unknown.
-- Loads a dynamic number of application variants plus Windows system hotkeys from
-  the signed Schema v2 rule pack; no application count is hard-coded.
-- Updates the portable application and official rule pack only after a user click.
-- Loads the signed rule pack bundled beside `KeyRadar.exe` on first launch, and
-  keeps one previous verified pack only for an explicit rollback.
-- Shows an explicit “rules unavailable” error if the pack is missing, damaged,
-  has the wrong identity, or fails signature verification.
+正常界面是“当前可操作/可归属热键清单”，不是原始探测日志：
 
-## Install and use
+- 每个规范化热键只显示一行，并按证据归入前台应用、当前硬件 Profile、后台应用、Windows 系统或未知占用等分组；同一热键的所有证据仍会聚合保留。
+- 已在后台运行的应用只贡献全局或后台范围的热键；应用内热键只有应用处于前台时才纳入当前清单。Windows 系统热键按系统范围单独纳入。
+- 仅 `RegisterHotKey` 探测到 `AvailableAtScanTime`、`SystemReserved` 或 `ProbeError` 的项目不显示为普通行。
+- 只有 `RegisterHotKey` 占用证据的裸 `F1`–`F24`、浏览器、媒体、音量、启动和导航键不显示为普通行；`PrintScreen` 与带修饰键的组合仍可保留。这样可避免把物理按键或系统行为误呈为可归属的桌面热键。
+- 完整探测集（包括上述隐藏项目）仍通过“导出诊断”以经过清洗的 `probeTelemetry` 记录保留，便于排查。
 
-1. Download `KeyRadar-v1.0.0-windows-x64.zip` from [GitHub Releases](https://github.com/LizzardKevin/KeyRadar/releases).
-2. Extract the complete ZIP. Keep `KeyRadar-Rules-v1.0.0.krpack` beside
-   `KeyRadar.exe`, then run `KeyRadar.exe`. No installer, service, tray process,
-   scheduled task, or account is created.
-3. Press a hotkey normally or search for it. KeyRadar observes modifier
-   combinations but does not suppress or synthesize input.
-4. Expand an application to inspect its hotkeys. Use the single header-level
-   **Go to application** button when you want to bring that app forward.
-5. Close the main window to exit KeyRadar and every helper process.
+`RegisterHotKey` 探测只说明扫描瞬间能否注册标准全局组合；它不会触发、模拟、拦截或吞掉用户输入，也不能安全返回注册进程。
 
-Windows 10 22H2 and Windows 11 x64 are supported. The x64 application includes
-both x64 and x86 observation helpers for WoW64 applications.
+## 已实现边界
 
-## Build from source
+- 规则数量随 `rules/*.json` 的当前正式规则源动态变化，不写死应用数量。
+- 可导入经验证与脱敏的声明式硬件 Profile；私有或加密的厂商数据库不猜测解析，导入项标记为“用户声明 · 未实时验证”。
+- 深度确认会立即复核单条热键、当前运行应用、允许读取的本机配置和可用的原生 x64/x86 辅助探测；它不模拟按键。管理员/UAC 不能提供对其他进程热键归属的深度读取。
+- 扫描可取消；取消或未完成扫描不会发布部分结果。诊断导出读取最近一次完整扫描的单一快照。
 
-Install the .NET 10 SDK and Visual Studio Build Tools with the Windows C++
-toolchain, then run:
+## 从源码构建
+
+安装 .NET 10 SDK 与带 Windows C++ 工具链的 Visual Studio Build Tools，然后运行：
 
 ```powershell
 dotnet restore KeyRadar.sln --locked-mode
 dotnet build KeyRadar.sln -c Release --no-restore
 dotnet test KeyRadar.sln -c Release --no-build
-./eng/Build-Native.ps1 -Configuration Release
+.\eng\Build-Native.ps1 -Configuration Release
 ```
 
-Signed release reproduction additionally requires the project Ed25519 private
-release key in `KEYRADAR_ED25519_PRIVATE_KEY`; the key is never committed.
-The release build validates every source document dynamically, signs the official pack,
-and places that same `.krpack` both inside the application ZIP and among the
-standalone Release assets.
+首次 `v1.0.0` Release 未来会另行发布；届时才会提供已签名的应用与正式规则包。当前不要执行或声称已完成发布。
 
-## Documentation
+## 文档
 
-- [Occupancy-first Windows scan specification](docs/superpowers/specs/2026-07-20-keyradar-windows-occupancy-first-scan.md)
-- [Implementation plan](docs/superpowers/plans/2026-07-20-keyradar-v1-schema-v2-ui.md)
-- [Privacy](docs/PRIVACY.md)
-- [Rule-pack authoring](docs/RULE_PACKS.md)
-- [Hardware profile import](docs/HARDWARE_PROFILES.md)
-- [Release testing](docs/RELEASE_TESTING.md)
-- [Contributing](CONTRIBUTING.md)
-- [Security policy](SECURITY.md)
+- [实际占用优先扫描规格](docs/superpowers/specs/2026-07-20-keyradar-windows-occupancy-first-scan.md)
+- [隐私设计](docs/PRIVACY.md)
+- [规则包说明](docs/RULE_PACKS.md)
+- [硬件 Profile 导入](docs/HARDWARE_PROFILES.md)
+- [发布测试](docs/RELEASE_TESTING.md)
+- [贡献指南](CONTRIBUTING.md)
+- [安全策略](SECURITY.md)
 
-## License
+## 许可证
 
 [MIT](LICENSE)

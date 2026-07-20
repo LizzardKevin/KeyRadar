@@ -1,38 +1,33 @@
-# KeyRadar Release Testing
+# KeyRadar 发布测试
 
-Every stable release must pass the automated CI and native integration suites,
-then the manual Windows matrix below. A failed row blocks the stable tag.
+当前尚未创建 Release。本文件定义未来首次 `v1.0.0` Release 前必须完成的门禁；它不是已完成或已发布的声明。任何失败项都阻止稳定标签。
 
-## Automated gates
+## 自动化门禁
 
-- Locked restore, Release build, and all managed tests.
-- Native x64 and x86 build, self-test, and WM_HOTKEY ownership integration test.
-- Signed `.krpack`, update manifest, SHA-256 files, and deterministic ZIP creation.
-- The portable ZIP contains the same versioned official `.krpack` beside
-  `KeyRadar.exe`; first launch succeeds without a network connection.
-- Archive traversal, executable/script rule payload, malformed JSON, signature,
-  hash, rollback, health-check, and privacy-redaction tests.
-- Missing, damaged, wrong-ID, and bad-signature packs produce an explicit
-  unavailable state; an invalid active pack never falls back to bundled rules.
-- The initial catalog contains exactly 50 distinct applications and a WeChat
-  `Alt+A` screenshot rule.
+- 锁定还原、Release 构建和全部托管测试。
+- 原生 x64/x86 构建、自检与 `WM_HOTKEY` 占用集成测试。
+- 已签名 `.krpack`、更新清单、SHA-256 文件与确定性 ZIP 创建。
+- 便携 ZIP 在 `KeyRadar.exe` 同级包含同版本正式 `.krpack`；断网首次启动通过。
+- 归档穿越、可执行/脚本规则载荷、畸形 JSON、签名、哈希、回滚、健康检查和隐私脱敏测试。
+- 缺失、损坏、错误 ID 或坏签名的规则包给出明确不可用状态；无效活动规则包不得静默回退为编译期规则。
+- 从 `rules/*.json` 当前规则源动态加载并验证：每个规则文档唯一、可通过 Schema 与包校验、应用 ID/变体 ID 不冲突；不得以固定应用数量或特定应用作为发布前提。
+- 验证普通界面仅显示当前可操作/可归属热键，完整 `RegisterHotKey` 探测（含界面隐藏项）仍进入 Schema v2 诊断 `probeTelemetry`。
+- 验证后台应用只贡献全局/后台范围，应用内热键仅在前台纳入；同一热键确定性合并为一行。
+- 验证取消不会发布部分扫描，导出只读取最近一次完整扫描的单一快照。
 
-## Manual Windows matrix
+## 手动 Windows 矩阵
 
-| Gate | Windows 10 22H2 | Windows 11 24H2 | Windows 11 25H2 |
+| 门禁 | Windows 10 22H2 | Windows 11 24H2 | Windows 11 25H2 |
 | --- | --- | --- | --- |
-| Portable launch and Mica/solid fallback | Required | Required | Required |
-| Foreground overlay refresh under 250 ms, no focus theft | Required | Required | Required |
-| WeChat `Alt+A` owner, function, evidence, conflict and app jump | Required | Required | Required |
-| x86/x64 and elevated-target deep confirmation | Required | Required | Required |
-| Main-window close exits every KeyRadar process within 2 s | Required | Required | Required |
-| 60 s idle CPU below 0.5% of one logical core | Required | Required | Required |
-| 200-process first result within 5 s | Required | Required | Required |
-| Program update health check and automatic rollback | Required | Required | Required |
-| Official rule update/import and explicit previous-pack rollback | Required | Required | Required |
-| Diagnostic ZIP privacy inspection | Required | Required | Required |
+| 便携启动及 Mica/纯色回退 | 必测 | 必测 | 必测 |
+| 前台浮窗刷新、不抢焦点 | 必测 | 必测 | 必测 |
+| 当前规则源中的代表性全局、后台与前台热键：归属、证据、冲突与应用跳转 | 必测 | 必测 | 必测 |
+| x86/x64 原生复核及管理员目标受限场景：不得虚构归属 | 必测 | 必测 | 必测 |
+| 主窗口关闭后全部 KeyRadar 进程在 2 秒内退出 | 必测 | 必测 | 必测 |
+| 60 秒空闲 CPU 低于一个逻辑核心的 0.5% | 必测 | 必测 | 必测 |
+| 200 个进程时首次结果在 5 秒内出现 | 必测 | 必测 | 必测 |
+| 程序更新健康检查与自动回滚 | 必测 | 必测 | 必测 |
+| 正式规则更新/导入及显式回滚上一规则包 | 必测 | 必测 | 必测 |
+| Schema v2 诊断 ZIP 隐私检查、隐藏探测项与取消/原子导出边界 | 必测 | 必测 | 必测 |
 
-The project does not claim a matrix row until it has run on that OS image.
-Ed25519 release signatures authenticate KeyRadar assets. Windows Authenticode is
-separate and is applied only when the maintainer has a trusted code-signing
-certificate.
+项目只有在对应 OS 映像上实际完成测试后，才能声称该行已通过。Ed25519 发布签名用于认证 KeyRadar 资产；Windows Authenticode 独立于此，仅在维护者拥有受信任的代码签名证书时使用。

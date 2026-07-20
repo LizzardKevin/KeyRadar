@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using KeyRadar.Conflicts;
 using KeyRadar.Windows.Hotkeys;
+using KeyRadar.Windows.DeepConfirmation;
 
 namespace KeyRadar;
 
@@ -22,7 +23,9 @@ public sealed class HotkeyRowViewModel : INotifyPropertyChanged
         bool isUnconfirmed = false,
         HotkeyScope? scope = null,
         OwnershipConfidence? confidence = null,
-        bool isHardware = false)
+        bool isHardware = false,
+        string? searchText = null,
+        IReadOnlyList<DeepConfirmationCandidate>? deepConfirmationCandidates = null)
     {
         Gesture = gesture;
         Function = function;
@@ -37,6 +40,8 @@ public sealed class HotkeyRowViewModel : INotifyPropertyChanged
         Scope = scope;
         Confidence = confidence;
         IsHardware = isHardware;
+        SearchText = searchText ?? string.Empty;
+        DeepConfirmationCandidates = deepConfirmationCandidates ?? [];
     }
 
     public string Gesture { get; set; }
@@ -74,6 +79,10 @@ public sealed class HotkeyRowViewModel : INotifyPropertyChanged
 
     public bool IsHardware { get; }
 
+    public string SearchText { get; }
+
+    public IReadOnlyList<DeepConfirmationCandidate> DeepConfirmationCandidates { get; }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public void MarkConfirmed() => ConfidenceLabel = UiText.Pick("● 已确认", "● Confirmed");
@@ -91,7 +100,10 @@ public sealed class HotkeyRowViewModel : INotifyPropertyChanged
         string? availabilityLabel = null,
         IReadOnlyList<string>? sources = null,
         bool? canDeepConfirm = null,
-        string? evidenceLabel = null) =>
+        string? evidenceLabel = null,
+        bool isHardware = false,
+        string? searchText = null,
+        IReadOnlyList<DeepConfirmationCandidate>? deepConfirmationCandidates = null) =>
         new(
             gesture,
             function,
@@ -105,7 +117,10 @@ public sealed class HotkeyRowViewModel : INotifyPropertyChanged
             isGlobal: scope == HotkeyScope.Global,
             isUnconfirmed: confidence is OwnershipConfidence.Suspected or OwnershipConfidence.Unknown or OwnershipConfidence.UserDeclared,
             scope: scope,
-            confidence: confidence);
+            confidence: confidence,
+            isHardware: isHardware,
+            searchText: searchText,
+            deepConfirmationCandidates: deepConfirmationCandidates);
 
     public static HotkeyRowViewModel FromProbe(HotkeyProbeResult result) => new(
         result.Gesture.ToString(),
@@ -132,11 +147,10 @@ public sealed class HotkeyRowViewModel : INotifyPropertyChanged
             _ => UiText.Pick("! 无法探测", "! Not probeable"),
         },
         processId: 0,
-        canDeepConfirm: result.Availability is HotkeyProbeAvailability.Occupied or HotkeyProbeAvailability.ProbeError &&
-            result.Win32ErrorCode != WindowsHotkeyProbeSafetyGate.PhysicalKeyHeldErrorCode,
+        canDeepConfirm: result.Availability == HotkeyProbeAvailability.Occupied,
         probeAvailability: result.Availability,
         isGlobal: true,
-        isUnconfirmed: result.Availability is HotkeyProbeAvailability.Occupied or HotkeyProbeAvailability.ProbeError,
+        isUnconfirmed: result.Availability == HotkeyProbeAvailability.Occupied,
         scope: HotkeyScope.Global,
         confidence: OwnershipConfidence.Unknown);
 

@@ -1,3 +1,5 @@
+using KeyRadar.Windows.Evidence;
+
 namespace KeyRadar.Windows.Configuration;
 
 public sealed class RunningApplicationConfigurationRegistry(
@@ -16,7 +18,15 @@ public sealed class RunningApplicationConfigurationRegistry(
                 var discovered = await reader
                     .ReadAsync(application.Process, application.Variant, cancellationToken)
                     .ConfigureAwait(false);
-                results.AddRange(discovered);
+                var identity = new RunningApplicationEvidenceIdentity(
+                    application.Process.Id,
+                    application.Variant.ApplicationId,
+                    application.Variant.VariantId);
+                results.AddRange(discovered.Select(configuration => configuration with
+                {
+                    OwnerIdentity = identity.Value,
+                    VariantId = application.Variant.VariantId,
+                }));
             }
         }
 

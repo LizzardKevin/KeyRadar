@@ -9,6 +9,24 @@ public static class DiagnosticBundleWriter
 {
     private const int MaximumApplications = 2048;
     private const int MaximumHotkeysPerApplication = 2048;
+    private const int MaximumProbeTelemetryItems = 2048;
+    private static readonly HashSet<string> ProbeAvailabilityValues = new(StringComparer.Ordinal)
+    {
+        "Occupied", "AvailableAtScanTime", "SystemReserved", "ProbeError",
+    };
+    private static readonly HashSet<string> ProbeMechanismValues = new(StringComparer.Ordinal)
+    {
+        "RegisterHotKeyProbe",
+    };
+    private static readonly HashSet<string> ProbeOwnerStatusValues = new(StringComparer.Ordinal)
+    {
+        "Unknown",
+    };
+    private static readonly HashSet<string> DiagnosticStatusValues = new(StringComparer.Ordinal)
+    {
+        "Confirmed", "LocalConfigurationFound", "HardwareMappingFound", "WindowsKnown",
+        "OfficialDefault", "PossibleOwner", "OccupiedOwnerUnknown", "Unknown",
+    };
     private static readonly Regex AbsolutePathPattern = new(
         @"(?:[A-Za-z]:[\\/]|\\\\)[^\r\n]*",
         RegexOptions.CultureInvariant,
@@ -25,16 +43,26 @@ public static class DiagnosticBundleWriter
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
         ArgumentNullException.ThrowIfNull(report);
         if (report.Applications.Count > MaximumApplications ||
-            report.Applications.Any(application => application.Hotkeys.Count > MaximumHotkeysPerApplication))
+            report.Applications.Any(application => application.Hotkeys.Count > MaximumHotkeysPerApplication) ||
+            report.ProbeTelemetry.Count > MaximumProbeTelemetryItems)
         {
             throw new InvalidDataException("The diagnostic snapshot exceeds its bounded record limits.");
         }
 
         var safeReport = report with
         {
+            SchemaVersion = 2,
             KeyRadarVersion = Clean(report.KeyRadarVersion, 64),
             OperatingSystem = Clean(report.OperatingSystem, 160),
             Applications = report.Applications.Select(Sanitize).ToArray(),
+            ProbeTelemetry = report.ProbeTelemetry
+                .Select(Sanitize)
+                .OrderBy(item => item.Gesture, StringComparer.Ordinal)
+                .ThenBy(item => item.ScannedAtUtc)
+                .ThenBy(item => item.Availability, StringComparer.Ordinal)
+                .ThenBy(item => item.Mechanism, StringComparer.Ordinal)
+                .ThenBy(item => item.Win32ErrorCode)
+                .ToArray(),
         };
         var json = JsonSerializer.SerializeToUtf8Bytes(safeReport, JsonOptions);
         var fullPath = Path.GetFullPath(outputPath);
@@ -69,6 +97,18 @@ public static class DiagnosticBundleWriter
                 Evidence = Clean(hotkey.Evidence, 80),
             }).ToArray(),
         };
+
+    private static DiagnosticProbeTelemetry Sanitize(DiagnosticProbeTelemetry probe) => probe with
+    {
+        Gesture = Clean(probe.Gesture, 64),
+        Availability = SafeProbeValue(probe.Availability, ProbeAvailabilityValues, "Unknown"),
+        Mechanism = SafeProbeValue(probe.Mechanism, ProbeMechanismValues, "Unknown"),
+        OwnerStatus = SafeProbeValue(probe.OwnerStatus, ProbeOwnerStatusValues, "Unknown"),
+        DiagnosticStatus = SafeProbeValue(probe.DiagnosticStatus, DiagnosticStatusValues, "Unknown"),
+    };
+
+    private static string SafeProbeValue(string? value, ISet<string> allowedValues, string fallback) =>
+        allowedValues.Contains(value ?? string.Empty) ? value! : fallback;
 
     private static string SafeFileName(string value)
     {

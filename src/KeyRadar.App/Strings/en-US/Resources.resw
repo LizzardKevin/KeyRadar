@@ -8,7 +8,7 @@
   <data name="NavHotkeys.Text" xml:space="preserve"><value>Hotkey overview</value></data>
   <data name="NavSettings.Text" xml:space="preserve"><value>Settings</value></data>
   <data name="CardConflicts.Text" xml:space="preserve"><value>Conflicts</value></data>
-  <data name="CardAvailable.Text" xml:space="preserve"><value>Available now</value></data>
+  <data name="CardAvailable.Text" xml:space="preserve"><value>Occupied global hotkeys</value></data>
   <data name="CardForeground.Text" xml:space="preserve"><value>Foreground</value></data>
   <data name="CardUnconfirmed.Text" xml:space="preserve"><value>Unconfirmed</value></data>
   <data name="CurrentSession.Text" xml:space="preserve"><value>Current desktop session</value></data>
