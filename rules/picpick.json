@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "picpick",
+  "displayName": "PicPick",
+  "executables": [
+    "picpick.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "PrintScreen",
+      "function": "捕获整个屏幕（默认键，可修改）",
+      "scope": "global",
+      "confidence": "suspected"
+    }
+  ]
+}

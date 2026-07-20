@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "snipping-tool",
+  "displayName": "Windows 截图工具",
+  "executables": [
+    "SnippingTool.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Ctrl+N",
+      "function": "新建截图",
+      "scope": "application",
+      "confidence": "systemKnown"
+    },
+    {
+      "gesture": "Ctrl+S",
+      "function": "保存截图",
+      "scope": "application",
+      "confidence": "systemKnown"
+    }
+  ]
+}

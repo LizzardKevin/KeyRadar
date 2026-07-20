@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "listary",
+  "displayName": "Listary",
+  "executables": [
+    "Listary.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Win+S",
+      "function": "显示 Listary（默认键可能因版本而异）",
+      "scope": "global",
+      "confidence": "suspected"
+    }
+  ]
+}

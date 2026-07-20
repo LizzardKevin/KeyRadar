@@ -18,24 +18,13 @@ public static class RulePackReader
     };
 
     public static RulePackReadResult Read(Stream packageStream, ReadOnlySpan<byte> publicKeyBytes)
-        => ReadCore(packageStream, publicKeyBytes, isUnsignedLocal: false);
-
-    public static RulePackReadResult ReadUnsignedLocal(Stream packageStream)
-        => ReadCore(packageStream, [], isUnsignedLocal: true);
-
-    private static RulePackReadResult ReadCore(
-        Stream packageStream,
-        ReadOnlySpan<byte> publicKeyBytes,
-        bool isUnsignedLocal)
     {
         ArgumentNullException.ThrowIfNull(packageStream);
 
         try
         {
             using var bufferedPackage = Buffer(packageStream);
-            var validation = isUnsignedLocal
-                ? RulePackValidator.ValidateUnsignedLocal(bufferedPackage)
-                : RulePackValidator.Validate(bufferedPackage, publicKeyBytes);
+            var validation = RulePackValidator.Validate(bufferedPackage, publicKeyBytes);
             if (!validation.IsValid)
             {
                 return RulePackReadResult.Failure(RulePackReadError.ValidationFailed, validation.Message);
@@ -60,7 +49,7 @@ public static class RulePackReader
                         $"The pack declares application '{document.ApplicationId}' more than once.");
                 }
 
-                if (!TryCreateRuleSet(file.Path, document, isUnsignedLocal, out var rules, out var error))
+                if (!TryCreateRuleSet(file.Path, document, out var rules, out var error))
                 {
                     return RulePackReadResult.Failure(RulePackReadError.InvalidRule, error);
                 }
@@ -92,18 +81,22 @@ public static class RulePackReader
     private static bool TryCreateRuleSet(
         string path,
         RuleDocument? document,
-        bool isUnsignedLocal,
         out ApplicationRuleSet? rules,
         out string error)
     {
         rules = null;
         error = $"The rule '{path}' does not conform to schema version 1.";
+        var isWindowsSystem = document?.ApplicationId.Equals(
+            "windows-system",
+            StringComparison.Ordinal) == true;
         if (document is null ||
             document.SchemaVersion != 1 ||
             !IsValidApplicationId(document.ApplicationId) ||
             !path.Equals($"rules/{document.ApplicationId}.json", StringComparison.OrdinalIgnoreCase) ||
             !IsText(document.DisplayName, 100) ||
-            document.Executables is not { Count: >= 1 and <= 32 } ||
+            document.Executables is not { Count: <= 32 } ||
+            isWindowsSystem && document.Executables.Count != 0 ||
+            !isWindowsSystem && document.Executables.Count == 0 ||
             document.Executables.Any(executable => !IsExecutableName(executable)) ||
             document.Executables.Distinct(StringComparer.OrdinalIgnoreCase).Count() != document.Executables.Count ||
             document.Shortcuts is not { Count: <= 512 })
@@ -119,6 +112,7 @@ public static class RulePackReader
                 !ShortcutGesture.TryParse(item.Gesture, out var gesture) ||
                 !IsText(item.Function, 160) ||
                 !TryParseScope(item.Scope, out var scope) ||
+                isWindowsSystem != (scope == ShortcutScope.WindowsSystem) ||
                 !TryParseConfidence(item.Confidence, out var confidence) ||
                 item.Sources is { Count: > 8 } ||
                 item.Sources is not null && item.Sources.Any(source => !IsWebSource(source)))
@@ -129,7 +123,6 @@ public static class RulePackReader
             shortcuts.Add(new ShortcutRule(gesture, item.Function, scope, confidence)
             {
                 Sources = item.Sources?.ToArray() ?? [],
-                Origin = isUnsignedLocal ? RuleOrigin.LocalUnsigned : RuleOrigin.SignedRulePack,
             });
         }
 

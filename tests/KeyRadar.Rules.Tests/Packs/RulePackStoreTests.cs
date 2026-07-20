@@ -49,27 +49,28 @@ public sealed class RulePackStoreTests
     }
 
     [Fact]
-    public void Unsigned_local_pack_can_be_imported_exported_and_removed_without_execution()
+    public void Rollback_rejects_a_signed_pack_with_the_wrong_identity()
     {
-        var root = Path.Combine(Path.GetTempPath(), $"KeyRadar-LocalRules-{Guid.NewGuid():N}");
+        var root = Path.Combine(Path.GetTempPath(), $"KeyRadar-Rules-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
-        using var key = Key.Create(SignatureAlgorithm.Ed25519);
-        var candidate = Path.Combine(root, "candidate.krpack");
-        var exported = Path.Combine(root, "exported.krpack");
+        using var key = Key.Create(SignatureAlgorithm.Ed25519, new KeyCreationParameters
+        {
+            ExportPolicy = KeyExportPolicies.AllowPlaintextExport,
+        });
 
         try
         {
-            CreatePack(candidate, "local.1", key, unsigned: true);
+            var previous = Path.Combine(root, RulePackStore.PreviousFileName);
+            CreatePack(previous, "1.0.0", key, "example.not-keyradar");
 
-            var imported = LocalRulePackStore.Import(candidate, root);
-            var export = LocalRulePackStore.Export(root, exported);
-            var removed = LocalRulePackStore.Remove(root);
+            var rollback = RulePackStore.Rollback(
+                root,
+                key.PublicKey.Export(KeyBlobFormat.RawPublicKey));
 
-            Assert.True(imported.IsSuccess, imported.Message);
-            Assert.True(export.IsSuccess, export.Message);
-            Assert.True(File.Exists(exported));
-            Assert.True(removed.IsSuccess, removed.Message);
-            Assert.False(File.Exists(Path.Combine(root, LocalRulePackStore.ActiveFileName)));
+            Assert.False(rollback.IsSuccess);
+            Assert.Contains("not the official", rollback.Message, StringComparison.Ordinal);
+            Assert.True(File.Exists(previous));
+            Assert.False(File.Exists(Path.Combine(root, RulePackStore.ActiveFileName)));
         }
         finally
         {
@@ -85,7 +86,11 @@ public sealed class RulePackStoreTests
         return result.Pack!.Version;
     }
 
-    private static void CreatePack(string path, string version, Key key, bool unsigned = false)
+    private static void CreatePack(
+        string path,
+        string version,
+        Key key,
+        string packId = OfficialRulePack.PackId)
     {
         var ruleBytes = Encoding.UTF8.GetBytes("""
             {"schemaVersion":1,"applicationId":"wechat","displayName":"微信","executables":["WeChat.exe"],"shortcuts":[]}
@@ -93,7 +98,7 @@ public sealed class RulePackStoreTests
         var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(new
         {
             schemaVersion = 1,
-            packId = "keyradar.test",
+            packId,
             version,
             files = new[]
             {
@@ -110,10 +115,7 @@ public sealed class RulePackStoreTests
         using var archive = new ZipArchive(stream, ZipArchiveMode.Create);
         WriteEntry(archive, "manifest.json", manifestBytes);
         WriteEntry(archive, "rules/wechat.json", ruleBytes);
-        if (!unsigned)
-        {
-            WriteEntry(archive, "signature.ed25519", Encoding.ASCII.GetBytes(Convert.ToBase64String(signature)));
-        }
+        WriteEntry(archive, "signature.ed25519", Encoding.ASCII.GetBytes(Convert.ToBase64String(signature)));
     }
 
     private static void WriteEntry(ZipArchive archive, string path, byte[] content)

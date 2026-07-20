@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "wecom",
+  "displayName": "企业微信",
+  "executables": [
+    "WXWork.exe"
+  ],
+  "shortcuts": []
+}

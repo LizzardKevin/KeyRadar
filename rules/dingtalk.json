@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "dingtalk",
+  "displayName": "钉钉",
+  "executables": [
+    "DingTalk.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Ctrl+Shift+A",
+      "function": "截图（默认键，可在钉钉中修改）",
+      "scope": "global",
+      "confidence": "suspected"
+    }
+  ]
+}

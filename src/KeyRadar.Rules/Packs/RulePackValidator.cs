@@ -17,9 +17,6 @@ public static class RulePackValidator
     public static RulePackValidationResult Validate(Stream packageStream, ReadOnlySpan<byte> publicKeyBytes)
         => ValidateInternal(packageStream, publicKeyBytes, requireSignature: true);
 
-    public static RulePackValidationResult ValidateUnsignedLocal(Stream packageStream)
-        => ValidateInternal(packageStream, [], requireSignature: false);
-
     private static RulePackValidationResult ValidateInternal(
         Stream packageStream,
         ReadOnlySpan<byte> publicKeyBytes,
@@ -42,9 +39,7 @@ public static class RulePackValidator
             {
                 return RulePackValidationResult.Failure(
                     RulePackValidationError.MissingManifest,
-                    requireSignature
-                        ? "The package must contain manifest.json and signature.ed25519."
-                        : "The local package must contain manifest.json.");
+                    "The package must contain manifest.json and signature.ed25519.");
             }
 
             var manifestBytes = ReadEntry(manifestEntry, MaximumManifestBytes);

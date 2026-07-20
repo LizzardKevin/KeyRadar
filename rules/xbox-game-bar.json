@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "xbox-game-bar",
+  "displayName": "Xbox Game Bar",
+  "executables": [
+    "GameBar.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Win+G",
+      "function": "打开 Xbox Game Bar",
+      "scope": "global",
+      "confidence": "systemKnown"
+    },
+    {
+      "gesture": "Win+Alt+R",
+      "function": "开始或停止录制",
+      "scope": "global",
+      "confidence": "systemKnown"
+    }
+  ]
+}

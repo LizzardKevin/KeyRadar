@@ -60,17 +60,16 @@ public sealed class RulePackReaderTests
     }
 
     [Fact]
-    public void Unsigned_local_pack_is_loaded_and_every_shortcut_is_visibly_marked()
+    public void Signed_source_pack_uses_the_same_reader_as_runtime()
     {
         var package = CreatePack(
-            true,
             ("wechat", ValidRule("wechat", "本地微信规则", "WeChat.exe")));
 
-        var result = RulePackReader.ReadUnsignedLocal(package.Stream);
+        var result = RulePackReader.Read(package.Stream, package.PublicKey);
 
         Assert.True(result.IsSuccess, result.Message);
         var shortcut = Assert.Single(Assert.Single(result.Pack!.Applications).Shortcuts);
-        Assert.Equal(RuleOrigin.LocalUnsigned, shortcut.Origin);
+        Assert.Equal("截图", shortcut.Function);
     }
 
     private static byte[] ValidRule(string id, string displayName, string executable) =>
@@ -94,9 +93,9 @@ public sealed class RulePackReaderTests
         });
 
     private static TestPack CreatePack(params (string FileName, byte[] Content)[] rules) =>
-        CreatePack(false, rules);
+        CreateSignedPack(rules);
 
-    private static TestPack CreatePack(bool unsigned, params (string FileName, byte[] Content)[] rules)
+    private static TestPack CreateSignedPack(params (string FileName, byte[] Content)[] rules)
     {
         var files = rules.Select(rule => new
         {
@@ -128,10 +127,7 @@ public sealed class RulePackReaderTests
                 WriteEntry(archive, $"rules/{rule.FileName}.json", rule.Content);
             }
 
-            if (!unsigned)
-            {
-                WriteEntry(archive, "signature.ed25519", Encoding.ASCII.GetBytes(Convert.ToBase64String(signature)));
-            }
+            WriteEntry(archive, "signature.ed25519", Encoding.ASCII.GetBytes(Convert.ToBase64String(signature)));
         }
 
         stream.Position = 0;

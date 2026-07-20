@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "potplayer",
+  "displayName": "PotPlayer",
+  "executables": [
+    "PotPlayerMini64.exe",
+    "PotPlayerMini.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Space",
+      "function": "播放或暂停",
+      "scope": "application",
+      "confidence": "systemKnown"
+    },
+    {
+      "gesture": "Enter",
+      "function": "切换全屏",
+      "scope": "application",
+      "confidence": "systemKnown"
+    },
+    {
+      "gesture": "Ctrl+O",
+      "function": "打开文件",
+      "scope": "application",
+      "confidence": "systemKnown"
+    }
+  ]
+}

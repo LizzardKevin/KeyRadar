@@ -59,7 +59,12 @@ public sealed partial class MainPage : Page
         _latestSnapshots = snapshots;
         var catalog = RuntimeRuleCatalog.Current;
         var availabilityProbe = new GlobalHotkeyAvailabilityProbe(new Win32HotkeyRegistrationApi());
-        var groups = new List<ApplicationGroupViewModel> { CreateWindowsGroup() };
+        var groups = new List<ApplicationGroupViewModel>();
+        var windowsRules = catalog.FirstOrDefault(rule => rule.Id == "windows-system");
+        if (windowsRules is not null)
+        {
+            groups.Add(CreateWindowsGroup(windowsRules));
+        }
         var occupiedGlobalShortcutCount = 0;
 
         var matched = snapshots
@@ -115,8 +120,7 @@ public sealed partial class MainPage : Page
                         shortcut.Confidence,
                         process.Id,
                         availabilityLabel,
-                        shortcut.Sources,
-                        shortcut.Origin);
+                        shortcut.Sources);
                 }).ToArray(),
                 process.Id));
         }
@@ -151,43 +155,32 @@ public sealed partial class MainPage : Page
 
         ApplyFilter(SearchBox.Text);
 
-        var appCount = Math.Max(0, _allGroups.Count - 1);
+        var appCount = _allGroups.Count(group => group.Id != "windows-system");
         var shortcutCount = _allGroups.Sum(group => group.Shortcuts.Count);
         SummaryText.Text = $"识别 {appCount} 个运行中的支持应用 · {shortcutCount} 个可用快捷键 · {occupiedGlobalShortcutCount} 个全局占用";
         ScanStatusText.Text = "被动监听已就绪；按键功能将正常执行";
         ScanProgress.IsActive = false;
-        ExportLocalRulesMenuItem.IsEnabled = RuntimeRuleCatalog.HasLocalPack;
-        RemoveLocalRulesMenuItem.IsEnabled = RuntimeRuleCatalog.HasLocalPack;
+        RuleStatusInfoBar.IsOpen = !RuntimeRuleCatalog.IsAvailable;
+        RuleStatusInfoBar.Message = RuntimeRuleCatalog.StatusMessage;
     }
 
-    private static ApplicationGroupViewModel CreateWindowsGroup()
+    private static ApplicationGroupViewModel CreateWindowsGroup(ApplicationRuleSet rules)
     {
-        var systemShortcuts = new[]
-        {
-            SystemShortcut("Win+Shift+S", "打开截图工具"),
-            SystemShortcut("Alt+Tab", "切换窗口"),
-            SystemShortcut("Win+V", "剪贴板历史记录"),
-            SystemShortcut("Win+L", "锁定电脑"),
-            SystemShortcut("Win+G", "打开 Xbox Game Bar"),
-        };
-
         return new ApplicationGroupViewModel(
             "windows-system",
-            "Windows 系统",
+            rules.DisplayName,
             "系统级",
-            "微软系统快捷键规则 · 默认折叠",
+            "官方签名规则包 · 默认折叠",
             "\uE782",
             false,
-            systemShortcuts);
+            rules.Shortcuts.Select(shortcut => ShortcutRowViewModel.Create(
+                shortcut.Gesture.ToString(),
+                shortcut.Function,
+                shortcut.Scope,
+                shortcut.Confidence,
+                processId: 0,
+                sources: shortcut.Sources)).ToArray());
     }
-
-    private static ShortcutRowViewModel SystemShortcut(string gesture, string function) =>
-        ShortcutRowViewModel.Create(
-            ShortcutGesture.Parse(gesture).ToString(),
-            function,
-            ShortcutScope.WindowsSystem,
-            OwnershipConfidence.SystemKnown,
-            processId: 0);
 
     private static string BuildEvidenceSummary(ProcessDescriptor process)
     {
@@ -209,7 +202,7 @@ public sealed partial class MainPage : Page
 
         return string.Join(
             " · ",
-            new[] { process.ExecutableName, architecture, privilege, publisher, version, "内置规则证据" }
+            new[] { process.ExecutableName, architecture, privilege, publisher, version, "官方签名规则包" }
                 .Where(value => !string.IsNullOrWhiteSpace(value)));
     }
 
@@ -353,13 +346,13 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private async void ImportLocalRulesButton_Click(object sender, RoutedEventArgs e)
+    private async void ImportOfficialRulesButton_Click(object sender, RoutedEventArgs e)
     {
         var warning = new ContentDialog
         {
             XamlRoot = XamlRoot,
-            Title = "导入未签名本地规则",
-            Content = "KeyRadar 只会读取你选择的 .krpack 文件，以及包内 manifest.json 和 rules/*.json；不会读取规则中提到的其他路径，也不会执行 EXE、DLL 或脚本。导入后的条目会明确标记为“未签名本地规则”，并优先于官方规则。",
+            Title = "导入官方签名规则包",
+            Content = "KeyRadar 只读取你选择的 .krpack，并校验内置公钥、包身份、清单哈希和 rules/*.json。EXE、DLL、脚本、未知签名或非官方包都会被拒绝。成功后当前规则会保留为上一版，以便主动回滚。",
             PrimaryButtonText = "选择文件",
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Primary,
@@ -380,7 +373,10 @@ public sealed partial class MainPage : Page
             return;
         }
 
-        var import = LocalRulePackStore.Import(file.Path, RuntimeRuleCatalog.RulesDirectory);
+        var import = RulePackStore.Activate(
+            file.Path,
+            RuntimeRuleCatalog.RulesDirectory,
+            OfficialReleaseKey.GetBytes());
         if (import.IsSuccess)
         {
             RuntimeRuleCatalog.Reload();
@@ -388,60 +384,10 @@ public sealed partial class MainPage : Page
         }
 
         await ShowUpdateMessageAsync(
-            import.IsSuccess ? "本地规则已导入" : "本地规则未导入",
+            import.IsSuccess ? "官方规则已导入" : "规则包未导入",
             import.IsSuccess
-                ? $"未签名本地规则包 {import.ActiveVersion} 已启用，所有条目均带有醒目标记。"
+                ? $"官方签名规则包 {import.ActiveVersion} 已启用。"
                 : import.Message);
-    }
-
-    private async void ExportLocalRulesButton_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new global::Windows.Storage.Pickers.FileSavePicker
-        {
-            SuggestedFileName = "KeyRadar-Local-Rules",
-        };
-        picker.FileTypeChoices.Add("KeyRadar 本地规则包", [".krpack"]);
-        WinRT.Interop.InitializeWithWindow.Initialize(
-            picker,
-            ((App)Application.Current).GetMainWindowHandle());
-        var file = await picker.PickSaveFileAsync();
-        if (file is null)
-        {
-            return;
-        }
-
-        var export = LocalRulePackStore.Export(RuntimeRuleCatalog.RulesDirectory, file.Path);
-        await ShowUpdateMessageAsync(
-            export.IsSuccess ? "本地规则已导出" : "无法导出本地规则",
-            export.Message);
-    }
-
-    private async void RemoveLocalRulesButton_Click(object sender, RoutedEventArgs e)
-    {
-        var confirmation = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = "移除未签名本地规则？",
-            Content = "移除后将恢复使用官方签名规则包和内置规则；本地包会保留为上一版备份。",
-            PrimaryButtonText = "移除",
-            CloseButtonText = "取消",
-            DefaultButton = ContentDialogButton.Close,
-        };
-        if (await confirmation.ShowAsync() != ContentDialogResult.Primary)
-        {
-            return;
-        }
-
-        var removal = LocalRulePackStore.Remove(RuntimeRuleCatalog.RulesDirectory);
-        if (removal.IsSuccess)
-        {
-            RuntimeRuleCatalog.Reload();
-            await ScanAsync();
-        }
-
-        await ShowUpdateMessageAsync(
-            removal.IsSuccess ? "本地规则已移除" : "无法移除本地规则",
-            removal.Message);
     }
 
     private async void ExportDiagnosticsButton_Click(object sender, RoutedEventArgs e)

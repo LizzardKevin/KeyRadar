@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "sogou-ime",
+  "displayName": "搜狗输入法",
+  "executables": [
+    "SogouPY.exe",
+    "SogouCloud.exe"
+  ],
+  "shortcuts": []
+}

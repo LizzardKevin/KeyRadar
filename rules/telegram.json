@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "telegram",
+  "displayName": "Telegram",
+  "executables": [
+    "Telegram.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Ctrl+F",
+      "function": "搜索当前会话",
+      "scope": "application",
+      "confidence": "systemKnown"
+    },
+    {
+      "gesture": "Ctrl+K",
+      "function": "快速选择会话",
+      "scope": "application",
+      "confidence": "suspected"
+    }
+  ]
+}

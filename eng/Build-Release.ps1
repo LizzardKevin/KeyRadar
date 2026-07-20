@@ -94,9 +94,44 @@ Reproduce: ./eng/Build-Release.ps1 -Version v$normalizedVersion
     & $DotNetPath run --project eng/KeyRadar.ReleaseTool/KeyRadar.ReleaseTool.csproj -c Release -- `
         --version $normalizedVersion `
         --staging $stagingPath `
+        --rules (Join-Path $repositoryRoot "rules") `
         --output $outputPath `
         --published-at $publishedAt
     if ($LASTEXITCODE -ne 0) { throw "Release asset signing failed." }
+
+    $applicationAsset = Join-Path $outputPath "KeyRadar-v$normalizedVersion-windows-x64.zip"
+    $ruleAssetName = "KeyRadar-Rules-v$normalizedVersion.krpack"
+    $ruleAsset = Join-Path $outputPath $ruleAssetName
+    if (-not (Test-Path -LiteralPath $applicationAsset) -or -not (Test-Path -LiteralPath $ruleAsset)) {
+        throw "Release output is missing the application ZIP or official rule pack."
+    }
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($applicationAsset)
+    try {
+        $embeddedRuleEntries = @($archive.Entries | Where-Object { $_.FullName -like "*.krpack" })
+        if ($embeddedRuleEntries.Count -ne 1 -or $embeddedRuleEntries[0].FullName -ne $ruleAssetName) {
+            throw "The application ZIP must contain exactly the version-matched official rule pack."
+        }
+
+        $entryStream = $embeddedRuleEntries[0].Open()
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $embeddedHash = [BitConverter]::ToString($sha256.ComputeHash($entryStream)).Replace("-", "")
+        }
+        finally {
+            $sha256.Dispose()
+            $entryStream.Dispose()
+        }
+
+        $standaloneHash = (Get-FileHash -LiteralPath $ruleAsset -Algorithm SHA256).Hash
+        if ($embeddedHash -ne $standaloneHash) {
+            throw "The rule pack inside the application ZIP differs from the standalone Release asset."
+        }
+    }
+    finally {
+        $archive.Dispose()
+    }
 }
 finally {
     Pop-Location

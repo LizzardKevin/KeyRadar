@@ -2,8 +2,6 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using KeyRadar.Conflicts;
-using KeyRadar.Rules;
 using KeyRadar.Rules.Packs;
 using NSec.Cryptography;
 
@@ -28,6 +26,7 @@ internal static class Program
             var version = Required(options, "version");
             var stagingDirectory = ExistingDirectory(Required(options, "staging"));
             var outputDirectory = Path.GetFullPath(Required(options, "output"));
+            var rulesDirectory = ExistingDirectory(Required(options, "rules"));
             var publishedAt = DateTimeOffset.Parse(
                 Required(options, "published-at"),
                 System.Globalization.CultureInfo.InvariantCulture,
@@ -40,8 +39,17 @@ internal static class Program
 
             Directory.CreateDirectory(outputDirectory);
             using var signingKey = ImportSigningKey(privateKeyText);
+            var ruleAssetPath = BuildRuleRelease(
+                version,
+                rulesDirectory,
+                outputDirectory,
+                publishedAt,
+                signingKey);
+            File.Copy(
+                ruleAssetPath,
+                Path.Combine(stagingDirectory, Path.GetFileName(ruleAssetPath)),
+                overwrite: true);
             BuildApplicationRelease(version, stagingDirectory, outputDirectory, publishedAt, signingKey);
-            BuildRuleRelease(version, outputDirectory, publishedAt, signingKey);
             File.WriteAllText(
                 Path.Combine(outputDirectory, "keyradar-ed25519-public-key.txt"),
                 Convert.ToBase64String(signingKey.PublicKey.Export(KeyBlobFormat.RawPublicKey)) + "\n",
@@ -80,37 +88,28 @@ internal static class Program
         WriteSignedJson("keyradar-latest", manifest, outputDirectory, signingKey);
     }
 
-    private static void BuildRuleRelease(
+    private static string BuildRuleRelease(
         string version,
+        string rulesDirectory,
         string outputDirectory,
         DateTimeOffset publishedAt,
         Key signingKey)
     {
-        var ruleDocuments = BuiltInRuleCatalog.Load()
-            .OrderBy(application => application.Id, StringComparer.Ordinal)
-            .Select(application => new RuleDocument(
-                application.Id,
-                JsonSerializer.SerializeToUtf8Bytes(new
-                {
-                    schemaVersion = 1,
-                    applicationId = application.Id,
-                    application.DisplayName,
-                    executables = application.ExecutableNames,
-                    shortcuts = application.Shortcuts.Select(shortcut => new
-                    {
-                        gesture = shortcut.Gesture.ToString(),
-                        shortcut.Function,
-                        scope = ScopeName(shortcut.Scope),
-                        confidence = ConfidenceName(shortcut.Confidence),
-                        sources = shortcut.Sources,
-                    }),
-                }, JsonOptions)))
+        var ruleDocuments = Directory.EnumerateFiles(rulesDirectory, "*.json", SearchOption.TopDirectoryOnly)
+            .OrderBy(path => Path.GetFileName(path), StringComparer.Ordinal)
+            .Select(path => new RuleDocument(
+                Path.GetFileNameWithoutExtension(path),
+                File.ReadAllBytes(path)))
             .ToArray();
+        if (ruleDocuments.Length != 51)
+        {
+            throw new InvalidDataException("The official source must contain 50 application rules and one Windows system rule.");
+        }
 
         var packManifest = new
         {
             schemaVersion = 1,
-            packId = "io.github.lizzardkevin.keyradar.official",
+            packId = OfficialRulePack.PackId,
             version,
             files = ruleDocuments.Select(rule => new
             {
@@ -125,10 +124,10 @@ internal static class Program
         CreateRulePack(assetPath, packManifestBytes, packSignature, ruleDocuments);
         using (var packageStream = File.OpenRead(assetPath))
         {
-            var validation = RulePackValidator.Validate(
+            var validation = RulePackReader.Read(
                 packageStream,
                 signingKey.PublicKey.Export(KeyBlobFormat.RawPublicKey));
-            if (!validation.IsValid)
+            if (!validation.IsSuccess || validation.Pack!.Applications.Count != 51)
             {
                 throw new InvalidDataException($"Generated rule pack is invalid: {validation.Message}");
             }
@@ -140,7 +139,7 @@ internal static class Program
         var latestManifest = new
         {
             schemaVersion = 1,
-            packId = "io.github.lizzardkevin.keyradar.official",
+            packId = OfficialRulePack.PackId,
             version,
             assetName,
             downloadUrl = $"https://github.com/LizzardKevin/KeyRadar/releases/download/v{version}/{assetName}",
@@ -148,6 +147,7 @@ internal static class Program
             publishedAtUtc = publishedAt.ToUniversalTime(),
         };
         WriteSignedJson("keyradar-rules-latest", latestManifest, outputDirectory, signingKey);
+        return assetPath;
     }
 
     private static void CreateDeterministicZip(string sourceDirectory, string outputPath)
@@ -246,24 +246,6 @@ internal static class Program
 
         return fullPath;
     }
-
-    private static string ScopeName(ShortcutScope scope) => scope switch
-    {
-        ShortcutScope.Application => "application",
-        ShortcutScope.Global => "global",
-        ShortcutScope.WindowsSystem => "windowsSystem",
-        _ => throw new InvalidOperationException($"Unsupported shortcut scope: {scope}"),
-    };
-
-    private static string ConfidenceName(OwnershipConfidence confidence) => confidence switch
-    {
-        OwnershipConfidence.Configuration => "configuration",
-        OwnershipConfidence.SystemKnown => "systemKnown",
-        OwnershipConfidence.Suspected => "suspected",
-        OwnershipConfidence.Confirmed => "confirmed",
-        OwnershipConfidence.Unknown => "suspected",
-        _ => throw new InvalidOperationException($"Unsupported confidence: {confidence}"),
-    };
 
     private sealed record RuleDocument(string ApplicationId, byte[] Content);
 }

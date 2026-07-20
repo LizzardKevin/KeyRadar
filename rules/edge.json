@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "edge",
+  "displayName": "Microsoft Edge",
+  "executables": [
+    "msedge.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Ctrl+L",
+      "function": "定位地址栏",
+      "scope": "application",
+      "confidence": "systemKnown",
+      "sources": [
+        "https://support.microsoft.com/edge/keyboard-shortcuts-in-microsoft-edge"
+      ]
+    },
+    {
+      "gesture": "Ctrl+Shift+T",
+      "function": "恢复关闭的标签页",
+      "scope": "application",
+      "confidence": "systemKnown",
+      "sources": [
+        "https://support.microsoft.com/edge/keyboard-shortcuts-in-microsoft-edge"
+      ]
+    },
+    {
+      "gesture": "Ctrl+W",
+      "function": "关闭当前标签页",
+      "scope": "application",
+      "confidence": "systemKnown",
+      "sources": [
+        "https://support.microsoft.com/edge/keyboard-shortcuts-in-microsoft-edge"
+      ]
+    },
+    {
+      "gesture": "F12",
+      "function": "打开开发人员工具",
+      "scope": "application",
+      "confidence": "systemKnown",
+      "sources": [
+        "https://support.microsoft.com/edge/keyboard-shortcuts-in-microsoft-edge"
+      ]
+    }
+  ]
+}

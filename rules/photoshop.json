@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "photoshop",
+  "displayName": "Adobe Photoshop",
+  "executables": [
+    "Photoshop.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Ctrl+T",
+      "function": "自由变换",
+      "scope": "application",
+      "confidence": "systemKnown"
+    },
+    {
+      "gesture": "Ctrl+J",
+      "function": "复制图层",
+      "scope": "application",
+      "confidence": "systemKnown"
+    },
+    {
+      "gesture": "B",
+      "function": "画笔工具",
+      "scope": "application",
+      "confidence": "systemKnown"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "intel-graphics",
+  "displayName": "Intel Graphics Software",
+  "executables": [
+    "IntelGraphicsSoftware.exe"
+  ],
+  "shortcuts": []
+}

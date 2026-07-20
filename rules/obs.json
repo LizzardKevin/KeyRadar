@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "obs",
+  "displayName": "OBS Studio",
+  "executables": [
+    "obs64.exe",
+    "obs32.exe"
+  ],
+  "shortcuts": []
+}

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "wechat",
+  "displayName": "微信",
+  "executables": [
+    "WeChat.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Alt+A",
+      "function": "截图",
+      "scope": "global",
+      "confidence": "configuration"
+    },
+    {
+      "gesture": "Ctrl+Alt+W",
+      "function": "打开微信",
+      "scope": "global",
+      "confidence": "configuration"
+    }
+  ]
+}

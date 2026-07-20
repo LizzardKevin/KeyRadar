@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "autohotkey",
+  "displayName": "AutoHotkey",
+  "executables": [
+    "AutoHotkey.exe",
+    "AutoHotkey64.exe",
+    "AutoHotkey32.exe"
+  ],
+  "shortcuts": []
+}

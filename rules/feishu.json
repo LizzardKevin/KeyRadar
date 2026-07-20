@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "feishu",
+  "displayName": "飞书",
+  "executables": [
+    "Feishu.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Ctrl+Shift+A",
+      "function": "截图（默认键，可在飞书中修改）",
+      "scope": "global",
+      "confidence": "suspected"
+    }
+  ]
+}

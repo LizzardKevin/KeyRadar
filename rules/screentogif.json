@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "screentogif",
+  "displayName": "ScreenToGif",
+  "executables": [
+    "ScreenToGif.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "F7",
+      "function": "录制或暂停",
+      "scope": "application",
+      "confidence": "systemKnown"
+    },
+    {
+      "gesture": "F8",
+      "function": "停止录制",
+      "scope": "application",
+      "confidence": "systemKnown"
+    }
+  ]
+}

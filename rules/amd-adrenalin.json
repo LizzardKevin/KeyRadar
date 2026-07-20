@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "amd-adrenalin",
+  "displayName": "AMD Software: Adrenalin Edition",
+  "executables": [
+    "RadeonSoftware.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Alt+R",
+      "function": "打开 Radeon 覆盖层（默认键，可修改）",
+      "scope": "global",
+      "confidence": "suspected"
+    }
+  ]
+}

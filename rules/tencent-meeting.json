@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "tencent-meeting",
+  "displayName": "腾讯会议",
+  "executables": [
+    "wemeetapp.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Alt+M",
+      "function": "静音或解除静音",
+      "scope": "application",
+      "confidence": "suspected"
+    },
+    {
+      "gesture": "Alt+V",
+      "function": "开启或关闭视频",
+      "scope": "application",
+      "confidence": "suspected"
+    }
+  ]
+}

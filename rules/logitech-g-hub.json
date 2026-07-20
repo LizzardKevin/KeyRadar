@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "logitech-g-hub",
+  "displayName": "Logitech G HUB",
+  "executables": [
+    "lghub.exe"
+  ],
+  "shortcuts": []
+}

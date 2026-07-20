@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "utools",
+  "displayName": "uTools",
+  "executables": [
+    "uTools.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Alt+Space",
+      "function": "呼出 uTools（默认键，可修改）",
+      "scope": "global",
+      "confidence": "suspected"
+    }
+  ]
+}

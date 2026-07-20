@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "chrome",
+  "displayName": "Google Chrome",
+  "executables": [
+    "chrome.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Ctrl+L",
+      "function": "定位地址栏",
+      "scope": "application",
+      "confidence": "systemKnown",
+      "sources": [
+        "https://support.google.com/chrome/answer/157179"
+      ]
+    },
+    {
+      "gesture": "Ctrl+Shift+T",
+      "function": "恢复关闭的标签页",
+      "scope": "application",
+      "confidence": "systemKnown",
+      "sources": [
+        "https://support.google.com/chrome/answer/157179"
+      ]
+    },
+    {
+      "gesture": "Ctrl+W",
+      "function": "关闭标签页",
+      "scope": "application",
+      "confidence": "systemKnown",
+      "sources": [
+        "https://support.google.com/chrome/answer/157179"
+      ]
+    },
+    {
+      "gesture": "F6",
+      "function": "切换焦点区域",
+      "scope": "application",
+      "confidence": "systemKnown",
+      "sources": [
+        "https://support.google.com/chrome/answer/157179"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "corsair-icue",
+  "displayName": "Corsair iCUE",
+  "executables": [
+    "iCUE.exe"
+  ],
+  "shortcuts": []
+}

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "notepad-plus-plus",
+  "displayName": "Notepad++",
+  "executables": [
+    "notepad++.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Ctrl+F",
+      "function": "查找",
+      "scope": "application",
+      "confidence": "systemKnown"
+    },
+    {
+      "gesture": "Ctrl+H",
+      "function": "替换",
+      "scope": "application",
+      "confidence": "systemKnown"
+    },
+    {
+      "gesture": "Ctrl+G",
+      "function": "转到行",
+      "scope": "application",
+      "confidence": "systemKnown"
+    }
+  ]
+}

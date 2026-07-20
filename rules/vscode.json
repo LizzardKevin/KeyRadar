@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "vscode",
+  "displayName": "Visual Studio Code",
+  "executables": [
+    "Code.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Ctrl+P",
+      "function": "快速打开文件",
+      "scope": "application",
+      "confidence": "systemKnown",
+      "sources": [
+        "https://code.visualstudio.com/docs/reference/default-keybindings"
+      ]
+    },
+    {
+      "gesture": "Ctrl+Shift+P",
+      "function": "显示命令面板",
+      "scope": "application",
+      "confidence": "systemKnown",
+      "sources": [
+        "https://code.visualstudio.com/docs/reference/default-keybindings"
+      ]
+    },
+    {
+      "gesture": "F1",
+      "function": "显示命令面板",
+      "scope": "application",
+      "confidence": "systemKnown",
+      "sources": [
+        "https://code.visualstudio.com/docs/reference/default-keybindings"
+      ]
+    },
+    {
+      "gesture": "F5",
+      "function": "开始调试",
+      "scope": "application",
+      "confidence": "systemKnown",
+      "sources": [
+        "https://code.visualstudio.com/docs/reference/default-keybindings"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "visual-studio",
+  "displayName": "Visual Studio",
+  "executables": [
+    "devenv.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Ctrl+Q",
+      "function": "搜索 Visual Studio",
+      "scope": "application",
+      "confidence": "systemKnown"
+    },
+    {
+      "gesture": "F5",
+      "function": "启动调试",
+      "scope": "application",
+      "confidence": "systemKnown"
+    },
+    {
+      "gesture": "Ctrl+Alt+L",
+      "function": "打开解决方案资源管理器",
+      "scope": "application",
+      "confidence": "systemKnown"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "sharex",
+  "displayName": "ShareX",
+  "executables": [
+    "ShareX.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "PrintScreen",
+      "function": "捕获整个屏幕（默认键，可修改）",
+      "scope": "global",
+      "confidence": "suspected"
+    },
+    {
+      "gesture": "Ctrl+PrintScreen",
+      "function": "捕获区域（默认键，可修改）",
+      "scope": "global",
+      "confidence": "suspected"
+    },
+    {
+      "gesture": "Alt+PrintScreen",
+      "function": "捕获活动窗口（默认键，可修改）",
+      "scope": "global",
+      "confidence": "suspected"
+    }
+  ]
+}

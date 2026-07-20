@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "razer-synapse",
+  "displayName": "Razer Synapse",
+  "executables": [
+    "Razer Synapse 3.exe",
+    "RazerAppEngine.exe"
+  ],
+  "shortcuts": []
+}

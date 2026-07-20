@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "bandicam",
+  "displayName": "Bandicam",
+  "executables": [
+    "bdcam.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "F12",
+      "function": "开始或停止录制（默认键，可修改）",
+      "scope": "global",
+      "confidence": "suspected"
+    },
+    {
+      "gesture": "F11",
+      "function": "截图（默认键，可修改）",
+      "scope": "global",
+      "confidence": "suspected"
+    }
+  ]
+}

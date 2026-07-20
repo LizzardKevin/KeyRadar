@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "powertoys",
+  "displayName": "Microsoft PowerToys",
+  "executables": [
+    "PowerToys.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Alt+Space",
+      "function": "打开 PowerToys Run（默认键，可修改）",
+      "scope": "global",
+      "confidence": "suspected",
+      "sources": [
+        "https://learn.microsoft.com/windows/powertoys/run"
+      ]
+    },
+    {
+      "gesture": "Win+Shift+C",
+      "function": "打开颜色选取器（默认键，可修改）",
+      "scope": "global",
+      "confidence": "suspected",
+      "sources": [
+        "https://learn.microsoft.com/windows/powertoys/color-picker"
+      ]
+    }
+  ]
+}

@@ -18,9 +18,10 @@ public static class RulePackStore
         try
         {
             var candidate = Read(candidateFullPath, publicKeyBytes);
-            if (!candidate.IsSuccess)
+            if (!candidate.IsSuccess || candidate.Pack!.PackId != OfficialRulePack.PackId)
             {
-                return RulePackStoreResult.Failure(candidate.Message);
+                return RulePackStoreResult.Failure(
+                    candidate.IsSuccess ? "The signed rule pack is not the official KeyRadar pack." : candidate.Message);
             }
 
             Directory.CreateDirectory(rulesRoot);
@@ -31,7 +32,7 @@ public static class RulePackStore
             {
                 File.Copy(candidateFullPath, stagedPath, overwrite: false);
                 var staged = Read(stagedPath, publicKeyBytes);
-                if (!staged.IsSuccess)
+                if (!staged.IsSuccess || staged.Pack!.PackId != OfficialRulePack.PackId)
                 {
                     return RulePackStoreResult.Failure("The staged rule pack changed during activation.");
                 }
@@ -79,9 +80,12 @@ public static class RulePackStore
             }
 
             var previous = Read(previousPath, publicKeyBytes);
-            if (!previous.IsSuccess)
+            if (!previous.IsSuccess || previous.Pack!.PackId != OfficialRulePack.PackId)
             {
-                return RulePackStoreResult.Failure("The previous rule pack failed signature validation.");
+                return RulePackStoreResult.Failure(
+                    previous.IsSuccess
+                        ? "The previous signed rule pack is not the official KeyRadar pack."
+                        : "The previous rule pack failed signature validation.");
             }
 
             File.Delete(swappedPath);

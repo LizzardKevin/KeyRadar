@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "flow-launcher",
+  "displayName": "Flow Launcher",
+  "executables": [
+    "Flow.Launcher.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Alt+Space",
+      "function": "打开 Flow Launcher（默认键，可修改）",
+      "scope": "global",
+      "confidence": "suspected"
+    }
+  ]
+}

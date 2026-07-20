@@ -10,7 +10,7 @@ namespace KeyRadar.Rules.Updates;
 
 public sealed class RuleUpdateClient
 {
-    public const string OfficialPackId = "io.github.lizzardkevin.keyradar.official";
+    public const string OfficialPackId = OfficialRulePack.PackId;
 
     private const int MaximumManifestBytes = 256 * 1024;
     private const int MaximumSignatureTextBytes = 1024;

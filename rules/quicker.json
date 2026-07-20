@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "quicker",
+  "displayName": "Quicker",
+  "executables": [
+    "Quicker.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Ctrl+Shift+Space",
+      "function": "呼出 Quicker 面板（默认键，可修改）",
+      "scope": "global",
+      "confidence": "suspected"
+    }
+  ]
+}

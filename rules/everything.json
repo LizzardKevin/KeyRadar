@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "everything",
+  "displayName": "Everything",
+  "executables": [
+    "Everything.exe"
+  ],
+  "shortcuts": [
+    {
+      "gesture": "Ctrl+F",
+      "function": "聚焦搜索框",
+      "scope": "application",
+      "confidence": "systemKnown"
+    },
+    {
+      "gesture": "F5",
+      "function": "刷新索引结果",
+      "scope": "application",
+      "confidence": "systemKnown"
+    }
+  ]
+}
