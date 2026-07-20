@@ -1,0 +1,57 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "zoom",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Zoom",
+                        "en-US":  "Zoom"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "Zoom.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Alt+A",
+                        "function":  {
+                                         "zh-CN":  "静音或解除静音"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.zoom.com/hc/en/article?id=zm_kb\u0026sysparm_article=KB0067050"
+                                    ]
+                    },
+                    {
+                        "gesture":  "Alt+V",
+                        "function":  {
+                                         "zh-CN":  "开始或停止视频"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.zoom.com/hc/en/article?id=zm_kb\u0026sysparm_article=KB0067050"
+                                    ]
+                    },
+                    {
+                        "gesture":  "Alt+M",
+                        "function":  {
+                                         "zh-CN":  "为除主持人外的所有人静音（仅主持人）"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.zoom.com/hc/en/article?id=zm_kb\u0026sysparm_article=KB0067050"
+                                    ]
+                    }
+                ]
+}

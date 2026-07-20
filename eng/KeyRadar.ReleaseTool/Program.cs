@@ -98,22 +98,22 @@ internal static class Program
         var ruleDocuments = Directory.EnumerateFiles(rulesDirectory, "*.json", SearchOption.TopDirectoryOnly)
             .OrderBy(path => Path.GetFileName(path), StringComparer.Ordinal)
             .Select(path => new RuleDocument(
-                Path.GetFileNameWithoutExtension(path),
+                Path.GetFileName(path),
                 File.ReadAllBytes(path)))
             .ToArray();
-        if (ruleDocuments.Length != 51)
+        if (ruleDocuments.Length == 0)
         {
-            throw new InvalidDataException("The official source must contain 50 application rules and one Windows system rule.");
+            throw new InvalidDataException("The official source must contain at least one rule document.");
         }
 
         var packManifest = new
         {
-            schemaVersion = 1,
+            schemaVersion = 2,
             packId = OfficialRulePack.PackId,
             version,
             files = ruleDocuments.Select(rule => new
             {
-                path = $"rules/{rule.ApplicationId}.json",
+                path = $"rules/{rule.FileName}",
                 sha256 = Convert.ToHexString(SHA256.HashData(rule.Content)).ToLowerInvariant(),
             }),
         };
@@ -127,7 +127,7 @@ internal static class Program
             var validation = RulePackReader.Read(
                 packageStream,
                 signingKey.PublicKey.Export(KeyBlobFormat.RawPublicKey));
-            if (!validation.IsSuccess || validation.Pack!.Applications.Count != 51)
+            if (!validation.IsSuccess || validation.Pack!.Variants.Count != ruleDocuments.Length)
             {
                 throw new InvalidDataException($"Generated rule pack is invalid: {validation.Message}");
             }
@@ -174,7 +174,7 @@ internal static class Program
         WriteZipEntry(archive, "signature.ed25519", Encoding.ASCII.GetBytes(Convert.ToBase64String(signature)));
         foreach (var rule in rules)
         {
-            WriteZipEntry(archive, $"rules/{rule.ApplicationId}.json", rule.Content);
+            WriteZipEntry(archive, $"rules/{rule.FileName}", rule.Content);
         }
     }
 
@@ -247,5 +247,5 @@ internal static class Program
         return fullPath;
     }
 
-    private sealed record RuleDocument(string ApplicationId, byte[] Content);
+    private sealed record RuleDocument(string FileName, byte[] Content);
 }

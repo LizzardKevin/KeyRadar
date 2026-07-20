@@ -1,0 +1,32 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "quicker",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Quicker",
+                        "en-US":  "Quicker"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "Quicker.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+Shift+Space",
+                        "function":  {
+                                         "zh-CN":  "呼出 Quicker 面板（默认键，可修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    }
+                ]
+}

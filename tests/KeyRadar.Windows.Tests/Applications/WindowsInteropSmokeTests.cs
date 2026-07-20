@@ -1,4 +1,4 @@
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 using KeyRadar.Windows.Applications;
 using KeyRadar.Windows.Foreground;
 using KeyRadar.Windows.Hotkeys;
@@ -23,7 +23,7 @@ public sealed class WindowsInteropSmokeTests
     public void HotkeyProbe_ResolvesItsNativeEntryPoints()
     {
         var api = new Win32HotkeyRegistrationApi();
-        var gesture = ShortcutGesture.Parse("Ctrl+Alt+F24");
+        var gesture = HotkeyGesture.Parse("Ctrl+Alt+F24");
 
         var exception = Record.Exception(() => api.TryRegister(0x4B52, gesture));
         api.Unregister(0x4B52);

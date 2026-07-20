@@ -1,12 +1,12 @@
 using KeyRadar.Conflicts;
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 
 namespace KeyRadar.Rules;
 
-public sealed record ShortcutRule(
-    ShortcutGesture Gesture,
-    string Function,
-    ShortcutScope Scope = ShortcutScope.Application,
+public sealed record HotkeyRule(
+    HotkeyGesture Gesture,
+    LocalizedText Function,
+    HotkeyScope Scope = HotkeyScope.Foreground,
     OwnershipConfidence Confidence = OwnershipConfidence.SystemKnown)
 {
     public IReadOnlyList<string> Sources { get; init; } = [];

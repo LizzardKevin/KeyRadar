@@ -1,22 +1,22 @@
 using KeyRadar.Conflicts;
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 
 namespace KeyRadar.Core.Tests.Conflicts;
 
-public sealed class ShortcutConflictClassifierTests
+public sealed class HotkeyConflictClassifierTests
 {
-    private static readonly ShortcutGesture AltA = ShortcutGesture.Parse("Alt+A");
+    private static readonly HotkeyGesture AltA = HotkeyGesture.Parse("Alt+A");
 
     [Fact]
     public void Two_confirmed_global_owners_are_a_definite_conflict()
     {
         var bindings = new[]
         {
-            Binding("wechat", ShortcutScope.Global, OwnershipConfidence.Confirmed),
-            Binding("screen-capture-tool", ShortcutScope.Global, OwnershipConfidence.Confirmed),
+            Binding("wechat", HotkeyScope.Global, OwnershipConfidence.Confirmed),
+            Binding("screen-capture-tool", HotkeyScope.Global, OwnershipConfidence.Confirmed),
         };
 
-        Assert.Equal(ConflictKind.DefiniteConflict, ShortcutConflictClassifier.Classify(bindings));
+        Assert.Equal(ConflictKind.DefiniteConflict, HotkeyConflictClassifier.Classify(bindings));
     }
 
     [Fact]
@@ -24,11 +24,11 @@ public sealed class ShortcutConflictClassifierTests
     {
         var bindings = new[]
         {
-            Binding("wechat", ShortcutScope.Global, OwnershipConfidence.Configuration),
-            Binding("photoshop", ShortcutScope.Application, OwnershipConfidence.SystemKnown),
+            Binding("wechat", HotkeyScope.Global, OwnershipConfidence.LocalConfiguration),
+            Binding("photoshop", HotkeyScope.Foreground, OwnershipConfidence.SystemKnown),
         };
 
-        Assert.Equal(ConflictKind.PossibleInterception, ShortcutConflictClassifier.Classify(bindings));
+        Assert.Equal(ConflictKind.PossibleInterception, HotkeyConflictClassifier.Classify(bindings));
     }
 
     [Fact]
@@ -36,11 +36,11 @@ public sealed class ShortcutConflictClassifierTests
     {
         var bindings = new[]
         {
-            Binding("chrome", ShortcutScope.Application, OwnershipConfidence.SystemKnown),
-            Binding("edge", ShortcutScope.Application, OwnershipConfidence.SystemKnown),
+            Binding("chrome", HotkeyScope.Foreground, OwnershipConfidence.SystemKnown),
+            Binding("edge", HotkeyScope.Foreground, OwnershipConfidence.SystemKnown),
         };
 
-        Assert.Equal(ConflictKind.ContextualReuse, ShortcutConflictClassifier.Classify(bindings));
+        Assert.Equal(ConflictKind.ContextualReuse, HotkeyConflictClassifier.Classify(bindings));
     }
 
     [Fact]
@@ -48,12 +48,12 @@ public sealed class ShortcutConflictClassifierTests
     {
         Assert.Equal(
             ConflictKind.None,
-            ShortcutConflictClassifier.Classify([Binding("wechat", ShortcutScope.Global, OwnershipConfidence.Configuration)]));
+            HotkeyConflictClassifier.Classify([Binding("wechat", HotkeyScope.Global, OwnershipConfidence.LocalConfiguration)]));
     }
 
-    private static ShortcutBinding Binding(
+    private static HotkeyBinding Binding(
         string applicationId,
-        ShortcutScope scope,
+        HotkeyScope scope,
         OwnershipConfidence confidence) =>
         new(applicationId, AltA, scope, confidence);
 }

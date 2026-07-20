@@ -1,9 +1,9 @@
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 
 namespace KeyRadar.Conflicts;
 
-public sealed record ShortcutBinding(
+public sealed record HotkeyBinding(
     string ApplicationId,
-    ShortcutGesture Gesture,
-    ShortcutScope Scope,
+    HotkeyGesture Gesture,
+    HotkeyScope Scope,
     OwnershipConfidence Confidence);

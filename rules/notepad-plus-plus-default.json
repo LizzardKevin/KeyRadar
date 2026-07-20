@@ -1,0 +1,48 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "notepad-plus-plus",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Notepad++",
+                        "en-US":  "Notepad++"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "notepad++.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+F",
+                        "function":  {
+                                         "zh-CN":  "查找"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Ctrl+H",
+                        "function":  {
+                                         "zh-CN":  "替换"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Ctrl+G",
+                        "function":  {
+                                         "zh-CN":  "转到行"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    }
+                ]
+}

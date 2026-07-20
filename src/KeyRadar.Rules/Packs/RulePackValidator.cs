@@ -177,7 +177,7 @@ public static class RulePackValidator
     private static bool IsValidManifest(RulePackManifest? manifest) =>
         manifest is
         {
-            SchemaVersion: 1,
+            SchemaVersion: 2,
             PackId.Length: > 0,
             Version.Length: > 0,
             Files: not null,

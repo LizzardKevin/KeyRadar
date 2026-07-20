@@ -4,7 +4,10 @@ public enum OwnershipConfidence
 {
     Unknown,
     Suspected,
+    OfficialDefault,
+    Corroborated,
     SystemKnown,
-    Configuration,
+    HardwareMapping,
+    LocalConfiguration,
     Confirmed,
 }

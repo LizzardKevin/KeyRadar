@@ -1,0 +1,40 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "wechat",
+    "variantId":  "cn-desktop",
+    "displayName":  {
+                        "zh-CN":  "微信",
+                        "en-US":  "WeChat"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "WeChat.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Alt+A",
+                        "function":  {
+                                         "zh-CN":  "截图"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "configuration"
+                    },
+                    {
+                        "gesture":  "Ctrl+Alt+W",
+                        "function":  {
+                                         "zh-CN":  "打开微信"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "configuration"
+                    }
+                ]
+}

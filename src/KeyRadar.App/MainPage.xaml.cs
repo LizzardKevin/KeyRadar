@@ -6,7 +6,7 @@ using KeyRadar.Conflicts;
 using KeyRadar.Rules;
 using KeyRadar.Rules.Packs;
 using KeyRadar.Rules.Updates;
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 using KeyRadar.Updater.Updates;
 using KeyRadar.Windows.Applications;
 using KeyRadar.Windows.DeepConfirmation;
@@ -25,6 +25,8 @@ public sealed partial class MainPage : Page
     private readonly RuleUpdateClient _ruleUpdateClient;
     private IReadOnlyList<ApplicationGroupViewModel> _allGroups = [];
     private IReadOnlyList<ApplicationSnapshot> _latestSnapshots = [];
+    private IReadOnlyList<HotkeyProbeResult> _latestProbeResults = [];
+    private CancellationTokenSource? _scanCancellation;
 
     public ObservableCollection<ApplicationGroupViewModel> FilteredGroups { get; } = [];
 
@@ -37,7 +39,7 @@ public sealed partial class MainPage : Page
         Unloaded += MainPage_Unloaded;
     }
 
-    public void ShowObservedGesture(ShortcutGesture gesture)
+    public void ShowObservedGesture(HotkeyGesture gesture)
     {
         var display = gesture.ToString();
         SearchBox.Text = display;
@@ -52,20 +54,48 @@ public sealed partial class MainPage : Page
 
     private async Task ScanAsync()
     {
+        _scanCancellation?.Cancel();
+        _scanCancellation?.Dispose();
+        _scanCancellation = new CancellationTokenSource();
+        var cancellationToken = _scanCancellation.Token;
         ScanProgress.IsActive = true;
-        ScanStatusText.Text = "正在安全读取窗口、进程与规则证据";
+        ScanStatusText.Text = "正在枚举运行状态";
 
-        var snapshots = await Task.Run(() => _scanner.Scan(Environment.ProcessId));
+        IReadOnlyList<ApplicationSnapshot> snapshots;
+        IReadOnlyList<HotkeyProbeResult> occupancyResults;
+        try
+        {
+            snapshots = await Task.Run(() => _scanner.Scan(Environment.ProcessId), cancellationToken);
+            var candidates = StandardGlobalHotkeyCandidateSource.Create();
+            var progress = new Progress<HotkeyScanProgress>(item =>
+                ScanStatusText.Text = $"正在探测标准全局热键 {item.Completed}/{item.Total} · {item.Current}");
+            occupancyResults = await Task.Run(async () =>
+            {
+                using var registrationApi = new Win32HotkeyRegistrationApi();
+                var occupancyScanner = new GlobalHotkeyOccupancyScanner(
+                    new GlobalHotkeyAvailabilityProbe(registrationApi),
+                    new WindowsHotkeyProbeSafetyGate());
+                return await occupancyScanner.ScanAsync(candidates, progress, cancellationToken);
+            }, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            ScanStatusText.Text = "扫描已取消";
+            ScanProgress.IsActive = false;
+            return;
+        }
+
         _latestSnapshots = snapshots;
+        _latestProbeResults = occupancyResults;
         var catalog = RuntimeRuleCatalog.Current;
-        var availabilityProbe = new GlobalHotkeyAvailabilityProbe(new Win32HotkeyRegistrationApi());
+        var occupancyByGesture = occupancyResults.ToDictionary(result => result.Gesture);
         var groups = new List<ApplicationGroupViewModel>();
-        var windowsRules = catalog.FirstOrDefault(rule => rule.Id == "windows-system");
+        var windowsRules = catalog.FirstOrDefault(rule => rule.ApplicationId == "windows-system");
         if (windowsRules is not null)
         {
             groups.Add(CreateWindowsGroup(windowsRules));
         }
-        var occupiedGlobalShortcutCount = 0;
+        var occupiedGlobalHotkeyCount = 0;
 
         var matched = snapshots
             .Select(snapshot => new
@@ -74,7 +104,7 @@ public sealed partial class MainPage : Page
                 Rules = ApplicationRuleMatcher.FindByExecutableName(catalog, snapshot.Process.ExecutableName),
             })
             .Where(item => item.Rules is not null)
-            .GroupBy(item => item.Rules!.Id, StringComparer.OrdinalIgnoreCase);
+            .GroupBy(item => item.Rules!.ApplicationId, StringComparer.OrdinalIgnoreCase);
 
         foreach (var applicationProcesses in matched)
         {
@@ -88,41 +118,79 @@ public sealed partial class MainPage : Page
                 : ApplicationPresence.Background;
 
             groups.Add(new ApplicationGroupViewModel(
-                rules.Id,
-                rules.DisplayName,
+                rules.ApplicationId,
+                rules.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
                 presence == ApplicationPresence.Foreground ? "● 前台" : "后台",
                 BuildEvidenceSummary(process),
                 presence == ApplicationPresence.Foreground ? "\uE7C4" : "\uE8A7",
                 false,
-                rules.Shortcuts.Select(shortcut =>
+                rules.Hotkeys.Select(hotkey =>
                 {
                     string? availabilityLabel = null;
-                    if (shortcut.Scope == ShortcutScope.Global)
+                    if (hotkey.Scope == HotkeyScope.Global)
                     {
-                        var availability = availabilityProbe.Probe(shortcut.Gesture);
-                        availabilityLabel = availability switch
+                        occupancyByGesture.TryGetValue(hotkey.Gesture, out var availability);
+                        availabilityLabel = availability?.Availability switch
                         {
-                            GlobalHotkeyAvailability.Occupied => " · 当前已占用",
-                            GlobalHotkeyAvailability.Available => " · 当前未注册",
+                            HotkeyProbeAvailability.Occupied => " · 当前已占用",
+                            HotkeyProbeAvailability.AvailableAtScanTime => " · 扫描瞬间可注册",
+                            HotkeyProbeAvailability.SystemReserved => " · 系统保留或无法探测",
                             _ => " · 无法探测",
                         };
 
-                        if (availability == GlobalHotkeyAvailability.Occupied)
+                        if (availability?.Availability == HotkeyProbeAvailability.Occupied)
                         {
-                            occupiedGlobalShortcutCount++;
+                            occupiedGlobalHotkeyCount++;
                         }
                     }
 
-                    return ShortcutRowViewModel.Create(
-                        shortcut.Gesture.ToString(),
-                        shortcut.Function,
-                        shortcut.Scope,
-                        shortcut.Confidence,
+                    return HotkeyRowViewModel.Create(
+                        hotkey.Gesture.ToString(),
+                        hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
+                        hotkey.Scope,
+                        hotkey.Confidence,
                         process.Id,
                         availabilityLabel,
-                        shortcut.Sources);
+                        hotkey.Sources);
                 }).ToArray(),
                 process.Id));
+        }
+
+        var knownGlobalGestures = groups
+            .SelectMany(group => group.Hotkeys)
+            .Where(hotkey => hotkey.ScopeLabel == "全局")
+            .Select(hotkey => hotkey.Gesture)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var unknownOccupied = occupancyResults
+            .Where(result => result.Availability != HotkeyProbeAvailability.AvailableAtScanTime)
+            .Where(result => !knownGlobalGestures.Contains(result.Gesture.ToString()))
+            .ToArray();
+        if (unknownOccupied.Length > 0)
+        {
+            groups.Add(new ApplicationGroupViewModel(
+                "unknown-occupancy",
+                "归属未知",
+                "当前桌面会话",
+                "RegisterHotKey 占用探测 · 不猜测进程归属",
+                "\uE9CE",
+                unknownOccupied.Any(result => result.Availability == HotkeyProbeAvailability.Occupied),
+                unknownOccupied.Select(HotkeyRowViewModel.FromProbe).ToArray()));
+        }
+
+        var availableAtScanTime = occupancyResults
+            .Where(result => result.Availability == HotkeyProbeAvailability.AvailableAtScanTime)
+            .Where(result => !knownGlobalGestures.Contains(result.Gesture.ToString()))
+            .ToArray();
+        if (availableAtScanTime.Length > 0)
+        {
+            groups.Add(new ApplicationGroupViewModel(
+                "available-at-scan-time",
+                "扫描瞬间可注册",
+                "仅代表本次扫描",
+                "不会据此承诺该组合永久无冲突 · 默认折叠",
+                "\uE73E",
+                false,
+                availableAtScanTime.Select(HotkeyRowViewModel.FromProbe).ToArray()));
         }
 
         _allGroups = groups
@@ -132,9 +200,9 @@ public sealed partial class MainPage : Page
             .ToArray();
 
         var duplicateGestures = _allGroups
-            .SelectMany(group => group.Shortcuts.Select(shortcut => new { Group = group, Shortcut = shortcut }))
-            .Where(item => item.Shortcut.ScopeLabel == "全局")
-            .GroupBy(item => item.Shortcut.Gesture, StringComparer.OrdinalIgnoreCase)
+            .SelectMany(group => group.Hotkeys.Select(hotkey => new { Group = group, Hotkey = hotkey }))
+            .Where(item => item.Hotkey.ScopeLabel == "全局")
+            .GroupBy(item => item.Hotkey.Gesture, StringComparer.OrdinalIgnoreCase)
             .Where(group => group.Select(item => item.Group.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
             .ToArray();
         foreach (var duplicate in duplicateGestures)
@@ -155,31 +223,32 @@ public sealed partial class MainPage : Page
 
         ApplyFilter(SearchBox.Text);
 
-        var appCount = _allGroups.Count(group => group.Id != "windows-system");
-        var shortcutCount = _allGroups.Sum(group => group.Shortcuts.Count);
-        SummaryText.Text = $"识别 {appCount} 个运行中的支持应用 · {shortcutCount} 个可用快捷键 · {occupiedGlobalShortcutCount} 个全局占用";
-        ScanStatusText.Text = "被动监听已就绪；按键功能将正常执行";
+        var appCount = _allGroups.Count(group => group.ProcessId > 0);
+        var hotkeyCount = _allGroups.Sum(group => group.Hotkeys.Count);
+        var totalOccupied = occupancyResults.Count(result => result.Availability == HotkeyProbeAvailability.Occupied);
+        SummaryText.Text = $"识别 {appCount} 个运行中的支持应用 · {hotkeyCount} 个可发现热键 · {totalOccupied} 个标准全局占用";
+        ScanStatusText.Text = "扫描完成；KeyRadar 未发送、拦截或吞掉任何热键";
         ScanProgress.IsActive = false;
         RuleStatusInfoBar.IsOpen = !RuntimeRuleCatalog.IsAvailable;
         RuleStatusInfoBar.Message = RuntimeRuleCatalog.StatusMessage;
     }
 
-    private static ApplicationGroupViewModel CreateWindowsGroup(ApplicationRuleSet rules)
+    private static ApplicationGroupViewModel CreateWindowsGroup(ApplicationVariantRule rules)
     {
         return new ApplicationGroupViewModel(
             "windows-system",
-            rules.DisplayName,
+            rules.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
             "系统级",
             "官方签名规则包 · 默认折叠",
             "\uE782",
             false,
-            rules.Shortcuts.Select(shortcut => ShortcutRowViewModel.Create(
-                shortcut.Gesture.ToString(),
-                shortcut.Function,
-                shortcut.Scope,
-                shortcut.Confidence,
+            rules.Hotkeys.Select(hotkey => HotkeyRowViewModel.Create(
+                hotkey.Gesture.ToString(),
+                hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
+                hotkey.Scope,
+                hotkey.Confidence,
                 processId: 0,
-                sources: shortcut.Sources)).ToArray());
+                sources: hotkey.Sources)).ToArray());
     }
 
     private static string BuildEvidenceSummary(ProcessDescriptor process)
@@ -441,12 +510,12 @@ public sealed partial class MainPage : Page
                 snapshot?.Process.Architecture.ToString() ?? "unknown",
                 snapshot?.Process.PrivilegeLevel.ToString() ?? "unknown",
                 snapshot?.Presence.ToString() ?? "system",
-                group.Shortcuts.Select(shortcut => new DiagnosticShortcut(
-                    shortcut.Gesture,
-                    shortcut.Function,
-                    shortcut.ScopeLabel,
-                    shortcut.ConfidenceLabel,
-                    shortcut.EvidenceLabel)).ToArray());
+                group.Hotkeys.Select(hotkey => new DiagnosticHotkey(
+                    hotkey.Gesture,
+                    hotkey.Function,
+                    hotkey.ScopeLabel,
+                    hotkey.ConfidenceLabel,
+                    hotkey.EvidenceLabel)).ToArray());
         }).ToArray();
         var version = typeof(MainPage).Assembly.GetName().Version?.ToString(3) ?? "unknown";
         return new DiagnosticReport(
@@ -538,6 +607,8 @@ public sealed partial class MainPage : Page
     private void MainPage_Unloaded(object sender, RoutedEventArgs e)
     {
         Unloaded -= MainPage_Unloaded;
+        _scanCancellation?.Cancel();
+        _scanCancellation?.Dispose();
         _updateHttpClient.Dispose();
     }
 
@@ -558,9 +629,9 @@ public sealed partial class MainPage : Page
         {
             if (string.IsNullOrWhiteSpace(normalized) ||
                 group.DisplayName.Contains(normalized, StringComparison.CurrentCultureIgnoreCase) ||
-                group.Shortcuts.Any(shortcut =>
-                    shortcut.Gesture.Contains(normalized, StringComparison.OrdinalIgnoreCase) ||
-                    shortcut.Function.Contains(normalized, StringComparison.CurrentCultureIgnoreCase)))
+                group.Hotkeys.Any(hotkey =>
+                    hotkey.Gesture.Contains(normalized, StringComparison.OrdinalIgnoreCase) ||
+                    hotkey.Function.Contains(normalized, StringComparison.CurrentCultureIgnoreCase)))
             {
                 FilteredGroups.Add(group);
             }
@@ -579,8 +650,8 @@ public sealed partial class MainPage : Page
 
     private async void DeepConfirmButton_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: ShortcutRowViewModel row } ||
-            !ShortcutGesture.TryParse(row.Gesture, out var gesture))
+        if (sender is not Button { Tag: HotkeyRowViewModel row } ||
+            !HotkeyGesture.TryParse(row.Gesture, out var gesture))
         {
             return;
         }
@@ -588,59 +659,72 @@ public sealed partial class MainPage : Page
         ((Button)sender).IsEnabled = false;
         ConflictInfoBar.Severity = InfoBarSeverity.Informational;
         ConflictInfoBar.Title = $"正在深度确认 {row.Gesture}";
-        ConflictInfoBar.Message = "请在 30 秒内真实按下该组合键；原功能会正常执行，KeyRadar 不会拦截。";
+        ConflictInfoBar.Message = "正在立即复核占用、运行进程、规则、本机配置与硬件映射；不会模拟或触发该热键。";
         ConflictInfoBar.IsOpen = true;
 
-        using var component = new NativeDeepConfirmationComponent();
-        var coordinator = new DeepConfirmationCoordinator(component);
-        var result = await coordinator.ConfirmAsync(
-            new DeepConfirmationRequest(row.ProcessId, gesture, TimeSpan.FromSeconds(30)),
-            CancellationToken.None);
-
-        switch (result)
+        var candidates = _allGroups
+            .Where(group => group.ProcessId > 0)
+            .Where(group => group.Hotkeys.Any(item => item.Gesture.Equals(row.Gesture, StringComparison.OrdinalIgnoreCase)))
+            .Select(group => new DeepConfirmationCandidate(
+                group.Id,
+                group.DisplayName,
+                DeepConfirmationEvidenceKind.OfficialRule))
+            .ToArray();
+        var result = await Task.Run(async () =>
         {
-            case DeepConfirmationResult.Confirmed:
+            using var registrationApi = new Win32HotkeyRegistrationApi();
+            var service = new ImmediateDeepConfirmationService(
+                target => new GlobalHotkeyAvailabilityProbe(registrationApi).Probe(target));
+            return await service.ConfirmAsync(
+                new ImmediateDeepConfirmationRequest(gesture, candidates),
+                CancellationToken.None);
+        });
+
+        switch (result.Conclusion)
+        {
+            case DeepConfirmationConclusion.ConfirmedOwner:
                 row.MarkConfirmed();
                 ConflictInfoBar.Severity = InfoBarSeverity.Success;
                 ConflictInfoBar.Title = "归属已确认";
-                ConflictInfoBar.Message = $"{row.Gesture} 的 WM_HOTKEY 接收进程与此应用一致。";
+                ConflictInfoBar.Message = $"{row.Gesture} 已由当前本机配置或生效硬件映射精确确认。";
                 break;
-            case DeepConfirmationResult.TimedOut:
+            case DeepConfirmationConclusion.PossibleOwner:
+                row.MarkPossible();
                 ConflictInfoBar.Severity = InfoBarSeverity.Warning;
-                ConflictInfoBar.Title = "未观察到目标快捷键";
-                ConflictInfoBar.Message = "30 秒内未收到匹配的 WM_HOTKEY；该应用也可能使用键盘钩子或原始输入。";
+                ConflictInfoBar.Title = "可能归属";
+                ConflictInfoBar.Message = $"运行中的候选：{string.Join("、", result.Candidates.Select(candidate => candidate.DisplayName))}。仅有规则吻合，未读取到本机配置证据。";
+                break;
+            case DeepConfirmationConclusion.OccupiedOwnerUnknown:
+                row.MarkOccupiedUnknown();
+                ConflictInfoBar.Severity = InfoBarSeverity.Warning;
+                ConflictInfoBar.Title = "已占用，归属未知";
+                ConflictInfoBar.Message = "标准全局探测复核为已占用，但 Windows 没有公开 API 可安全返回注册进程；KeyRadar 不会虚构归属。";
                 break;
             default:
-                if (component.LastObservedProcessId is int observedOwnerPid && observedOwnerPid > 0)
-                {
-                    RegisterObservedConflict(row, observedOwnerPid);
-                }
                 ConflictInfoBar.Severity = InfoBarSeverity.Warning;
-                ConflictInfoBar.Title = "归属不一致或无法确认";
-                ConflictInfoBar.Message = component.LastObservedProcessId is int ownerPid && ownerPid > 0
-                    ? $"快捷键由 PID {ownerPid} 的其他进程接收。"
-                    : "观察组件未能确认此应用；当前可信度保持不变。";
+                ConflictInfoBar.Title = "无法确认";
+                ConflictInfoBar.Message = "复核时未能确认占用，或可能涉及私有 Hook、Raw Input、驱动、权限或板载宏。";
                 break;
         }
 
         ((Button)sender).IsEnabled = row.CanDeepConfirm;
     }
 
-    private void RegisterObservedConflict(ShortcutRowViewModel candidate, int ownerProcessId)
+    private void RegisterObservedConflict(HotkeyRowViewModel candidate, int ownerProcessId)
     {
         var ownerSnapshot = _latestSnapshots.FirstOrDefault(snapshot => snapshot.Process.Id == ownerProcessId);
         var ownerExecutable = ownerSnapshot?.Process.ExecutableName ?? $"PID {ownerProcessId}";
         var ownerRules = ApplicationRuleMatcher.FindByExecutableName(RuntimeRuleCatalog.Current, ownerExecutable);
-        var ownerDisplayName = ownerRules?.DisplayName ?? ownerExecutable;
+        var ownerDisplayName = ownerRules?.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name) ?? ownerExecutable;
         var groupId = $"confirmed-owner-{ownerProcessId}";
-        var confirmedRow = ShortcutRowViewModel.Create(
+        var confirmedRow = HotkeyRowViewModel.Create(
             candidate.Gesture,
             $"已确认接收；与候选应用的“{candidate.Function}”冲突",
-            ShortcutScope.Global,
+            HotkeyScope.Global,
             OwnershipConfidence.Confirmed,
             ownerProcessId);
 
-        foreach (var group in _allGroups.Where(group => group.Shortcuts.Contains(candidate)))
+        foreach (var group in _allGroups.Where(group => group.Hotkeys.Contains(candidate)))
         {
             group.IsExpanded = true;
         }

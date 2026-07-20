@@ -6,7 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:KeyRadar"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Title="KeyRadar 前台快捷键"
+    Title="KeyRadar 前台热键"
     mc:Ignorable="d">
     <Window.SystemBackdrop>
         <DesktopAcrylicBackdrop />
@@ -26,7 +26,7 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel>
                     <TextBlock x:Name="ApplicationNameText" FontSize="15" FontWeight="SemiBold" Text="当前应用" />
-                    <TextBlock FontSize="11" Foreground="#FF8EA6B2" Text="前台应用快捷键 · 不抢焦点" />
+                    <TextBlock FontSize="11" Foreground="#FF8EA6B2" Text="前台应用热键 · 不抢焦点" />
                 </StackPanel>
                 <Border Grid.Column="1" Padding="8,3" VerticalAlignment="Center" BorderBrush="#5562D9D6" BorderThickness="1" CornerRadius="10">
                     <TextBlock FontSize="10" Foreground="#FF8CEBE6" Text="实时" />
@@ -34,9 +34,9 @@
             </Grid>
 
             <ScrollViewer Grid.Row="1" MaxHeight="330" VerticalScrollBarVisibility="Auto">
-                <ItemsControl x:Name="ShortcutItems" HorizontalContentAlignment="Stretch">
+                <ItemsControl x:Name="HotkeyItems" HorizontalContentAlignment="Stretch">
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="local:ShortcutRowViewModel">
+                        <DataTemplate x:DataType="local:HotkeyRowViewModel">
                             <Grid Padding="15,10" BorderBrush="#18FFFFFF" BorderThickness="0,1,0,0" ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="150" />

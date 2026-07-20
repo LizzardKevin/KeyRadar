@@ -1,21 +1,23 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using KeyRadar.Conflicts;
+using KeyRadar.Windows.Hotkeys;
 
 namespace KeyRadar;
 
-public sealed class ShortcutRowViewModel : INotifyPropertyChanged
+public sealed class HotkeyRowViewModel : INotifyPropertyChanged
 {
     private string _confidenceLabel;
 
-    public ShortcutRowViewModel(
+    public HotkeyRowViewModel(
         string gesture,
         string function,
         string scopeLabel,
         string evidenceLabel,
         string confidenceLabel,
         int processId,
-        bool canDeepConfirm)
+        bool canDeepConfirm,
+        HotkeyProbeAvailability? probeAvailability = null)
     {
         Gesture = gesture;
         Function = function;
@@ -24,6 +26,7 @@ public sealed class ShortcutRowViewModel : INotifyPropertyChanged
         _confidenceLabel = confidenceLabel;
         ProcessId = processId;
         CanDeepConfirm = canDeepConfirm;
+        ProbeAvailability = probeAvailability;
     }
 
     public string Gesture { get; set; }
@@ -49,18 +52,25 @@ public sealed class ShortcutRowViewModel : INotifyPropertyChanged
 
     public bool CanDeepConfirm { get; set; }
 
+    public HotkeyProbeAvailability? ProbeAvailability { get; }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public void MarkConfirmed() => ConfidenceLabel = "● 已确认";
 
-    public static ShortcutRowViewModel Create(
+    public void MarkPossible() => ConfidenceLabel = "● 可能归属 · 仅规则吻合";
+
+    public void MarkOccupiedUnknown() => ConfidenceLabel = "● 已占用 · 归属未知";
+
+    public static HotkeyRowViewModel Create(
         string gesture,
         string function,
-        ShortcutScope scope,
+        HotkeyScope scope,
         OwnershipConfidence confidence,
         int processId,
         string? availabilityLabel = null,
-        IReadOnlyList<string>? sources = null) =>
+        IReadOnlyList<string>? sources = null,
+        bool? canDeepConfirm = null) =>
         new(
             gesture,
             function,
@@ -68,22 +78,44 @@ public sealed class ShortcutRowViewModel : INotifyPropertyChanged
             sources is { Count: > 0 } ? "证据：厂商文档 · 官方签名规则包" : "证据：官方签名规则包",
             ConfidenceLabelFor(confidence) + availabilityLabel,
             processId,
-            processId > 0 && scope == ShortcutScope.Global);
+            canDeepConfirm ?? (processId > 0 && scope == HotkeyScope.Global));
+
+    public static HotkeyRowViewModel FromProbe(HotkeyProbeResult result) => new(
+        result.Gesture.ToString(),
+        result.Availability switch
+        {
+            HotkeyProbeAvailability.Occupied => "功能未知",
+            HotkeyProbeAvailability.AvailableAtScanTime => "扫描瞬间可注册",
+            HotkeyProbeAvailability.SystemReserved => "系统保留或无法探测",
+            _ => $"探测错误{(result.Win32ErrorCode is int code ? $"（{code}）" : string.Empty)}",
+        },
+        "全局 · RegisterHotKey",
+        $"证据：RegisterHotKey 占用探测 · {result.ScannedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}",
+        result.Availability switch
+        {
+            HotkeyProbeAvailability.Occupied => "● 已占用 · 归属未知",
+            HotkeyProbeAvailability.AvailableAtScanTime => "○ 当前可注册",
+            HotkeyProbeAvailability.SystemReserved => "◆ 系统保留",
+            _ => "! 无法探测",
+        },
+        processId: 0,
+        canDeepConfirm: result.Availability is HotkeyProbeAvailability.Occupied or HotkeyProbeAvailability.ProbeError,
+        probeAvailability: result.Availability);
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
-    private static string ScopeLabelFor(ShortcutScope scope) => scope switch
+    private static string ScopeLabelFor(HotkeyScope scope) => scope switch
     {
-        ShortcutScope.Global => "全局",
-        ShortcutScope.WindowsSystem => "Windows 系统",
+        HotkeyScope.Global => "全局",
+        HotkeyScope.WindowsSystem => "Windows 系统",
         _ => "应用内",
     };
 
     private static string ConfidenceLabelFor(OwnershipConfidence confidence) => confidence switch
     {
         OwnershipConfidence.Confirmed => "● 已确认",
-        OwnershipConfidence.Configuration => "● 配置中发现",
+        OwnershipConfidence.LocalConfiguration => "● 配置中发现",
         OwnershipConfidence.SystemKnown => "● 系统已知",
         OwnershipConfidence.Suspected => "● 疑似归属",
         _ => "● 归属未知",

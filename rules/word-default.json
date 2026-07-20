@@ -1,0 +1,57 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "word",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Microsoft Word",
+                        "en-US":  "Microsoft Word"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "WINWORD.EXE"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+B",
+                        "function":  {
+                                         "zh-CN":  "加粗"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.microsoft.com/office/use-the-keyboard-to-work-with-the-ribbon-954cd3f7-2f77-4983-978d-c09b20e31f0e"
+                                    ]
+                    },
+                    {
+                        "gesture":  "Ctrl+K",
+                        "function":  {
+                                         "zh-CN":  "插入超链接"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.microsoft.com/office/use-the-keyboard-to-work-with-the-ribbon-954cd3f7-2f77-4983-978d-c09b20e31f0e"
+                                    ]
+                    },
+                    {
+                        "gesture":  "Ctrl+S",
+                        "function":  {
+                                         "zh-CN":  "保存文档"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.microsoft.com/office/use-the-keyboard-to-work-with-the-ribbon-954cd3f7-2f77-4983-978d-c09b20e31f0e"
+                                    ]
+                    }
+                ]
+}

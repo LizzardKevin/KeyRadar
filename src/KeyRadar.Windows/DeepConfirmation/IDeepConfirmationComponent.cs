@@ -1,4 +1,4 @@
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 
 namespace KeyRadar.Windows.DeepConfirmation;
 
@@ -7,7 +7,7 @@ public interface IDeepConfirmationComponent
     Task LoadAsync(int processId, CancellationToken cancellationToken);
 
     Task<DeepConfirmationResult> WaitForTargetAsync(
-        ShortcutGesture target,
+        HotkeyGesture target,
         TimeSpan timeout,
         CancellationToken cancellationToken);
 

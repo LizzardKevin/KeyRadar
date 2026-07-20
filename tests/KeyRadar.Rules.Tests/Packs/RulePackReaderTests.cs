@@ -11,35 +11,42 @@ namespace KeyRadar.Rules.Tests.Packs;
 public sealed class RulePackReaderTests
 {
     [Fact]
-    public void Signed_pack_is_loaded_as_runtime_rules()
+    public void Signed_v2_pack_is_loaded_as_application_variants()
     {
-        var package = CreatePack(("wechat", ValidRule("wechat", "微信", "WeChat.exe")));
+        var package = CreatePack(("wechat-cn-desktop", ValidRule(
+            "wechat",
+            "cn-desktop",
+            "微信",
+            "WeChat",
+            "WeChat.exe")));
 
         var result = RulePackReader.Read(package.Stream, package.PublicKey);
 
         Assert.True(result.IsSuccess, result.Message);
         Assert.Equal("keyradar.test", result.Pack!.PackId);
         Assert.Equal("1.2.3", result.Pack.Version);
-        var application = Assert.Single(result.Pack.Applications);
-        Assert.Equal("wechat", application.Id);
-        Assert.Equal("微信", application.DisplayName);
-        Assert.Equal("WeChat.exe", Assert.Single(application.ExecutableNames));
-        var shortcut = Assert.Single(application.Shortcuts);
-        Assert.Equal("Alt+A", shortcut.Gesture.ToString());
-        Assert.Equal("截图", shortcut.Function);
-        Assert.Equal(ShortcutScope.Global, shortcut.Scope);
-        Assert.Equal(OwnershipConfidence.Configuration, shortcut.Confidence);
-        Assert.Equal("https://example.test/wechat", Assert.Single(shortcut.Sources));
+        var application = Assert.Single(result.Pack.Variants);
+        Assert.Equal("wechat", application.ApplicationId);
+        Assert.Equal("cn-desktop", application.VariantId);
+        Assert.Equal("微信", application.DisplayName.Resolve("zh-CN"));
+        Assert.Equal("WeChat", application.DisplayName.Resolve("en-US"));
+        Assert.Equal("WeChat.exe", Assert.Single(application.Match.Executables));
+        var hotkey = Assert.Single(application.Hotkeys);
+        Assert.Equal("Alt+A", hotkey.Gesture.ToString());
+        Assert.Equal("截图", hotkey.Function.Resolve("zh-CN"));
+        Assert.Equal(HotkeyScope.Global, hotkey.Scope);
+        Assert.Equal(OwnershipConfidence.LocalConfiguration, hotkey.Confidence);
+        Assert.Equal("https://example.test/wechat", Assert.Single(hotkey.Sources));
     }
 
     [Theory]
-    [InlineData("{\"schemaVersion\":2,\"applicationId\":\"wechat\",\"displayName\":\"微信\",\"executables\":[\"WeChat.exe\"],\"shortcuts\":[]}")]
-    [InlineData("{\"schemaVersion\":1,\"applicationId\":\"wechat\",\"displayName\":\"微信\",\"executables\":[\"../WeChat.exe\"],\"shortcuts\":[]}")]
-    [InlineData("{\"schemaVersion\":1,\"applicationId\":\"wechat\",\"displayName\":\"微信\",\"executables\":[\"WeChat.exe\"],\"shortcuts\":[{\"gesture\":\"Alt+A+B\",\"function\":\"截图\",\"scope\":\"global\",\"confidence\":\"configuration\"}]}")]
-    [InlineData("{\"schemaVersion\":1,\"applicationId\":\"wechat\",\"displayName\":\"微信\",\"executables\":[\"WeChat.exe\"],\"shortcuts\":[],\"unexpected\":true}")]
+    [InlineData("{\"schemaVersion\":1,\"applicationId\":\"wechat\",\"variantId\":\"cn-desktop\",\"displayName\":{\"zh-CN\":\"微信\"},\"match\":{\"executables\":[\"WeChat.exe\"],\"publishers\":[],\"versionRange\":null,\"packageFamilyNames\":[],\"distribution\":null},\"hotkeys\":[]}")]
+    [InlineData("{\"schemaVersion\":2,\"applicationId\":\"wechat\",\"variantId\":\"cn-desktop\",\"displayName\":{\"zh-CN\":\"微信\"},\"match\":{\"executables\":[\"../WeChat.exe\"],\"publishers\":[],\"versionRange\":null,\"packageFamilyNames\":[],\"distribution\":null},\"hotkeys\":[]}")]
+    [InlineData("{\"schemaVersion\":2,\"applicationId\":\"wechat\",\"variantId\":\"cn-desktop\",\"displayName\":{\"zh-CN\":\"微信\"},\"match\":{\"executables\":[\"WeChat.exe\"],\"publishers\":[],\"versionRange\":null,\"packageFamilyNames\":[],\"distribution\":null},\"hotkeys\":[{\"gesture\":\"Alt+A+B\",\"function\":{\"zh-CN\":\"截图\"},\"scope\":\"global\",\"confidence\":\"configuration\"}]}")]
+    [InlineData("{\"schemaVersion\":2,\"applicationId\":\"wechat\",\"variantId\":\"cn-desktop\",\"displayName\":{\"zh-CN\":\"微信\"},\"match\":{\"executables\":[\"WeChat.exe\"],\"publishers\":[],\"versionRange\":\"System.IO.File.Delete('*')\",\"packageFamilyNames\":[],\"distribution\":null},\"hotkeys\":[]}")]
     public void Invalid_declarative_rule_is_rejected(string ruleJson)
     {
-        var package = CreatePack(("wechat", Encoding.UTF8.GetBytes(ruleJson)));
+        var package = CreatePack(("wechat-cn-desktop", Encoding.UTF8.GetBytes(ruleJson)));
 
         var result = RulePackReader.Read(package.Stream, package.PublicKey);
 
@@ -48,43 +55,64 @@ public sealed class RulePackReaderTests
     }
 
     [Fact]
-    public void Duplicate_application_ids_are_rejected()
+    public void Duplicate_application_variant_identity_is_rejected()
     {
-        var rule = ValidRule("wechat", "微信", "WeChat.exe");
-        var package = CreatePack(("wechat", rule), ("wechat-copy", rule));
+        var rule = ValidRule("wechat", "cn-desktop", "微信", "WeChat", "WeChat.exe");
+        var package = CreatePack(("wechat-cn-desktop", rule), ("wechat-cn-desktop-copy", rule));
 
         var result = RulePackReader.Read(package.Stream, package.PublicKey);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(RulePackReadError.DuplicateApplication, result.Error);
+        Assert.Equal(RulePackReadError.DuplicateApplicationVariant, result.Error);
     }
 
     [Fact]
-    public void Signed_source_pack_uses_the_same_reader_as_runtime()
+    public void Same_application_can_have_multiple_variants()
     {
         var package = CreatePack(
-            ("wechat", ValidRule("wechat", "本地微信规则", "WeChat.exe")));
+            ("wechat-cn-desktop", ValidRule("wechat", "cn-desktop", "微信", "WeChat", "WeChat.exe")),
+            ("wechat-international", ValidRule("wechat", "international", "WeChat", "WeChat", "WeChat.exe")));
 
         var result = RulePackReader.Read(package.Stream, package.PublicKey);
 
         Assert.True(result.IsSuccess, result.Message);
-        var shortcut = Assert.Single(Assert.Single(result.Pack!.Applications).Shortcuts);
-        Assert.Equal("截图", shortcut.Function);
+        Assert.Equal(2, result.Pack!.Variants.Count);
     }
 
-    private static byte[] ValidRule(string id, string displayName, string executable) =>
+    private static byte[] ValidRule(
+        string applicationId,
+        string variantId,
+        string chineseName,
+        string englishName,
+        string executable) =>
         JsonSerializer.SerializeToUtf8Bytes(new
         {
-            schemaVersion = 1,
-            applicationId = id,
-            displayName,
-            executables = new[] { executable },
-            shortcuts = new[]
+            schemaVersion = 2,
+            applicationId,
+            variantId,
+            displayName = new Dictionary<string, string>
+            {
+                ["zh-CN"] = chineseName,
+                ["en-US"] = englishName,
+            },
+            match = new
+            {
+                executables = new[] { executable },
+                publishers = new[] { "Tencent" },
+                versionRange = ">=4.0 <5.0",
+                packageFamilyNames = Array.Empty<string>(),
+                distribution = "official",
+            },
+            hotkeys = new[]
             {
                 new
                 {
                     gesture = "Alt+A",
-                    function = "截图",
+                    function = new Dictionary<string, string>
+                    {
+                        ["zh-CN"] = "截图",
+                        ["en-US"] = "Screenshot",
+                    },
                     scope = "global",
                     confidence = "configuration",
                     sources = new[] { "https://example.test/wechat" },
@@ -92,10 +120,7 @@ public sealed class RulePackReaderTests
             },
         });
 
-    private static TestPack CreatePack(params (string FileName, byte[] Content)[] rules) =>
-        CreateSignedPack(rules);
-
-    private static TestPack CreateSignedPack(params (string FileName, byte[] Content)[] rules)
+    private static TestPack CreatePack(params (string FileName, byte[] Content)[] rules)
     {
         var files = rules.Select(rule => new
         {
@@ -104,7 +129,7 @@ public sealed class RulePackReaderTests
         });
         var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(new
         {
-            schemaVersion = 1,
+            schemaVersion = 2,
             packId = "keyradar.test",
             version = "1.2.3",
             files,

@@ -1,0 +1,32 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "utools",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "uTools",
+                        "en-US":  "uTools"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "uTools.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Alt+Space",
+                        "function":  {
+                                         "zh-CN":  "呼出 uTools（默认键，可修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    }
+                ]
+}

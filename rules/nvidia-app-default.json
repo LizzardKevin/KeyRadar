@@ -1,0 +1,40 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "nvidia-app",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "NVIDIA App",
+                        "en-US":  "NVIDIA App"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "NVIDIA App.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Alt+Z",
+                        "function":  {
+                                         "zh-CN":  "打开 NVIDIA 覆盖层（默认键，可修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    },
+                    {
+                        "gesture":  "Alt+F1",
+                        "function":  {
+                                         "zh-CN":  "保存截图（默认键，可修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    }
+                ]
+}

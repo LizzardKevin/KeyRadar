@@ -1,0 +1,68 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "chrome",
+    "variantId":  "stable",
+    "displayName":  {
+                        "zh-CN":  "Google Chrome",
+                        "en-US":  "Google Chrome"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "chrome.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+L",
+                        "function":  {
+                                         "zh-CN":  "定位地址栏"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.google.com/chrome/answer/157179"
+                                    ]
+                    },
+                    {
+                        "gesture":  "Ctrl+Shift+T",
+                        "function":  {
+                                         "zh-CN":  "恢复关闭的标签页"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.google.com/chrome/answer/157179"
+                                    ]
+                    },
+                    {
+                        "gesture":  "Ctrl+W",
+                        "function":  {
+                                         "zh-CN":  "关闭标签页"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.google.com/chrome/answer/157179"
+                                    ]
+                    },
+                    {
+                        "gesture":  "F6",
+                        "function":  {
+                                         "zh-CN":  "切换焦点区域"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.google.com/chrome/answer/157179"
+                                    ]
+                    }
+                ]
+}

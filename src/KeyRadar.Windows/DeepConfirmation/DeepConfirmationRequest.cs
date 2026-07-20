@@ -1,8 +1,8 @@
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 
 namespace KeyRadar.Windows.DeepConfirmation;
 
 public sealed record DeepConfirmationRequest(
     int ProcessId,
-    ShortcutGesture Target,
+    HotkeyGesture Target,
     TimeSpan Timeout);

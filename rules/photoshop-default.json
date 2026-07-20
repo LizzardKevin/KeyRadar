@@ -1,0 +1,48 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "photoshop",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Adobe Photoshop",
+                        "en-US":  "Adobe Photoshop"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "Photoshop.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+T",
+                        "function":  {
+                                         "zh-CN":  "自由变换"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Ctrl+J",
+                        "function":  {
+                                         "zh-CN":  "复制图层"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "B",
+                        "function":  {
+                                         "zh-CN":  "画笔工具"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    }
+                ]
+}

@@ -7,12 +7,12 @@ namespace KeyRadar;
 internal static class RuntimeRuleCatalog
 {
     private static readonly object Gate = new();
-    private static IReadOnlyList<ApplicationRuleSet> _current = [];
+    private static IReadOnlyList<ApplicationVariantRule> _current = [];
     private static string? _activeVersion;
     private static string _statusMessage = "规则尚未加载。";
     private static bool _isAvailable;
 
-    public static IReadOnlyList<ApplicationRuleSet> Current
+    public static IReadOnlyList<ApplicationVariantRule> Current
     {
         get
         {
@@ -85,7 +85,7 @@ internal static class RuntimeRuleCatalog
 
         lock (Gate)
         {
-            _current = result.IsSuccess ? result.Pack!.Applications : [];
+            _current = result.IsSuccess ? result.Pack!.Variants : [];
             _activeVersion = result is { IsSuccess: true } ? result.Pack!.Version : null;
             _isAvailable = result.IsSuccess;
             _statusMessage = result.IsSuccess

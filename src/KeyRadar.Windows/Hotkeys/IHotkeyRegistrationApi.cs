@@ -1,10 +1,10 @@
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 
 namespace KeyRadar.Windows.Hotkeys;
 
 public interface IHotkeyRegistrationApi
 {
-    HotkeyRegistrationAttempt TryRegister(int identifier, ShortcutGesture gesture);
+    HotkeyRegistrationResult TryRegister(int identifier, HotkeyGesture gesture);
 
     void Unregister(int identifier);
 }

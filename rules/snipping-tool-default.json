@@ -1,0 +1,40 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "snipping-tool",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Windows 截图工具",
+                        "en-US":  "Snipping Tool"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "SnippingTool.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+N",
+                        "function":  {
+                                         "zh-CN":  "新建截图"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Ctrl+S",
+                        "function":  {
+                                         "zh-CN":  "保存截图"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    }
+                ]
+}

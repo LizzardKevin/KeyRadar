@@ -1,0 +1,49 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "potplayer",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "PotPlayer",
+                        "en-US":  "PotPlayer"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "PotPlayerMini64.exe",
+                                      "PotPlayerMini.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Space",
+                        "function":  {
+                                         "zh-CN":  "播放或暂停"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Enter",
+                        "function":  {
+                                         "zh-CN":  "切换全屏"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Ctrl+O",
+                        "function":  {
+                                         "zh-CN":  "打开文件"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    }
+                ]
+}

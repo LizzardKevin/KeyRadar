@@ -1,0 +1,40 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "xbox-game-bar",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Xbox Game Bar",
+                        "en-US":  "Xbox Game Bar"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "GameBar.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Win+G",
+                        "function":  {
+                                         "zh-CN":  "打开 Xbox Game Bar"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Win+Alt+R",
+                        "function":  {
+                                         "zh-CN":  "开始或停止录制"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "systemKnown"
+                    }
+                ]
+}

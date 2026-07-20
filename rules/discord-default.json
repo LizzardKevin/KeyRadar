@@ -1,0 +1,40 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "discord",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Discord",
+                        "en-US":  "Discord"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "Discord.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+K",
+                        "function":  {
+                                         "zh-CN":  "打开快速切换器"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Ctrl+F",
+                        "function":  {
+                                         "zh-CN":  "搜索当前频道"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    }
+                ]
+}

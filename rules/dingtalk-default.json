@@ -1,0 +1,32 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "dingtalk",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "钉钉",
+                        "en-US":  "DingTalk"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "DingTalk.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+Shift+A",
+                        "function":  {
+                                         "zh-CN":  "截图（默认键，可在钉钉中修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    }
+                ]
+}

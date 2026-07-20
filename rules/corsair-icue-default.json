@@ -1,0 +1,25 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "corsair-icue",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Corsair iCUE",
+                        "en-US":  "Corsair iCUE"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "iCUE.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+
+                ]
+}

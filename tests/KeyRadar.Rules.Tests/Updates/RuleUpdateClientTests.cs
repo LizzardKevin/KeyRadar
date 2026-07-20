@@ -72,18 +72,18 @@ public sealed class RuleUpdateClientTests
     private static byte[] CreatePack(string version, Key key)
     {
         var ruleBytes = """
-            {"schemaVersion":1,"applicationId":"wechat","displayName":"微信","executables":["WeChat.exe"],"shortcuts":[]}
+            {"schemaVersion":2,"applicationId":"wechat","variantId":"cn-desktop","displayName":{"zh-CN":"微信","en-US":"WeChat"},"match":{"executables":["WeChat.exe"],"publishers":[],"versionRange":null,"packageFamilyNames":[],"distribution":null},"hotkeys":[]}
             """u8.ToArray();
         var manifest = JsonSerializer.SerializeToUtf8Bytes(new
         {
-            schemaVersion = 1,
+            schemaVersion = 2,
             packId = RuleUpdateClient.OfficialPackId,
             version,
             files = new[]
             {
                 new
                 {
-                    path = "rules/wechat.json",
+                    path = "rules/wechat-cn-desktop.json",
                     sha256 = Convert.ToHexString(SHA256.HashData(ruleBytes)).ToLowerInvariant(),
                 },
             },
@@ -93,7 +93,7 @@ public sealed class RuleUpdateClientTests
         using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
         {
             Write(archive, "manifest.json", manifest);
-            Write(archive, "rules/wechat.json", ruleBytes);
+            Write(archive, "rules/wechat-cn-desktop.json", ruleBytes);
             Write(archive, "signature.ed25519", Encoding.ASCII.GetBytes(Convert.ToBase64String(signature)));
         }
 

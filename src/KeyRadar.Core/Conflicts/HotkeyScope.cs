@@ -1,8 +1,9 @@
 namespace KeyRadar.Conflicts;
 
-public enum ShortcutScope
+public enum HotkeyScope
 {
-    Application,
-    Global,
     WindowsSystem,
+    Global,
+    Background,
+    Foreground,
 }

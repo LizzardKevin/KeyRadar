@@ -4,5 +4,6 @@ public enum HotkeyRegistrationAttempt
 {
     Registered,
     AlreadyRegistered,
-    Unsupported,
+    SystemReserved,
+    Error,
 }

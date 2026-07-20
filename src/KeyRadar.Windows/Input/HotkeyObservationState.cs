@@ -1,12 +1,12 @@
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 
 namespace KeyRadar.Windows.Input;
 
-public sealed class ShortcutObservationState
+public sealed class HotkeyObservationState
 {
     private readonly HashSet<int> _pressedModifierKeys = [];
 
-    public ShortcutGesture? Process(int virtualKey, bool isKeyDown)
+    public HotkeyGesture? Process(int virtualKey, bool isKeyDown)
     {
         if (TryGetModifier(virtualKey, out _))
         {
@@ -28,28 +28,28 @@ public sealed class ShortcutObservationState
         }
 
         var modifiers = _pressedModifierKeys.Aggregate(
-            ShortcutModifiers.None,
+            HotkeyModifiers.None,
             (current, key) => TryGetModifier(key, out var modifier) ? current | modifier : current);
-        if (modifiers == ShortcutModifiers.None || !TryGetPrimaryKey(virtualKey, out var primaryKey))
+        if (modifiers == HotkeyModifiers.None || !TryGetPrimaryKey(virtualKey, out var primaryKey))
         {
             return null;
         }
 
-        return new ShortcutGesture(modifiers, primaryKey);
+        return new HotkeyGesture(modifiers, primaryKey);
     }
 
-    private static bool TryGetModifier(int virtualKey, out ShortcutModifiers modifier)
+    private static bool TryGetModifier(int virtualKey, out HotkeyModifiers modifier)
     {
         modifier = virtualKey switch
         {
-            0x10 or 0xA0 or 0xA1 => ShortcutModifiers.Shift,
-            0x11 or 0xA2 or 0xA3 => ShortcutModifiers.Control,
-            0x12 or 0xA4 or 0xA5 => ShortcutModifiers.Alt,
-            0x5B or 0x5C => ShortcutModifiers.Windows,
-            _ => ShortcutModifiers.None,
+            0x10 or 0xA0 or 0xA1 => HotkeyModifiers.Shift,
+            0x11 or 0xA2 or 0xA3 => HotkeyModifiers.Control,
+            0x12 or 0xA4 or 0xA5 => HotkeyModifiers.Alt,
+            0x5B or 0x5C => HotkeyModifiers.Windows,
+            _ => HotkeyModifiers.None,
         };
 
-        return modifier != ShortcutModifiers.None;
+        return modifier != HotkeyModifiers.None;
     }
 
     private static bool TryGetPrimaryKey(int virtualKey, out string key)

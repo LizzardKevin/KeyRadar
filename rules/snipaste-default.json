@@ -1,0 +1,40 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "snipaste",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Snipaste",
+                        "en-US":  "Snipaste"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "Snipaste.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "F1",
+                        "function":  {
+                                         "zh-CN":  "截图（默认键，可修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    },
+                    {
+                        "gesture":  "F3",
+                        "function":  {
+                                         "zh-CN":  "贴图（默认键，可修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    }
+                ]
+}

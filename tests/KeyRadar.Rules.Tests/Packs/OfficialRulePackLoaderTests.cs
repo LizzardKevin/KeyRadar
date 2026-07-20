@@ -90,17 +90,17 @@ public sealed class OfficialRulePackLoaderTests
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             var rule = Encoding.UTF8.GetBytes(
-                "{\"schemaVersion\":1,\"applicationId\":\"wechat\",\"displayName\":\"微信\",\"executables\":[\"WeChat.exe\"],\"shortcuts\":[]}");
+                "{\"schemaVersion\":2,\"applicationId\":\"wechat\",\"variantId\":\"cn-desktop\",\"displayName\":{\"zh-CN\":\"微信\",\"en-US\":\"WeChat\"},\"match\":{\"executables\":[\"WeChat.exe\"],\"publishers\":[],\"versionRange\":null,\"packageFamilyNames\":[],\"distribution\":null},\"hotkeys\":[]}");
             var manifest = JsonSerializer.SerializeToUtf8Bytes(new
             {
-                schemaVersion = 1,
+                schemaVersion = 2,
                 packId = OfficialRulePack.PackId,
                 version,
                 files = new[]
                 {
                     new
                     {
-                        path = "rules/wechat.json",
+                        path = "rules/wechat-cn-desktop.json",
                         sha256 = Convert.ToHexString(SHA256.HashData(rule)).ToLowerInvariant(),
                     },
                 },
@@ -111,7 +111,7 @@ public sealed class OfficialRulePackLoaderTests
             using var archive = new ZipArchive(output, ZipArchiveMode.Create);
             Write(archive, "manifest.json", manifest);
             Write(archive, "signature.ed25519", Encoding.ASCII.GetBytes(Convert.ToBase64String(signature)));
-            Write(archive, "rules/wechat.json", rule);
+            Write(archive, "rules/wechat-cn-desktop.json", rule);
         }
 
         public void Dispose()

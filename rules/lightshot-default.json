@@ -1,0 +1,32 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "lightshot",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Lightshot",
+                        "en-US":  "Lightshot"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "Lightshot.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "PrintScreen",
+                        "function":  {
+                                         "zh-CN":  "开始截图（默认键，可修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    }
+                ]
+}

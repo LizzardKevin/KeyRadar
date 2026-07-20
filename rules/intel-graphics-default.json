@@ -1,0 +1,25 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "intel-graphics",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Intel Graphics Software",
+                        "en-US":  "Intel Graphics Software"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "IntelGraphicsSoftware.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+
+                ]
+}

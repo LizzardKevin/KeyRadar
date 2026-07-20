@@ -1,0 +1,68 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "edge",
+    "variantId":  "stable",
+    "displayName":  {
+                        "zh-CN":  "Microsoft Edge",
+                        "en-US":  "Microsoft Edge"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "msedge.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+L",
+                        "function":  {
+                                         "zh-CN":  "定位地址栏"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.microsoft.com/edge/keyboard-shortcuts-in-microsoft-edge"
+                                    ]
+                    },
+                    {
+                        "gesture":  "Ctrl+Shift+T",
+                        "function":  {
+                                         "zh-CN":  "恢复关闭的标签页"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.microsoft.com/edge/keyboard-shortcuts-in-microsoft-edge"
+                                    ]
+                    },
+                    {
+                        "gesture":  "Ctrl+W",
+                        "function":  {
+                                         "zh-CN":  "关闭当前标签页"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.microsoft.com/edge/keyboard-shortcuts-in-microsoft-edge"
+                                    ]
+                    },
+                    {
+                        "gesture":  "F12",
+                        "function":  {
+                                         "zh-CN":  "打开开发人员工具"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.microsoft.com/edge/keyboard-shortcuts-in-microsoft-edge"
+                                    ]
+                    }
+                ]
+}

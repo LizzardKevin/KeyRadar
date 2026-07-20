@@ -1,0 +1,48 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "powerpoint",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Microsoft PowerPoint",
+                        "en-US":  "Microsoft PowerPoint"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "POWERPNT.EXE"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "F5",
+                        "function":  {
+                                         "zh-CN":  "从头开始幻灯片放映"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Shift+F5",
+                        "function":  {
+                                         "zh-CN":  "从当前幻灯片开始放映"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Ctrl+M",
+                        "function":  {
+                                         "zh-CN":  "新建幻灯片"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    }
+                ]
+}

@@ -60,12 +60,12 @@ public sealed class RulePackValidatorTests
         bool useIncorrectHash = false,
         bool signWithAnotherKey = false)
     {
-        var ruleBytes = Encoding.UTF8.GetBytes("{\"applicationId\":\"wechat\",\"shortcuts\":[]}");
+        var ruleBytes = Encoding.UTF8.GetBytes("{\"schemaVersion\":2,\"applicationId\":\"wechat\",\"variantId\":\"cn-desktop\",\"displayName\":{\"zh-CN\":\"微信\"},\"match\":{\"executables\":[\"WeChat.exe\"],\"publishers\":[],\"versionRange\":null,\"packageFamilyNames\":[],\"distribution\":null},\"hotkeys\":[]}");
         var files = new List<object>
         {
             new
             {
-                path = "rules/wechat.json",
+                path = "rules/wechat-cn-desktop.json",
                 sha256 = useIncorrectHash
                     ? new string('0', 64)
                     : Convert.ToHexString(SHA256.HashData(ruleBytes)).ToLowerInvariant(),
@@ -83,7 +83,7 @@ public sealed class RulePackValidatorTests
 
         var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(new
         {
-            schemaVersion = 1,
+            schemaVersion = 2,
             packId = "keyradar.test",
             version = "1.0.0",
             files,
@@ -102,7 +102,7 @@ public sealed class RulePackValidatorTests
         using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
         {
             WriteEntry(archive, "manifest.json", manifestBytes);
-            WriteEntry(archive, "rules/wechat.json", ruleBytes);
+            WriteEntry(archive, "rules/wechat-cn-desktop.json", ruleBytes);
             if (extraPath is not null)
             {
                 WriteEntry(archive, extraPath, [0x01]);

@@ -1,8 +1,8 @@
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 
-namespace KeyRadar.Core.Tests.Shortcuts;
+namespace KeyRadar.Core.Tests.Hotkeys;
 
-public sealed class ShortcutGestureTests
+public sealed class HotkeyGestureTests
 {
     [Theory]
     [InlineData("shift+control+a", "Ctrl+Shift+A")]
@@ -11,7 +11,7 @@ public sealed class ShortcutGestureTests
     [InlineData("CTRL+ESC", "Ctrl+Esc")]
     public void Parse_normalizes_aliases_order_and_spacing(string input, string expected)
     {
-        var gesture = ShortcutGesture.Parse(input);
+        var gesture = HotkeyGesture.Parse(input);
 
         Assert.Equal(expected, gesture.ToString());
     }
@@ -19,8 +19,8 @@ public sealed class ShortcutGestureTests
     [Fact]
     public void Equality_uses_the_normalized_gesture()
     {
-        var left = ShortcutGesture.Parse("Alt+A");
-        var right = ShortcutGesture.Parse("a + option");
+        var left = HotkeyGesture.Parse("Alt+A");
+        var right = HotkeyGesture.Parse("a + option");
 
         Assert.Equal(left, right);
         Assert.Equal(left.GetHashCode(), right.GetHashCode());
@@ -33,13 +33,13 @@ public sealed class ShortcutGestureTests
     [InlineData("Ctrl++A")]
     public void Parse_rejects_gestures_without_exactly_one_primary_key(string input)
     {
-        Assert.Throws<FormatException>(() => ShortcutGesture.Parse(input));
+        Assert.Throws<FormatException>(() => HotkeyGesture.Parse(input));
     }
 
     [Fact]
     public void TryParse_returns_false_without_throwing_for_invalid_text()
     {
-        Assert.False(ShortcutGesture.TryParse("Ctrl+Alt", out _));
-        Assert.False(ShortcutGesture.TryParse(null, out _));
+        Assert.False(HotkeyGesture.TryParse("Ctrl+Alt", out _));
+        Assert.False(HotkeyGesture.TryParse(null, out _));
     }
 }

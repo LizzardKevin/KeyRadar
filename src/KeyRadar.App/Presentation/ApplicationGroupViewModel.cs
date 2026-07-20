@@ -9,7 +9,7 @@ public sealed class ApplicationGroupViewModel
         string evidenceSummary,
         string iconGlyph,
         bool isExpanded,
-        IReadOnlyList<ShortcutRowViewModel> shortcuts,
+        IReadOnlyList<HotkeyRowViewModel> hotkeys,
         int processId = 0)
     {
         Id = id;
@@ -18,7 +18,7 @@ public sealed class ApplicationGroupViewModel
         EvidenceSummary = evidenceSummary;
         IconGlyph = iconGlyph;
         IsExpanded = isExpanded;
-        Shortcuts = shortcuts;
+        Hotkeys = hotkeys;
         ProcessId = processId;
     }
 
@@ -34,11 +34,11 @@ public sealed class ApplicationGroupViewModel
 
     public bool IsExpanded { get; set; }
 
-    public IReadOnlyList<ShortcutRowViewModel> Shortcuts { get; set; }
+    public IReadOnlyList<HotkeyRowViewModel> Hotkeys { get; set; }
 
     public int ProcessId { get; set; }
 
     public bool CanJump => ProcessId > 0;
 
-    public string ShortcutCountLabel => $"{Shortcuts.Count} 个快捷键";
+    public string HotkeyCountLabel => $"{Hotkeys.Count} 个热键";
 }

@@ -1,0 +1,48 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "windows-terminal",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Windows Terminal",
+                        "en-US":  "Windows Terminal"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "WindowsTerminal.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+Shift+T",
+                        "function":  {
+                                         "zh-CN":  "新建标签页"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Ctrl+Shift+W",
+                        "function":  {
+                                         "zh-CN":  "关闭窗格或标签页"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Ctrl+,",
+                        "function":  {
+                                         "zh-CN":  "打开设置"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    }
+                ]
+}

@@ -1,5 +1,5 @@
 using Microsoft.UI.Xaml;
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 using Windows.Graphics;
 
 // To learn more about WinUI, the WinUI project structure,
@@ -28,7 +28,7 @@ public sealed partial class MainWindow : Window
         RootFrame.Navigate(typeof(MainPage));
     }
 
-    public void ShowObservedGesture(ShortcutGesture gesture)
+    public void ShowObservedGesture(HotkeyGesture gesture)
     {
         if (RootFrame.Content is MainPage page)
         {

@@ -1,0 +1,32 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "amd-adrenalin",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "AMD Software: Adrenalin Edition",
+                        "en-US":  "AMD Software: Adrenalin Edition"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "RadeonSoftware.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Alt+R",
+                        "function":  {
+                                         "zh-CN":  "打开 Radeon 覆盖层（默认键，可修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    }
+                ]
+}

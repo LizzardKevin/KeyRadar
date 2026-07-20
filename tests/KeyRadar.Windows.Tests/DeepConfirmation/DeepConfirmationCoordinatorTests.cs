@@ -1,4 +1,4 @@
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 using KeyRadar.Windows.DeepConfirmation;
 
 namespace KeyRadar.Windows.Tests.DeepConfirmation;
@@ -12,7 +12,7 @@ public sealed class DeepConfirmationCoordinatorTests
         var coordinator = new DeepConfirmationCoordinator(component);
 
         var result = await coordinator.ConfirmAsync(
-            new DeepConfirmationRequest(42, ShortcutGesture.Parse("Alt+A"), TimeSpan.FromSeconds(30)),
+            new DeepConfirmationRequest(42, HotkeyGesture.Parse("Alt+A"), TimeSpan.FromSeconds(30)),
             CancellationToken.None);
 
         Assert.Equal(DeepConfirmationResult.Confirmed, result);
@@ -27,7 +27,7 @@ public sealed class DeepConfirmationCoordinatorTests
         var coordinator = new DeepConfirmationCoordinator(component);
 
         var result = await coordinator.ConfirmAsync(
-            new DeepConfirmationRequest(42, ShortcutGesture.Parse("Alt+A"), TimeSpan.FromSeconds(30)),
+            new DeepConfirmationRequest(42, HotkeyGesture.Parse("Alt+A"), TimeSpan.FromSeconds(30)),
             new CancellationToken(canceled: true));
 
         Assert.Equal(DeepConfirmationResult.Cancelled, result);
@@ -40,7 +40,7 @@ public sealed class DeepConfirmationCoordinatorTests
     public async Task Timeout_must_be_between_one_and_thirty_seconds(int seconds)
     {
         var coordinator = new DeepConfirmationCoordinator(new StubComponent(DeepConfirmationResult.TimedOut));
-        var request = new DeepConfirmationRequest(42, ShortcutGesture.Parse("Alt+A"), TimeSpan.FromSeconds(seconds));
+        var request = new DeepConfirmationRequest(42, HotkeyGesture.Parse("Alt+A"), TimeSpan.FromSeconds(seconds));
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
             coordinator.ConfirmAsync(request, CancellationToken.None));
@@ -61,7 +61,7 @@ public sealed class DeepConfirmationCoordinatorTests
         }
 
         public Task<DeepConfirmationResult> WaitForTargetAsync(
-            ShortcutGesture target,
+            HotkeyGesture target,
             TimeSpan timeout,
             CancellationToken cancellationToken)
         {

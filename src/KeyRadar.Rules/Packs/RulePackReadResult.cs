@@ -5,7 +5,7 @@ public enum RulePackReadError
     None,
     ValidationFailed,
     InvalidRule,
-    DuplicateApplication,
+    DuplicateApplicationVariant,
 }
 
 public sealed record RulePackReadResult(

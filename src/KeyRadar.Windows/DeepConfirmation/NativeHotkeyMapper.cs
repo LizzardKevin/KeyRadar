@@ -1,16 +1,16 @@
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 
 namespace KeyRadar.Windows.DeepConfirmation;
 
 public static class NativeHotkeyMapper
 {
-    public static bool TryMap(ShortcutGesture gesture, out uint virtualKey, out uint modifiers)
+    public static bool TryMap(HotkeyGesture gesture, out uint virtualKey, out uint modifiers)
     {
         modifiers = 0;
-        if (gesture.Modifiers.HasFlag(ShortcutModifiers.Alt)) modifiers |= 0x0001;
-        if (gesture.Modifiers.HasFlag(ShortcutModifiers.Control)) modifiers |= 0x0002;
-        if (gesture.Modifiers.HasFlag(ShortcutModifiers.Shift)) modifiers |= 0x0004;
-        if (gesture.Modifiers.HasFlag(ShortcutModifiers.Windows)) modifiers |= 0x0008;
+        if (gesture.Modifiers.HasFlag(HotkeyModifiers.Alt)) modifiers |= 0x0001;
+        if (gesture.Modifiers.HasFlag(HotkeyModifiers.Control)) modifiers |= 0x0002;
+        if (gesture.Modifiers.HasFlag(HotkeyModifiers.Shift)) modifiers |= 0x0004;
+        if (gesture.Modifiers.HasFlag(HotkeyModifiers.Windows)) modifiers |= 0x0008;
 
         return TryMapVirtualKey(gesture.Key, out virtualKey);
     }
@@ -53,6 +53,24 @@ public static class NativeHotkeyMapper
             "PrintScreen" => 0x2C,
             "Insert" => 0x2D,
             "Delete" => 0x2E,
+            "BrowserBack" => 0xA6,
+            "BrowserForward" => 0xA7,
+            "BrowserRefresh" => 0xA8,
+            "BrowserStop" => 0xA9,
+            "BrowserSearch" => 0xAA,
+            "BrowserFavorites" => 0xAB,
+            "BrowserHome" => 0xAC,
+            "VolumeMute" => 0xAD,
+            "VolumeDown" => 0xAE,
+            "VolumeUp" => 0xAF,
+            "MediaNextTrack" => 0xB0,
+            "MediaPreviousTrack" => 0xB1,
+            "MediaStop" => 0xB2,
+            "MediaPlayPause" => 0xB3,
+            "LaunchMail" => 0xB4,
+            "LaunchMediaSelect" => 0xB5,
+            "LaunchApp1" => 0xB6,
+            "LaunchApp2" => 0xB7,
             _ => 0,
         };
         return virtualKey != 0;

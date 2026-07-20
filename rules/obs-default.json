@@ -1,0 +1,26 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "obs",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "OBS Studio",
+                        "en-US":  "OBS Studio"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "obs64.exe",
+                                      "obs32.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+
+                ]
+}

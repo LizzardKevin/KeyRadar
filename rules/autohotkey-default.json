@@ -1,0 +1,27 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "autohotkey",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "AutoHotkey",
+                        "en-US":  "AutoHotkey"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "AutoHotkey.exe",
+                                      "AutoHotkey64.exe",
+                                      "AutoHotkey32.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+
+                ]
+}

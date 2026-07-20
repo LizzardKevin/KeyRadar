@@ -1,8 +1,8 @@
 namespace KeyRadar.Conflicts;
 
-public static class ShortcutConflictClassifier
+public static class HotkeyConflictClassifier
 {
-    public static ConflictKind Classify(IReadOnlyCollection<ShortcutBinding> bindings)
+    public static ConflictKind Classify(IReadOnlyCollection<HotkeyBinding> bindings)
     {
         ArgumentNullException.ThrowIfNull(bindings);
 
@@ -12,7 +12,7 @@ public static class ShortcutConflictClassifier
         }
 
         var systemWide = bindings
-            .Where(binding => binding.Scope is ShortcutScope.Global or ShortcutScope.WindowsSystem)
+            .Where(binding => binding.Scope is HotkeyScope.Global or HotkeyScope.WindowsSystem)
             .ToArray();
 
         if (systemWide.Count(binding => binding.Confidence is OwnershipConfidence.Confirmed) >= 2)

@@ -1,0 +1,32 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "picpick",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "PicPick",
+                        "en-US":  "PicPick"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "picpick.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "PrintScreen",
+                        "function":  {
+                                         "zh-CN":  "捕获整个屏幕（默认键，可修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    }
+                ]
+}

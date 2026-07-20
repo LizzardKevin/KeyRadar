@@ -2,7 +2,7 @@ using System.IO.Compression;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using KeyRadar.Conflicts;
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 
 namespace KeyRadar.Rules.Packs;
 
@@ -32,39 +32,34 @@ public static class RulePackReader
 
             bufferedPackage.Position = 0;
             using var archive = new ZipArchive(bufferedPackage, ZipArchiveMode.Read, leaveOpen: true);
-            var manifestEntry = archive.GetEntry("manifest.json")!;
-            var manifest = JsonSerializer.Deserialize<RulePackManifest>(ReadEntry(manifestEntry), JsonOptions)!;
-            var applications = new List<ApplicationRuleSet>(manifest.Files.Count);
-            var applicationIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var manifest = JsonSerializer.Deserialize<RulePackManifest>(
+                ReadEntry(archive.GetEntry("manifest.json")!),
+                JsonOptions)!;
+            var variants = new List<ApplicationVariantRule>(manifest.Files.Count);
+            var identities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var file in manifest.Files)
             {
                 var document = JsonSerializer.Deserialize<RuleDocument>(
                     ReadEntry(archive.GetEntry(file.Path)!),
                     JsonOptions);
-                if (document is not null && applicationIds.Contains(document.ApplicationId))
-                {
-                    return RulePackReadResult.Failure(
-                        RulePackReadError.DuplicateApplication,
-                        $"The pack declares application '{document.ApplicationId}' more than once.");
-                }
-
-                if (!TryCreateRuleSet(file.Path, document, out var rules, out var error))
+                if (!TryCreateVariant(file.Path, document, out var variant, out var error))
                 {
                     return RulePackReadResult.Failure(RulePackReadError.InvalidRule, error);
                 }
 
-                if (!applicationIds.Add(rules!.Id))
+                var identity = $"{variant!.ApplicationId}/{variant.VariantId}";
+                if (!identities.Add(identity))
                 {
                     return RulePackReadResult.Failure(
-                        RulePackReadError.DuplicateApplication,
-                        $"The pack declares application '{rules.Id}' more than once.");
+                        RulePackReadError.DuplicateApplicationVariant,
+                        $"The pack declares application variant '{identity}' more than once.");
                 }
 
-                applications.Add(rules);
+                variants.Add(variant);
             }
 
-            return RulePackReadResult.Success(new RulePack(manifest.PackId, manifest.Version, applications));
+            return RulePackReadResult.Success(new RulePack(manifest.PackId, manifest.Version, variants));
         }
         catch (Exception exception) when (
             exception is InvalidDataException or
@@ -78,70 +73,144 @@ public static class RulePackReader
         }
     }
 
-    private static bool TryCreateRuleSet(
+    private static bool TryCreateVariant(
         string path,
         RuleDocument? document,
-        out ApplicationRuleSet? rules,
+        out ApplicationVariantRule? variant,
         out string error)
     {
-        rules = null;
-        error = $"The rule '{path}' does not conform to schema version 1.";
-        var isWindowsSystem = document?.ApplicationId.Equals(
-            "windows-system",
-            StringComparison.Ordinal) == true;
+        variant = null;
+        error = $"The rule '{path}' does not conform to schema version 2.";
         if (document is null ||
-            document.SchemaVersion != 1 ||
-            !IsValidApplicationId(document.ApplicationId) ||
-            !path.Equals($"rules/{document.ApplicationId}.json", StringComparison.OrdinalIgnoreCase) ||
-            !IsText(document.DisplayName, 100) ||
-            document.Executables is not { Count: <= 32 } ||
-            isWindowsSystem && document.Executables.Count != 0 ||
-            !isWindowsSystem && document.Executables.Count == 0 ||
-            document.Executables.Any(executable => !IsExecutableName(executable)) ||
-            document.Executables.Distinct(StringComparer.OrdinalIgnoreCase).Count() != document.Executables.Count ||
-            document.Shortcuts is not { Count: <= 512 })
+            document.SchemaVersion != 2 ||
+            !IsIdentifier(document.ApplicationId, 100) ||
+            !IsIdentifier(document.VariantId, 100) ||
+            document.DisplayName is not { Count: > 0 and <= 8 } ||
+            document.Match is null ||
+            document.Hotkeys is not { Count: <= 512 })
         {
             return false;
         }
 
-        var shortcuts = new List<ShortcutRule>(document.Shortcuts.Count);
-        foreach (var item in document.Shortcuts)
+        LocalizedText displayName;
+        try
         {
-            if (item is null ||
-                !IsText(item.Gesture, 64) ||
-                !ShortcutGesture.TryParse(item.Gesture, out var gesture) ||
-                !IsText(item.Function, 160) ||
-                !TryParseScope(item.Scope, out var scope) ||
-                isWindowsSystem != (scope == ShortcutScope.WindowsSystem) ||
-                !TryParseConfidence(item.Confidence, out var confidence) ||
-                item.Sources is { Count: > 8 } ||
-                item.Sources is not null && item.Sources.Any(source => !IsWebSource(source)))
+            displayName = new LocalizedText(document.DisplayName);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+
+        var isWindowsSystem = document.ApplicationId.Equals("windows-system", StringComparison.Ordinal);
+        if (!TryCreateMatch(document.Match, isWindowsSystem, out var match))
+        {
+            return false;
+        }
+
+        var hotkeys = new List<HotkeyRule>(document.Hotkeys.Count);
+        foreach (var item in document.Hotkeys)
+        {
+            if (!TryCreateHotkey(item, isWindowsSystem, out var hotkey))
             {
                 return false;
             }
 
-            shortcuts.Add(new ShortcutRule(gesture, item.Function, scope, confidence)
-            {
-                Sources = item.Sources?.ToArray() ?? [],
-            });
+            hotkeys.Add(hotkey!);
         }
 
-        rules = new ApplicationRuleSet(
+        variant = new ApplicationVariantRule(
             document.ApplicationId,
-            document.DisplayName,
-            document.Executables.ToArray(),
-            shortcuts);
+            document.VariantId,
+            displayName,
+            match!,
+            hotkeys);
         return true;
     }
 
-    private static bool TryParseScope(string? value, out ShortcutScope scope)
+    private static bool TryCreateMatch(
+        RuleMatch document,
+        bool isWindowsSystem,
+        out ApplicationMatchRule? match)
+    {
+        match = null;
+        if (document.Executables is not { Count: <= 32 } ||
+            document.Publishers is not { Count: <= 16 } ||
+            document.PackageFamilyNames is not { Count: <= 16 } ||
+            isWindowsSystem && document.Executables.Count != 0 ||
+            !isWindowsSystem && document.Executables.Count == 0 ||
+            document.Executables.Any(executable => !IsExecutableName(executable)) ||
+            HasDuplicates(document.Executables) ||
+            document.Publishers.Any(publisher => !IsText(publisher, 200)) ||
+            HasDuplicates(document.Publishers) ||
+            document.PackageFamilyNames.Any(package => !IsPackageFamilyName(package)) ||
+            HasDuplicates(document.PackageFamilyNames) ||
+            document.Distribution is not null && !IsIdentifier(document.Distribution, 64))
+        {
+            return false;
+        }
+
+        VersionRange? versionRange = null;
+        if (document.VersionRange is not null &&
+            !VersionRange.TryParse(document.VersionRange, out versionRange))
+        {
+            return false;
+        }
+
+        match = new ApplicationMatchRule(
+            document.Executables.ToArray(),
+            document.Publishers.ToArray(),
+            versionRange,
+            document.PackageFamilyNames.ToArray(),
+            document.Distribution);
+        return true;
+    }
+
+    private static bool TryCreateHotkey(
+        RuleHotkey? document,
+        bool isWindowsSystem,
+        out HotkeyRule? hotkey)
+    {
+        hotkey = null;
+        if (document is null ||
+            !IsText(document.Gesture, 64) ||
+            !HotkeyGesture.TryParse(document.Gesture, out var gesture) ||
+            document.Function is not { Count: > 0 and <= 8 } ||
+            !TryParseScope(document.Scope, out var scope) ||
+            isWindowsSystem != (scope == HotkeyScope.WindowsSystem) ||
+            !TryParseConfidence(document.Confidence, out var confidence) ||
+            document.Sources is { Count: > 8 } ||
+            document.Sources is not null && document.Sources.Any(source => !IsWebSource(source)))
+        {
+            return false;
+        }
+
+        LocalizedText function;
+        try
+        {
+            function = new LocalizedText(document.Function);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+
+        hotkey = new HotkeyRule(gesture, function, scope, confidence)
+        {
+            Sources = document.Sources?.ToArray() ?? [],
+        };
+        return true;
+    }
+
+    private static bool TryParseScope(string? value, out HotkeyScope scope)
     {
         scope = value switch
         {
-            "application" => ShortcutScope.Application,
-            "global" => ShortcutScope.Global,
-            "windowsSystem" => ShortcutScope.WindowsSystem,
-            _ => (ShortcutScope)(-1),
+            "foreground" => HotkeyScope.Foreground,
+            "background" => HotkeyScope.Background,
+            "global" => HotkeyScope.Global,
+            "windowsSystem" => HotkeyScope.WindowsSystem,
+            _ => (HotkeyScope)(-1),
         };
         return (int)scope >= 0;
     }
@@ -150,17 +219,23 @@ public static class RulePackReader
     {
         confidence = value switch
         {
-            "configuration" => OwnershipConfidence.Configuration,
+            "configuration" => OwnershipConfidence.LocalConfiguration,
+            "hardwareMapping" => OwnershipConfidence.HardwareMapping,
             "systemKnown" => OwnershipConfidence.SystemKnown,
+            "officialDefault" => OwnershipConfidence.OfficialDefault,
+            "corroborated" => OwnershipConfidence.Corroborated,
             "suspected" => OwnershipConfidence.Suspected,
             _ => (OwnershipConfidence)(-1),
         };
         return (int)confidence >= 0;
     }
 
-    private static bool IsValidApplicationId(string? value)
+    private static bool IsIdentifier(string? value, int maximumLength)
     {
-        if (string.IsNullOrEmpty(value) || value.Length > 100 || value[0] is '-' || value[^1] is '-')
+        if (string.IsNullOrEmpty(value) ||
+            value.Length > maximumLength ||
+            value[0] is '-' ||
+            value[^1] is '-')
         {
             return false;
         }
@@ -195,6 +270,10 @@ public static class RulePackReader
         value!.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
         value.IndexOfAny(['\\', '/', ':', '*', '?', '"', '<', '>', '|']) < 0;
 
+    private static bool IsPackageFamilyName(string? value) =>
+        IsText(value, 255) &&
+        value!.IndexOfAny(['\\', '/', ':', '*', '?', '"', '<', '>', '|']) < 0;
+
     private static bool IsText(string? value, int maximumLength) =>
         !string.IsNullOrWhiteSpace(value) &&
         value.Length <= maximumLength &&
@@ -204,6 +283,9 @@ public static class RulePackReader
         IsText(value, 500) &&
         Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
         uri.Scheme is "https" or "http";
+
+    private static bool HasDuplicates(IEnumerable<string> values) =>
+        values.Distinct(StringComparer.OrdinalIgnoreCase).Count() != values.Count();
 
     private static MemoryStream Buffer(Stream source)
     {
@@ -226,7 +308,8 @@ public static class RulePackReader
 
     private static byte[] ReadEntry(ZipArchiveEntry entry)
     {
-        if (entry.Length > MaximumRuleBytes && !entry.FullName.Equals("manifest.json", StringComparison.OrdinalIgnoreCase))
+        if (entry.Length > MaximumRuleBytes &&
+            !entry.FullName.Equals("manifest.json", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidDataException("The rule entry exceeds 512 KiB.");
         }
@@ -240,13 +323,21 @@ public static class RulePackReader
     private sealed record RuleDocument(
         [property: JsonPropertyName("schemaVersion")] int SchemaVersion,
         [property: JsonPropertyName("applicationId")] string ApplicationId,
-        [property: JsonPropertyName("displayName")] string DisplayName,
-        [property: JsonPropertyName("executables")] IReadOnlyList<string> Executables,
-        [property: JsonPropertyName("shortcuts")] IReadOnlyList<RuleShortcut?> Shortcuts);
+        [property: JsonPropertyName("variantId")] string VariantId,
+        [property: JsonPropertyName("displayName")] IReadOnlyDictionary<string, string> DisplayName,
+        [property: JsonPropertyName("match")] RuleMatch Match,
+        [property: JsonPropertyName("hotkeys")] IReadOnlyList<RuleHotkey?> Hotkeys);
 
-    private sealed record RuleShortcut(
+    private sealed record RuleMatch(
+        [property: JsonPropertyName("executables")] IReadOnlyList<string> Executables,
+        [property: JsonPropertyName("publishers")] IReadOnlyList<string> Publishers,
+        [property: JsonPropertyName("versionRange")] string? VersionRange,
+        [property: JsonPropertyName("packageFamilyNames")] IReadOnlyList<string> PackageFamilyNames,
+        [property: JsonPropertyName("distribution")] string? Distribution);
+
+    private sealed record RuleHotkey(
         [property: JsonPropertyName("gesture")] string Gesture,
-        [property: JsonPropertyName("function")] string Function,
+        [property: JsonPropertyName("function")] IReadOnlyDictionary<string, string> Function,
         [property: JsonPropertyName("scope")] string Scope,
         [property: JsonPropertyName("confidence")] string Confidence,
         [property: JsonPropertyName("sources")] IReadOnlyList<string>? Sources = null);

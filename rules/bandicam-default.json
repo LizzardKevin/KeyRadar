@@ -1,0 +1,40 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "bandicam",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Bandicam",
+                        "en-US":  "Bandicam"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "bdcam.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "F12",
+                        "function":  {
+                                         "zh-CN":  "开始或停止录制（默认键，可修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    },
+                    {
+                        "gesture":  "F11",
+                        "function":  {
+                                         "zh-CN":  "截图（默认键，可修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    }
+                ]
+}

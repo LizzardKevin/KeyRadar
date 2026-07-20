@@ -1,10 +1,10 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 
 namespace KeyRadar.Windows.Input;
 
-public sealed partial class GlobalShortcutObserver : IDisposable
+public sealed partial class GlobalHotkeyObserver : IDisposable
 {
     private const int LowLevelKeyboardHook = 13;
     private const int KeyDownMessage = 0x0100;
@@ -13,16 +13,16 @@ public sealed partial class GlobalShortcutObserver : IDisposable
     private const int SystemKeyUpMessage = 0x0105;
     private const uint InjectedFlag = 0x10;
 
-    private readonly ShortcutObservationState _state = new();
+    private readonly HotkeyObservationState _state = new();
     private readonly HookProcedure _hookProcedure;
     private nint _hookHandle;
 
-    public GlobalShortcutObserver()
+    public GlobalHotkeyObserver()
     {
         _hookProcedure = HookCallback;
     }
 
-    public event EventHandler<ShortcutGestureObservedEventArgs>? GestureObserved;
+    public event EventHandler<HotkeyGestureObservedEventArgs>? GestureObserved;
 
     public bool IsRunning => _hookHandle != nint.Zero;
 
@@ -40,7 +40,7 @@ public sealed partial class GlobalShortcutObserver : IDisposable
             0);
         if (_hookHandle == nint.Zero)
         {
-            throw new Win32Exception(Marshal.GetLastWin32Error(), "Unable to start passive shortcut observation.");
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "Unable to start passive hotkey observation.");
         }
     }
 
@@ -73,10 +73,10 @@ public sealed partial class GlobalShortcutObserver : IDisposable
                 var isKeyUp = messageId is KeyUpMessage or SystemKeyUpMessage;
                 if (isKeyDown || isKeyUp)
                 {
-                    ShortcutGesture? gesture = _state.Process((int)keyboardEvent.VirtualKey, isKeyDown);
+                    HotkeyGesture? gesture = _state.Process((int)keyboardEvent.VirtualKey, isKeyDown);
                     if (gesture is not null)
                     {
-                        GestureObserved?.Invoke(this, new ShortcutGestureObservedEventArgs(gesture.Value));
+                        GestureObserved?.Invoke(this, new HotkeyGestureObservedEventArgs(gesture.Value));
                     }
                 }
             }

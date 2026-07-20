@@ -1,0 +1,64 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "windows-system",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Windows 系统",
+                        "en-US":  "Windows System"
+                    },
+    "match":  {
+                  "executables":  [
+
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Win+Shift+S",
+                        "function":  {
+                                         "zh-CN":  "打开截图工具"
+                                     },
+                        "scope":  "windowsSystem",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Alt+Tab",
+                        "function":  {
+                                         "zh-CN":  "切换窗口"
+                                     },
+                        "scope":  "windowsSystem",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Win+V",
+                        "function":  {
+                                         "zh-CN":  "打开剪贴板历史记录"
+                                     },
+                        "scope":  "windowsSystem",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Win+L",
+                        "function":  {
+                                         "zh-CN":  "锁定电脑"
+                                     },
+                        "scope":  "windowsSystem",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Win+G",
+                        "function":  {
+                                         "zh-CN":  "打开 Xbox Game Bar"
+                                     },
+                        "scope":  "windowsSystem",
+                        "confidence":  "systemKnown"
+                    }
+                ]
+}

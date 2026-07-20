@@ -1,0 +1,57 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "firefox",
+    "variantId":  "stable",
+    "displayName":  {
+                        "zh-CN":  "Mozilla Firefox",
+                        "en-US":  "Mozilla Firefox"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "firefox.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+L",
+                        "function":  {
+                                         "zh-CN":  "定位地址栏"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.mozilla.org/kb/keyboard-shortcuts-perform-firefox-tasks-quickly"
+                                    ]
+                    },
+                    {
+                        "gesture":  "Ctrl+Shift+T",
+                        "function":  {
+                                         "zh-CN":  "恢复关闭的标签页或窗口"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.mozilla.org/kb/keyboard-shortcuts-perform-firefox-tasks-quickly"
+                                    ]
+                    },
+                    {
+                        "gesture":  "Ctrl+W",
+                        "function":  {
+                                         "zh-CN":  "关闭当前标签页"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.mozilla.org/kb/keyboard-shortcuts-perform-firefox-tasks-quickly"
+                                    ]
+                    }
+                ]
+}

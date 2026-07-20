@@ -1,0 +1,25 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "logitech-g-hub",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Logitech G HUB",
+                        "en-US":  "Logitech G HUB"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "lghub.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+
+                ]
+}

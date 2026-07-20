@@ -1,0 +1,57 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "excel",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Microsoft Excel",
+                        "en-US":  "Microsoft Excel"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "EXCEL.EXE"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "F2",
+                        "function":  {
+                                         "zh-CN":  "编辑活动单元格"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.microsoft.com/office/keyboard-shortcuts-in-excel-1798d9d5-842a-42b8-9c99-9b7213f0040f"
+                                    ]
+                    },
+                    {
+                        "gesture":  "Ctrl+S",
+                        "function":  {
+                                         "zh-CN":  "保存工作簿"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.microsoft.com/office/keyboard-shortcuts-in-excel-1798d9d5-842a-42b8-9c99-9b7213f0040f"
+                                    ]
+                    },
+                    {
+                        "gesture":  "Ctrl+B",
+                        "function":  {
+                                         "zh-CN":  "应用加粗格式"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://support.microsoft.com/office/keyboard-shortcuts-in-excel-1798d9d5-842a-42b8-9c99-9b7213f0040f"
+                                    ]
+                    }
+                ]
+}

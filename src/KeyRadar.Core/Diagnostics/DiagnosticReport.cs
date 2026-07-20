@@ -15,9 +15,9 @@ public sealed record DiagnosticApplication(
     string Architecture,
     string Privilege,
     string Presence,
-    IReadOnlyList<DiagnosticShortcut> Shortcuts);
+    IReadOnlyList<DiagnosticHotkey> Hotkeys);
 
-public sealed record DiagnosticShortcut(
+public sealed record DiagnosticHotkey(
     string Gesture,
     string Function,
     string Scope,

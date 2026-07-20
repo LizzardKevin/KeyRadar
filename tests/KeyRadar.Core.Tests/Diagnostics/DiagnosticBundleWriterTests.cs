@@ -24,7 +24,7 @@ public sealed class DiagnosticBundleWriterTests
                     "x64",
                     "standard",
                     "foreground",
-                    [new DiagnosticShortcut("Alt+A", "截图", "global", "configuration", "official-rule")]),
+                    [new DiagnosticHotkey("Alt+A", "截图", "global", "configuration", "official-rule")]),
             ]);
 
         try

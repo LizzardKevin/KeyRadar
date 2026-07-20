@@ -1,0 +1,25 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "logi-options-plus",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Logi Options+",
+                        "en-US":  "Logi Options+"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "logioptionsplus_agent.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+
+                ]
+}

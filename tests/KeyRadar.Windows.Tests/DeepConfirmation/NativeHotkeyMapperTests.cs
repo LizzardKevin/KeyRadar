@@ -1,4 +1,4 @@
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 using KeyRadar.Windows.DeepConfirmation;
 
 namespace KeyRadar.Windows.Tests.DeepConfirmation;
@@ -12,7 +12,7 @@ public sealed class NativeHotkeyMapperTests
     public void TryMap_MapsSupportedGesture(string text, uint expectedKey, uint expectedModifiers)
     {
         var mapped = NativeHotkeyMapper.TryMap(
-            ShortcutGesture.Parse(text),
+            HotkeyGesture.Parse(text),
             out var virtualKey,
             out var modifiers);
 

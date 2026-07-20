@@ -14,12 +14,12 @@ public sealed partial class ForegroundOverlayWindow : Window
     private const long NoActivateStyle = 0x08000000L;
     private bool _positioned;
 
-    public ObservableCollection<ShortcutRowViewModel> Shortcuts { get; } = [];
+    public ObservableCollection<HotkeyRowViewModel> Hotkeys { get; } = [];
 
     public ForegroundOverlayWindow()
     {
         InitializeComponent();
-        ShortcutItems.ItemsSource = Shortcuts;
+        HotkeyItems.ItemsSource = Hotkeys;
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(DragRegion);
 
@@ -36,22 +36,22 @@ public sealed partial class ForegroundOverlayWindow : Window
         ApplyNoActivateStyle();
     }
 
-    public void ShowFor(ApplicationRuleSet rules, int processId)
+    public void ShowFor(ApplicationVariantRule rules, int processId)
     {
-        ApplicationNameText.Text = rules.DisplayName;
-        Shortcuts.Clear();
+        ApplicationNameText.Text = rules.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name);
+        Hotkeys.Clear();
 
-        foreach (var shortcut in rules.Shortcuts)
+        foreach (var hotkey in rules.Hotkeys)
         {
-            Shortcuts.Add(ShortcutRowViewModel.Create(
-                shortcut.Gesture.ToString(),
-                shortcut.Function,
-                shortcut.Scope,
-                shortcut.Confidence,
+            Hotkeys.Add(HotkeyRowViewModel.Create(
+                hotkey.Gesture.ToString(),
+                hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
+                hotkey.Scope,
+                hotkey.Confidence,
                 processId));
         }
 
-        var height = Math.Clamp(94 + (Shortcuts.Count * 49), 180, 420);
+        var height = Math.Clamp(94 + (Hotkeys.Count * 49), 180, 420);
         AppWindow.Resize(new SizeInt32(380, height));
         PositionOnPrimaryWorkArea();
         AppWindow.Show(false);

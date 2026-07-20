@@ -1,0 +1,32 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "feishu",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "飞书",
+                        "en-US":  "Feishu"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "Feishu.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+Shift+A",
+                        "function":  {
+                                         "zh-CN":  "截图（默认键，可在飞书中修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    }
+                ]
+}

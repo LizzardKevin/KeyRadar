@@ -1,0 +1,26 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "razer-synapse",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Razer Synapse",
+                        "en-US":  "Razer Synapse"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "Razer Synapse 3.exe",
+                                      "RazerAppEngine.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+
+                ]
+}

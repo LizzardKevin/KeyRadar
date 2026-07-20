@@ -1,0 +1,26 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "sogou-ime",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "搜狗输入法",
+                        "en-US":  "Sogou Input Method"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "SogouPY.exe",
+                                      "SogouCloud.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+
+                ]
+}

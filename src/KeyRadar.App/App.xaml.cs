@@ -12,7 +12,7 @@ public partial class App : Application
     private MainWindow? _mainWindow;
     private ForegroundOverlayWindow? _overlayWindow;
     private DispatcherQueueTimer? _foregroundTimer;
-    private GlobalShortcutObserver? _shortcutObserver;
+    private GlobalHotkeyObserver? _hotkeyObserver;
     private SingleInstanceGuard? _singleInstance;
     private int _lastForegroundProcessId;
 
@@ -42,16 +42,16 @@ public partial class App : Application
         _mainWindow.Activate();
         TryWriteUpdateHealthMarker();
 
-        _shortcutObserver = new GlobalShortcutObserver();
-        _shortcutObserver.GestureObserved += ShortcutObserver_GestureObserved;
+        _hotkeyObserver = new GlobalHotkeyObserver();
+        _hotkeyObserver.GestureObserved += HotkeyObserver_GestureObserved;
         try
         {
-            _shortcutObserver.Start();
+            _hotkeyObserver.Start();
         }
         catch (System.ComponentModel.Win32Exception)
         {
-            _shortcutObserver.Dispose();
-            _shortcutObserver = null;
+            _hotkeyObserver.Dispose();
+            _hotkeyObserver = null;
         }
 
         _foregroundTimer = DispatcherQueue.GetForCurrentThread().CreateTimer();
@@ -61,7 +61,7 @@ public partial class App : Application
         _foregroundTimer.Start();
     }
 
-    private void ShortcutObserver_GestureObserved(object? sender, ShortcutGestureObservedEventArgs args) =>
+    private void HotkeyObserver_GestureObserved(object? sender, HotkeyGestureObservedEventArgs args) =>
         _mainWindow?.ShowObservedGesture(args.Gesture);
 
     private void ForegroundTimer_Tick(DispatcherQueueTimer sender, object args)
@@ -79,7 +79,7 @@ public partial class App : Application
         var shouldShow = ForegroundOverlayPolicy.ShouldShow(
             Environment.ProcessId,
             foreground.ProcessId,
-            rules is { Shortcuts.Count: > 0 });
+            rules is { Hotkeys.Count: > 0 });
 
         if (!shouldShow || rules is null)
         {
@@ -111,11 +111,11 @@ public partial class App : Application
         }
 
         _overlayWindow?.Close();
-        if (_shortcutObserver is not null)
+        if (_hotkeyObserver is not null)
         {
-            _shortcutObserver.GestureObserved -= ShortcutObserver_GestureObserved;
-            _shortcutObserver.Dispose();
-            _shortcutObserver = null;
+            _hotkeyObserver.GestureObserved -= HotkeyObserver_GestureObserved;
+            _hotkeyObserver.Dispose();
+            _hotkeyObserver = null;
         }
         _overlayWindow = null;
         _mainWindow = null;

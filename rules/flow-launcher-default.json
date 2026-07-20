@@ -1,0 +1,32 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "flow-launcher",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Flow Launcher",
+                        "en-US":  "Flow Launcher"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "Flow.Launcher.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Alt+Space",
+                        "function":  {
+                                         "zh-CN":  "打开 Flow Launcher（默认键，可修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    }
+                ]
+}

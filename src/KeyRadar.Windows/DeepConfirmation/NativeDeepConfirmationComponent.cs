@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 using KeyRadar.Windows.Applications;
 
 namespace KeyRadar.Windows.DeepConfirmation;
@@ -45,7 +45,7 @@ public sealed class NativeDeepConfirmationComponent : IDeepConfirmationComponent
     }
 
     public async Task<DeepConfirmationResult> WaitForTargetAsync(
-        ShortcutGesture target,
+        HotkeyGesture target,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {

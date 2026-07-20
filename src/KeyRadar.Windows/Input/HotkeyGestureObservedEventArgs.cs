@@ -1,8 +1,8 @@
-using KeyRadar.Shortcuts;
+using KeyRadar.Hotkeys;
 
 namespace KeyRadar.Windows.Input;
 
-public sealed class ShortcutGestureObservedEventArgs(ShortcutGesture gesture) : EventArgs
+public sealed class HotkeyGestureObservedEventArgs(HotkeyGesture gesture) : EventArgs
 {
-    public ShortcutGesture Gesture { get; } = gesture;
+    public HotkeyGesture Gesture { get; } = gesture;
 }

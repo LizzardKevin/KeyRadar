@@ -7,7 +7,7 @@ namespace KeyRadar.Diagnostics;
 public static class DiagnosticBundleWriter
 {
     private const int MaximumApplications = 2048;
-    private const int MaximumShortcutsPerApplication = 2048;
+    private const int MaximumHotkeysPerApplication = 2048;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -20,7 +20,7 @@ public static class DiagnosticBundleWriter
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
         ArgumentNullException.ThrowIfNull(report);
         if (report.Applications.Count > MaximumApplications ||
-            report.Applications.Any(application => application.Shortcuts.Count > MaximumShortcutsPerApplication))
+            report.Applications.Any(application => application.Hotkeys.Count > MaximumHotkeysPerApplication))
         {
             throw new InvalidDataException("The diagnostic snapshot exceeds its bounded record limits.");
         }
@@ -55,13 +55,13 @@ public static class DiagnosticBundleWriter
             Architecture = Clean(application.Architecture, 32),
             Privilege = Clean(application.Privilege, 32),
             Presence = Clean(application.Presence, 32),
-            Shortcuts = application.Shortcuts.Select(shortcut => shortcut with
+            Hotkeys = application.Hotkeys.Select(hotkey => hotkey with
             {
-                Gesture = Clean(shortcut.Gesture, 64),
-                Function = Clean(shortcut.Function, 160),
-                Scope = Clean(shortcut.Scope, 32),
-                Confidence = Clean(shortcut.Confidence, 32),
-                Evidence = Clean(shortcut.Evidence, 80),
+                Gesture = Clean(hotkey.Gesture, 64),
+                Function = Clean(hotkey.Function, 160),
+                Scope = Clean(hotkey.Scope, 32),
+                Confidence = Clean(hotkey.Confidence, 32),
+                Evidence = Clean(hotkey.Evidence, 80),
             }).ToArray(),
         };
 

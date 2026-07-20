@@ -1,0 +1,57 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "slack",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Slack",
+                        "en-US":  "Slack"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "slack.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+K",
+                        "function":  {
+                                         "zh-CN":  "打开会话"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://slack.com/help/articles/115003340723-Navigate-Slack-with-your-keyboard"
+                                    ]
+                    },
+                    {
+                        "gesture":  "Ctrl+G",
+                        "function":  {
+                                         "zh-CN":  "开始搜索"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://slack.com/help/articles/201374536-Slack-keyboard-shortcuts-and-commands"
+                                    ]
+                    },
+                    {
+                        "gesture":  "Ctrl+Shift+H",
+                        "function":  {
+                                         "zh-CN":  "开始、加入、离开或结束 Huddle"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://slack.com/help/articles/201374536-Slack-keyboard-shortcuts-and-commands"
+                                    ]
+                    }
+                ]
+}

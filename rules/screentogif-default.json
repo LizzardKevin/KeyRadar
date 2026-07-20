@@ -1,0 +1,40 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "screentogif",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "ScreenToGif",
+                        "en-US":  "ScreenToGif"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "ScreenToGif.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "F7",
+                        "function":  {
+                                         "zh-CN":  "录制或暂停"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "F8",
+                        "function":  {
+                                         "zh-CN":  "停止录制"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    }
+                ]
+}

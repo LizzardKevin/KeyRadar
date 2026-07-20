@@ -1,9 +1,0 @@
-{
-  "schemaVersion": 1,
-  "applicationId": "logi-options-plus",
-  "displayName": "Logi Options+",
-  "executables": [
-    "logioptionsplus_agent.exe"
-  ],
-  "shortcuts": []
-}

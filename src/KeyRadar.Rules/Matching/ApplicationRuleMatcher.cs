@@ -2,14 +2,10 @@ namespace KeyRadar.Rules;
 
 public static class ApplicationRuleMatcher
 {
-    public static ApplicationRuleSet? FindByExecutableName(
-        IEnumerable<ApplicationRuleSet> applications,
-        string executableName)
-    {
-        ArgumentNullException.ThrowIfNull(applications);
-        ArgumentException.ThrowIfNullOrWhiteSpace(executableName);
-
-        return applications.FirstOrDefault(application =>
-            application.ExecutableNames.Contains(executableName, StringComparer.OrdinalIgnoreCase));
-    }
+    public static ApplicationVariantRule? FindByExecutableName(
+        IEnumerable<ApplicationVariantRule> variants,
+        string executableName) =>
+        new ApplicationVariantMatcher()
+            .Match(new ApplicationIdentity(executableName), variants)
+            .Selected;
 }

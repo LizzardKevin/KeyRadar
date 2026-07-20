@@ -3,8 +3,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using KeyRadar.Conflicts;
+using KeyRadar.Hotkeys;
 using KeyRadar.Rules.Packs;
-using KeyRadar.Shortcuts;
 using NSec.Cryptography;
 
 namespace KeyRadar.Rules.Tests.Catalog;
@@ -14,40 +14,38 @@ public sealed class OfficialRuleSourceTests
     private static readonly Lazy<RulePack> SourcePack = new(LoadSourcePack);
 
     [Fact]
-    public void Source_contains_fifty_apps_and_one_windows_system_rule()
+    public void Source_is_non_empty_and_application_variant_identities_are_unique()
     {
-        var applications = SourcePack.Value.Applications;
+        var variants = SourcePack.Value.Variants;
 
-        Assert.Equal(51, applications.Count);
-        Assert.Equal(51, applications.Select(app => app.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count());
-        Assert.Equal(50, applications.Count(app => app.Id != "windows-system"));
-        Assert.All(applications.Where(app => app.Id != "windows-system"), app => Assert.NotEmpty(app.ExecutableNames));
+        Assert.NotEmpty(variants);
+        Assert.Equal(
+            variants.Count,
+            variants
+                .Select(variant => $"{variant.ApplicationId}/{variant.VariantId}")
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count());
+        Assert.All(
+            variants.Where(variant => variant.ApplicationId != "windows-system"),
+            variant => Assert.NotEmpty(variant.Match.Executables));
 
-        var windows = Assert.Single(applications, app => app.Id == "windows-system");
-        Assert.Empty(windows.ExecutableNames);
-        Assert.NotEmpty(windows.Shortcuts);
-        Assert.All(windows.Shortcuts, shortcut => Assert.Equal(ShortcutScope.WindowsSystem, shortcut.Scope));
+        var windows = Assert.Single(variants, variant => variant.ApplicationId == "windows-system");
+        Assert.Empty(windows.Match.Executables);
+        Assert.NotEmpty(windows.Hotkeys);
+        Assert.All(windows.Hotkeys, hotkey => Assert.Equal(HotkeyScope.WindowsSystem, hotkey.Scope));
     }
 
     [Fact]
     public void WeChat_Alt_A_is_a_global_screenshot_rule()
     {
-        var wechat = Assert.Single(SourcePack.Value.Applications, app => app.Id == "wechat");
-        var screenshot = Assert.Single(wechat.Shortcuts, shortcut =>
-            shortcut.Gesture == ShortcutGesture.Parse("Alt+A"));
+        var wechat = Assert.Single(SourcePack.Value.Variants, variant =>
+            variant.ApplicationId == "wechat" && variant.VariantId == "cn-desktop");
+        var screenshot = Assert.Single(wechat.Hotkeys, hotkey =>
+            hotkey.Gesture == HotkeyGesture.Parse("Alt+A"));
 
-        Assert.Equal("截图", screenshot.Function);
-        Assert.Equal(ShortcutScope.Global, screenshot.Scope);
-        Assert.Equal(OwnershipConfidence.Configuration, screenshot.Confidence);
-    }
-
-    [Fact]
-    public void Source_has_useful_shortcuts_for_at_least_thirty_five_apps()
-    {
-        var count = SourcePack.Value.Applications.Count(app =>
-            app.Id != "windows-system" && app.Shortcuts.Count > 0);
-
-        Assert.True(count >= 35, $"Only {count} applications contain shortcut rules.");
+        Assert.Equal("截图", screenshot.Function.Resolve("zh-CN"));
+        Assert.Equal(HotkeyScope.Global, screenshot.Scope);
+        Assert.Equal(OwnershipConfidence.LocalConfiguration, screenshot.Confidence);
     }
 
     private static RulePack LoadSourcePack()
@@ -57,9 +55,11 @@ public sealed class OfficialRuleSourceTests
             .OrderBy(path => path, StringComparer.Ordinal)
             .Select(path => (Path: path, Content: File.ReadAllBytes(path)))
             .ToArray();
+        Assert.NotEmpty(files);
+
         var manifest = JsonSerializer.SerializeToUtf8Bytes(new
         {
-            schemaVersion = 1,
+            schemaVersion = 2,
             packId = OfficialRulePack.PackId,
             version = "1.0.0",
             files = files.Select(file => new

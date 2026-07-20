@@ -1,0 +1,32 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "ditto",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Ditto",
+                        "en-US":  "Ditto"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "Ditto.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+`",
+                        "function":  {
+                                         "zh-CN":  "打开 Ditto 剪贴板（默认键，可修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    }
+                ]
+}

@@ -1,7 +1,7 @@
-namespace KeyRadar.Shortcuts;
+namespace KeyRadar.Hotkeys;
 
 [Flags]
-public enum ShortcutModifiers
+public enum HotkeyModifiers
 {
     None = 0,
     Control = 1 << 0,

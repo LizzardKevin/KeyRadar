@@ -1,0 +1,40 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "qq",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "QQ",
+                        "en-US":  "QQ"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "QQ.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+Alt+A",
+                        "function":  {
+                                         "zh-CN":  "截图（默认键，可在 QQ 中修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    },
+                    {
+                        "gesture":  "Ctrl+Alt+Z",
+                        "function":  {
+                                         "zh-CN":  "唤起 QQ（默认键，可在 QQ 中修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    }
+                ]
+}

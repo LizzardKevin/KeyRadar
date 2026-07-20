@@ -1,0 +1,68 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "vscode",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Visual Studio Code",
+                        "en-US":  "Visual Studio Code"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "Code.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+P",
+                        "function":  {
+                                         "zh-CN":  "快速打开文件"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://code.visualstudio.com/docs/reference/default-keybindings"
+                                    ]
+                    },
+                    {
+                        "gesture":  "Ctrl+Shift+P",
+                        "function":  {
+                                         "zh-CN":  "显示命令面板"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://code.visualstudio.com/docs/reference/default-keybindings"
+                                    ]
+                    },
+                    {
+                        "gesture":  "F1",
+                        "function":  {
+                                         "zh-CN":  "显示命令面板"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://code.visualstudio.com/docs/reference/default-keybindings"
+                                    ]
+                    },
+                    {
+                        "gesture":  "F5",
+                        "function":  {
+                                         "zh-CN":  "开始调试"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown",
+                        "sources":  [
+                                        "https://code.visualstudio.com/docs/reference/default-keybindings"
+                                    ]
+                    }
+                ]
+}

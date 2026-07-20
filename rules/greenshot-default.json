@@ -1,0 +1,40 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "greenshot",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Greenshot",
+                        "en-US":  "Greenshot"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "Greenshot.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "PrintScreen",
+                        "function":  {
+                                         "zh-CN":  "捕获区域（默认键，可修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    },
+                    {
+                        "gesture":  "Alt+PrintScreen",
+                        "function":  {
+                                         "zh-CN":  "捕获活动窗口（默认键，可修改）"
+                                     },
+                        "scope":  "global",
+                        "confidence":  "suspected"
+                    }
+                ]
+}

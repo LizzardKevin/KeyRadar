@@ -1,0 +1,48 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "visual-studio",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Visual Studio",
+                        "en-US":  "Visual Studio"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "devenv.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+Q",
+                        "function":  {
+                                         "zh-CN":  "搜索 Visual Studio"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "F5",
+                        "function":  {
+                                         "zh-CN":  "启动调试"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Ctrl+Alt+L",
+                        "function":  {
+                                         "zh-CN":  "打开解决方案资源管理器"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    }
+                ]
+}

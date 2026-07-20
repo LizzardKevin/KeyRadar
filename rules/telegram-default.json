@@ -1,0 +1,40 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "telegram",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Telegram",
+                        "en-US":  "Telegram"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "Telegram.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+F",
+                        "function":  {
+                                         "zh-CN":  "搜索当前会话"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Ctrl+K",
+                        "function":  {
+                                         "zh-CN":  "快速选择会话"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "suspected"
+                    }
+                ]
+}

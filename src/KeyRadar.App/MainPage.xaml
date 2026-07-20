@@ -40,7 +40,7 @@
                 <RadioButton>
                     <StackPanel Orientation="Horizontal" Spacing="12">
                         <FontIcon FontSize="16" Glyph="&#xE774;" />
-                        <TextBlock Text="全局快捷键" />
+                        <TextBlock Text="全局热键" />
                     </StackPanel>
                 </RadioButton>
                 <RadioButton>
@@ -85,7 +85,7 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel>
-                        <TextBlock FontSize="28" FontWeight="SemiBold" Text="快捷键雷达" />
+                        <TextBlock FontSize="28" FontWeight="SemiBold" Text="热键雷达" />
                         <TextBlock x:Name="SummaryText" Margin="0,5,0,0" Foreground="{StaticResource RadarMutedBrush}" Text="正在扫描当前前后台应用…" />
                     </StackPanel>
                     <Button Grid.Column="1" HorizontalAlignment="Right" Click="RefreshButton_Click">
@@ -147,7 +147,7 @@
                     IsOpen="False"
                     Message="同一组合键存在多个运行中的候选归属。"
                     Severity="Warning"
-                    Title="发现快捷键冲突" />
+                    Title="发现热键冲突" />
 
                 <Border
                     Padding="14,11"
@@ -195,7 +195,7 @@
                                             </StackPanel>
                                             <TextBlock FontSize="12" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind EvidenceSummary}" />
                                         </StackPanel>
-                                        <TextBlock Grid.Column="2" VerticalAlignment="Center" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind ShortcutCountLabel}" />
+                                        <TextBlock Grid.Column="2" VerticalAlignment="Center" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind HotkeyCountLabel}" />
                                         <Button
                                             Grid.Column="3"
                                             Margin="12,0,0,0"
@@ -207,9 +207,9 @@
                                     </Grid>
                                 </Expander.Header>
 
-                                <ItemsControl ItemsSource="{x:Bind Shortcuts}">
+                                <ItemsControl ItemsSource="{x:Bind Hotkeys}">
                                     <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="local:ShortcutRowViewModel">
+                                        <DataTemplate x:DataType="local:HotkeyRowViewModel">
                                             <Grid Padding="15,11" BorderBrush="#18FFFFFF" BorderThickness="0,1,0,0" ColumnSpacing="14">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="160" />
@@ -245,7 +245,7 @@
                 <StackPanel x:Name="EmptyState" Padding="32" HorizontalAlignment="Center" Visibility="Collapsed">
                     <FontIcon HorizontalAlignment="Center" FontSize="36" Foreground="{StaticResource RadarMutedBrush}" Glyph="&#xE9D9;" />
                     <TextBlock Margin="0,12,0,0" FontSize="18" HorizontalAlignment="Center" Text="当前筛选没有匹配项" />
-                    <TextBlock Margin="0,5,0,0" Foreground="{StaticResource RadarMutedBrush}" Text="清空搜索可查看全部已识别快捷键" />
+                    <TextBlock Margin="0,5,0,0" Foreground="{StaticResource RadarMutedBrush}" Text="清空搜索可查看全部已识别热键" />
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>

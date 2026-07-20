@@ -1,0 +1,40 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "everything",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "Everything",
+                        "en-US":  "Everything"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "Everything.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+F",
+                        "function":  {
+                                         "zh-CN":  "聚焦搜索框"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "F5",
+                        "function":  {
+                                         "zh-CN":  "刷新索引结果"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    }
+                ]
+}

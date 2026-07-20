@@ -1,27 +1,34 @@
 using System.Globalization;
 
-namespace KeyRadar.Shortcuts;
+namespace KeyRadar.Hotkeys;
 
-public readonly record struct ShortcutGesture(ShortcutModifiers Modifiers, string Key)
+public readonly record struct HotkeyGesture(HotkeyModifiers Modifiers, string Key)
 {
-    private static readonly Dictionary<string, ShortcutModifiers> ModifierAliases =
+    private static readonly Dictionary<string, HotkeyModifiers> ModifierAliases =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            ["alt"] = ShortcutModifiers.Alt,
-            ["option"] = ShortcutModifiers.Alt,
-            ["ctrl"] = ShortcutModifiers.Control,
-            ["control"] = ShortcutModifiers.Control,
-            ["cmd"] = ShortcutModifiers.Windows,
-            ["command"] = ShortcutModifiers.Windows,
-            ["shift"] = ShortcutModifiers.Shift,
-            ["win"] = ShortcutModifiers.Windows,
-            ["windows"] = ShortcutModifiers.Windows,
+            ["alt"] = HotkeyModifiers.Alt,
+            ["option"] = HotkeyModifiers.Alt,
+            ["ctrl"] = HotkeyModifiers.Control,
+            ["control"] = HotkeyModifiers.Control,
+            ["cmd"] = HotkeyModifiers.Windows,
+            ["command"] = HotkeyModifiers.Windows,
+            ["shift"] = HotkeyModifiers.Shift,
+            ["win"] = HotkeyModifiers.Windows,
+            ["windows"] = HotkeyModifiers.Windows,
         };
 
     private static readonly Dictionary<string, string> NamedKeys =
         new(StringComparer.OrdinalIgnoreCase)
         {
             ["backspace"] = "Backspace",
+            ["browserback"] = "BrowserBack",
+            ["browserfavorites"] = "BrowserFavorites",
+            ["browserforward"] = "BrowserForward",
+            ["browserhome"] = "BrowserHome",
+            ["browserrefresh"] = "BrowserRefresh",
+            ["browsersearch"] = "BrowserSearch",
+            ["browserstop"] = "BrowserStop",
             ["delete"] = "Delete",
             ["down"] = "Down",
             ["end"] = "End",
@@ -31,6 +38,14 @@ public readonly record struct ShortcutGesture(ShortcutModifiers Modifiers, strin
             ["home"] = "Home",
             ["insert"] = "Insert",
             ["left"] = "Left",
+            ["launchapp1"] = "LaunchApp1",
+            ["launchapp2"] = "LaunchApp2",
+            ["launchmail"] = "LaunchMail",
+            ["launchmediaselect"] = "LaunchMediaSelect",
+            ["medianexttrack"] = "MediaNextTrack",
+            ["mediaplaypause"] = "MediaPlayPause",
+            ["mediaprevioustrack"] = "MediaPreviousTrack",
+            ["mediastop"] = "MediaStop",
             ["pagedown"] = "PageDown",
             ["pageup"] = "PageUp",
             ["printscreen"] = "PrintScreen",
@@ -38,19 +53,22 @@ public readonly record struct ShortcutGesture(ShortcutModifiers Modifiers, strin
             ["space"] = "Space",
             ["tab"] = "Tab",
             ["up"] = "Up",
+            ["volumedown"] = "VolumeDown",
+            ["volumemute"] = "VolumeMute",
+            ["volumeup"] = "VolumeUp",
         };
 
-    public static ShortcutGesture Parse(string value)
+    public static HotkeyGesture Parse(string value)
     {
         ArgumentNullException.ThrowIfNull(value);
 
         var parts = value.Split('+', StringSplitOptions.TrimEntries);
         if (parts.Length < 1 || parts.Any(string.IsNullOrWhiteSpace))
         {
-            throw new FormatException("A shortcut must contain non-empty keys separated by '+'.");
+            throw new FormatException("A hotkey must contain non-empty keys separated by '+'.");
         }
 
-        var modifiers = ShortcutModifiers.None;
+        var modifiers = HotkeyModifiers.None;
         string? primaryKey = null;
 
         foreach (var part in parts)
@@ -63,7 +81,7 @@ public readonly record struct ShortcutGesture(ShortcutModifiers Modifiers, strin
 
             if (primaryKey is not null)
             {
-                throw new FormatException("A shortcut must contain exactly one primary key.");
+                throw new FormatException("A hotkey must contain exactly one primary key.");
             }
 
             primaryKey = NormalizePrimaryKey(part);
@@ -71,13 +89,13 @@ public readonly record struct ShortcutGesture(ShortcutModifiers Modifiers, strin
 
         if (primaryKey is null)
         {
-            throw new FormatException("A shortcut must contain exactly one primary key.");
+            throw new FormatException("A hotkey must contain exactly one primary key.");
         }
 
-        return new ShortcutGesture(modifiers, primaryKey);
+        return new HotkeyGesture(modifiers, primaryKey);
     }
 
-    public static bool TryParse(string? value, out ShortcutGesture gesture)
+    public static bool TryParse(string? value, out HotkeyGesture gesture)
     {
         try
         {
@@ -100,10 +118,10 @@ public readonly record struct ShortcutGesture(ShortcutModifiers Modifiers, strin
     public override string ToString()
     {
         var parts = new List<string>(5);
-        AddModifier(parts, ShortcutModifiers.Control, "Ctrl");
-        AddModifier(parts, ShortcutModifiers.Shift, "Shift");
-        AddModifier(parts, ShortcutModifiers.Windows, "Win");
-        AddModifier(parts, ShortcutModifiers.Alt, "Alt");
+        AddModifier(parts, HotkeyModifiers.Control, "Ctrl");
+        AddModifier(parts, HotkeyModifiers.Shift, "Shift");
+        AddModifier(parts, HotkeyModifiers.Windows, "Win");
+        AddModifier(parts, HotkeyModifiers.Alt, "Alt");
         parts.Add(Key ?? string.Empty);
         return string.Join('+', parts);
     }
@@ -131,7 +149,7 @@ public readonly record struct ShortcutGesture(ShortcutModifiers Modifiers, strin
         return char.ToUpper(value[0], CultureInfo.InvariantCulture) + value[1..].ToLower(CultureInfo.InvariantCulture);
     }
 
-    private void AddModifier(List<string> parts, ShortcutModifiers modifier, string displayName)
+    private void AddModifier(List<string> parts, HotkeyModifiers modifier, string displayName)
     {
         if (Modifiers.HasFlag(modifier))
         {

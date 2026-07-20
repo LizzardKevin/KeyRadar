@@ -1,0 +1,40 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "tencent-meeting",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "腾讯会议",
+                        "en-US":  "Tencent Meeting"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "wemeetapp.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Alt+M",
+                        "function":  {
+                                         "zh-CN":  "静音或解除静音"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "suspected"
+                    },
+                    {
+                        "gesture":  "Alt+V",
+                        "function":  {
+                                         "zh-CN":  "开启或关闭视频"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "suspected"
+                    }
+                ]
+}

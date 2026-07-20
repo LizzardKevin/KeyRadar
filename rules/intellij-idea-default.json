@@ -1,0 +1,49 @@
+{
+    "schemaVersion":  2,
+    "applicationId":  "intellij-idea",
+    "variantId":  "default",
+    "displayName":  {
+                        "zh-CN":  "IntelliJ IDEA",
+                        "en-US":  "IntelliJ IDEA"
+                    },
+    "match":  {
+                  "executables":  [
+                                      "idea64.exe",
+                                      "idea.exe"
+                                  ],
+                  "publishers":  [
+
+                                 ],
+                  "versionRange":  null,
+                  "packageFamilyNames":  [
+
+                                         ],
+                  "distribution":  null
+              },
+    "hotkeys":  [
+                    {
+                        "gesture":  "Ctrl+Shift+A",
+                        "function":  {
+                                         "zh-CN":  "查找操作"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Ctrl+N",
+                        "function":  {
+                                         "zh-CN":  "转到类"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    },
+                    {
+                        "gesture":  "Ctrl+Shift+N",
+                        "function":  {
+                                         "zh-CN":  "转到文件"
+                                     },
+                        "scope":  "foreground",
+                        "confidence":  "systemKnown"
+                    }
+                ]
+}
