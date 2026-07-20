@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="KeyRadar.ForegroundOverlayWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:KeyRadar"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="KeyRadar 前台快捷键"
+    mc:Ignorable="d">
+    <Window.SystemBackdrop>
+        <DesktopAcrylicBackdrop />
+    </Window.SystemBackdrop>
+
+    <Border Background="#D9142935" BorderBrush="#4ABAFCEB" BorderThickness="1" CornerRadius="13">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Grid x:Name="DragRegion" Padding="15,12" Background="#18FFFFFF" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock x:Name="ApplicationNameText" FontSize="15" FontWeight="SemiBold" Text="当前应用" />
+                    <TextBlock FontSize="11" Foreground="#FF8EA6B2" Text="前台应用快捷键 · 不抢焦点" />
+                </StackPanel>
+                <Border Grid.Column="1" Padding="8,3" VerticalAlignment="Center" BorderBrush="#5562D9D6" BorderThickness="1" CornerRadius="10">
+                    <TextBlock FontSize="10" Foreground="#FF8CEBE6" Text="实时" />
+                </Border>
+            </Grid>
+
+            <ScrollViewer Grid.Row="1" MaxHeight="330" VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="ShortcutItems" HorizontalContentAlignment="Stretch">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="local:ShortcutRowViewModel">
+                            <Grid Padding="15,10" BorderBrush="#18FFFFFF" BorderThickness="0,1,0,0" ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border HorizontalAlignment="Left" Padding="8,4" Background="#FF132F3E" BorderBrush="#516AD9DB" BorderThickness="1" CornerRadius="6">
+                                    <TextBlock FontFamily="Cascadia Mono" FontSize="12" Foreground="#FFC9FFFF" Text="{x:Bind Gesture}" />
+                                </Border>
+                                <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="12" Text="{x:Bind Function}" TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </Border>
+</Window>

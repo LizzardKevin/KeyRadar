@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="KeyRadar.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:KeyRadar"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Background="Transparent"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <SolidColorBrush x:Key="RadarAccentBrush" Color="#62D9D6" />
+        <SolidColorBrush x:Key="RadarPanelBrush" Color="#9910212E" />
+        <SolidColorBrush x:Key="RadarBorderBrush" Color="#2BFFFFFF" />
+        <SolidColorBrush x:Key="RadarMutedBrush" Color="#FF8EA6B2" />
+        <SolidColorBrush x:Key="RadarSuccessBrush" Color="#FF76E5BD" />
+        <SolidColorBrush x:Key="RadarWarningBrush" Color="#FFFFB59B" />
+    </Page.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="220" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border
+            Grid.Column="0"
+            Background="#42051018"
+            BorderBrush="{StaticResource RadarBorderBrush}"
+            BorderThickness="0,0,1,0">
+            <StackPanel Padding="12,20" Spacing="4">
+                <TextBlock Margin="12,0,0,14" Foreground="{StaticResource RadarMutedBrush}" Text="导航" />
+                <RadioButton IsChecked="True">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon FontSize="16" Glyph="&#xE9D9;" />
+                        <TextBlock Text="雷达总览" />
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon FontSize="16" Glyph="&#xE774;" />
+                        <TextBlock Text="全局快捷键" />
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon FontSize="16" Glyph="&#xE7C4;" />
+                        <TextBlock Text="当前应用" />
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon FontSize="16" Glyph="&#xE9CE;" />
+                        <TextBlock Text="归属未知" />
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon FontSize="16" Glyph="&#xE8F1;" />
+                        <TextBlock Text="规则库" />
+                    </StackPanel>
+                </RadioButton>
+
+                <StackPanel VerticalAlignment="Bottom">
+                    <TextBlock Margin="12,26,12,4" Foreground="{StaticResource RadarMutedBrush}" Text="隐私状态" />
+                    <Border Padding="12" Background="#331F8A70" CornerRadius="8">
+                        <StackPanel Spacing="4">
+                            <TextBlock Foreground="{StaticResource RadarSuccessBrush}" Text="● 零遥测" />
+                            <TextBlock FontSize="12" Foreground="{StaticResource RadarMutedBrush}" Text="不记录普通按键内容" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel MaxWidth="1040" Padding="28,24,30,42" HorizontalAlignment="Stretch" Spacing="14">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock FontSize="28" FontWeight="SemiBold" Text="快捷键雷达" />
+                        <TextBlock x:Name="SummaryText" Margin="0,5,0,0" Foreground="{StaticResource RadarMutedBrush}" Text="正在扫描当前前后台应用…" />
+                    </StackPanel>
+                    <Button Grid.Column="1" HorizontalAlignment="Right" Click="RefreshButton_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontSize="14" Glyph="&#xE72C;" />
+                            <TextBlock Text="重新扫描" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
+                <AutoSuggestBox
+                    x:Name="SearchBox"
+                    Height="44"
+                    PlaceholderText="按下组合键，或输入应用、功能名称"
+                    QueryIcon="Find"
+                    TextChanged="SearchBox_TextChanged" />
+
+                <InfoBar
+                    x:Name="ConflictInfoBar"
+                    IsClosable="False"
+                    IsOpen="False"
+                    Message="同一组合键存在多个运行中的候选归属。"
+                    Severity="Warning"
+                    Title="发现快捷键冲突" />
+
+                <Border
+                    Padding="14,11"
+                    Background="#321A6E68"
+                    BorderBrush="#4A62D9D6"
+                    BorderThickness="1"
+                    CornerRadius="9">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ProgressRing x:Name="ScanProgress" Width="18" Height="18" IsActive="True" />
+                        <TextBlock x:Name="ScanStatusText" Grid.Column="1" VerticalAlignment="Center" Text="正在安全读取窗口、进程与规则证据" />
+                        <TextBlock Grid.Column="2" VerticalAlignment="Center" Foreground="{StaticResource RadarMutedBrush}" Text="不模拟 · 不拦截" />
+                    </Grid>
+                </Border>
+
+                <ItemsControl x:Name="ApplicationGroupsView" HorizontalContentAlignment="Stretch" ItemsSource="{x:Bind FilteredGroups}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="local:ApplicationGroupViewModel">
+                            <Expander
+                                Margin="0,0,0,10"
+                                Background="{StaticResource RadarPanelBrush}"
+                                BorderBrush="{StaticResource RadarBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                IsExpanded="{x:Bind IsExpanded}">
+                                <Expander.Header>
+                                    <Grid Padding="4,2" ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Width="34" Height="34" Background="#304DCCD0" CornerRadius="8">
+                                            <FontIcon HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="16" Glyph="{x:Bind IconGlyph}" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock FontWeight="SemiBold" Text="{x:Bind DisplayName}" />
+                                                <TextBlock Foreground="{StaticResource RadarSuccessBrush}" Text="{x:Bind PresenceLabel}" />
+                                            </StackPanel>
+                                            <TextBlock FontSize="12" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind EvidenceSummary}" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="2" VerticalAlignment="Center" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind ShortcutCountLabel}" />
+                                    </Grid>
+                                </Expander.Header>
+
+                                <ItemsControl ItemsSource="{x:Bind Shortcuts}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="local:ShortcutRowViewModel">
+                                            <Grid Padding="15,11" BorderBrush="#18FFFFFF" BorderThickness="0,1,0,0" ColumnSpacing="14">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="160" />
+                                                    <ColumnDefinition Width="*" MinWidth="150" />
+                                                    <ColumnDefinition Width="126" />
+                                                    <ColumnDefinition Width="118" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border HorizontalAlignment="Left" Padding="9,5" Background="#FF132F3E" BorderBrush="#516AD9DB" BorderThickness="1" CornerRadius="6">
+                                                    <TextBlock FontFamily="Cascadia Mono" Foreground="#FFC9FFFF" Text="{x:Bind Gesture}" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{x:Bind Function}" />
+                                                    <TextBlock FontSize="11" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind ScopeLabel}" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="2" VerticalAlignment="Center" Foreground="{StaticResource RadarSuccessBrush}" Text="{x:Bind ConfidenceLabel}" />
+                                                <Button
+                                                    Grid.Column="3"
+                                                    HorizontalAlignment="Right"
+                                                    Click="JumpToApplication_Click"
+                                                    Content="转到应用  ↗"
+                                                    IsEnabled="{x:Bind CanJump}"
+                                                    Tag="{x:Bind ProcessId}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Expander>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <StackPanel x:Name="EmptyState" Padding="32" HorizontalAlignment="Center" Visibility="Collapsed">
+                    <FontIcon HorizontalAlignment="Center" FontSize="36" Foreground="{StaticResource RadarMutedBrush}" Glyph="&#xE9D9;" />
+                    <TextBlock Margin="0,12,0,0" FontSize="18" HorizontalAlignment="Center" Text="当前筛选没有匹配项" />
+                    <TextBlock Margin="0,5,0,0" Foreground="{StaticResource RadarMutedBrush}" Text="清空搜索可查看全部已识别快捷键" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>

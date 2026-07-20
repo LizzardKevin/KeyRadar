@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KeyRadar · WinUI 3 Visual Direction</title>
+  <style>
+    :root { color-scheme: dark; font-family: "Segoe UI Variable", "Microsoft YaHei UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; color: #edf5fb; background: radial-gradient(circle at 18% 8%, #15455a 0, #0a1c29 34%, #061019 78%); }
+    .desktop { min-height: 100vh; padding: 42px; position: relative; overflow: hidden; }
+    .radar { position: absolute; width: 620px; height: 620px; border: 1px solid #67d7df22; border-radius: 50%; left: -210px; top: -250px; background: repeating-radial-gradient(circle, transparent 0 68px, #67d7df12 69px 70px), conic-gradient(from 20deg, transparent 0 83%, #4de0c923 92%, transparent 100%); }
+    .window { position: relative; width: min(980px, 76vw); min-height: 650px; border: 1px solid #ffffff20; border-radius: 14px; background: linear-gradient(145deg, #122938e8, #0c1d2ae8); box-shadow: 0 30px 90px #0009; overflow: hidden; backdrop-filter: blur(36px) saturate(130%); }
+    .titlebar { height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid #ffffff10; }
+    .brand { display: flex; gap: 12px; align-items: center; font-weight: 700; letter-spacing: .2px; }
+    .logo { width: 27px; height: 27px; border: 2px solid #62d9d6; border-radius: 50%; position: relative; box-shadow: 0 0 18px #5ee0d766; }
+    .logo:after { content: ""; position: absolute; width: 10px; height: 2px; background: #7ff7e8; left: 12px; top: 11px; transform: rotate(-28deg); transform-origin: left; }
+    .status { display:flex; gap: 14px; align-items:center; font-size: 12px; color:#a9c0cc; }
+    .live { color:#76e5bd; }
+    .layout { display:grid; grid-template-columns: 218px 1fr; min-height:592px; }
+    nav { padding: 18px 12px; border-right:1px solid #ffffff10; background:#07141d55; }
+    .nav-item { padding:11px 14px; border-radius:8px; margin:3px 0; color:#abc0ca; font-size:14px; }
+    .nav-item.active { color:#eaffff; background:#4bc6cb26; border:1px solid #6bdbdf28; }
+    main { padding:22px 26px 32px; }
+    .headline { display:flex; align-items:end; justify-content:space-between; margin-bottom:18px; }
+    h1 { margin:0 0 4px; font-size:24px; font-weight:650; }
+    .muted { color:#8ea6b2; font-size:12px; }
+    button { color:#e8fbff; background:#153343; border:1px solid #ffffff20; border-radius:7px; padding:8px 12px; }
+    .search { height:42px; display:flex; align-items:center; gap:10px; border:1px solid #70dbe444; background:#07151ecc; border-radius:8px; padding:0 13px; margin-bottom:14px; color:#c9eef0; }
+    .alert { display:flex; align-items:center; justify-content:space-between; border:1px solid #ff9c754f; background:#9b3a2228; border-radius:9px; padding:12px 14px; margin-bottom:14px; }
+    .alert strong { color:#ffb59b; }
+    .group { border:1px solid #ffffff17; border-radius:10px; overflow:hidden; margin-top:10px; background:#0b1c28aa; }
+    .group-head { display:flex; justify-content:space-between; padding:13px 15px; background:#ffffff08; font-size:14px; }
+    .row { display:grid; grid-template-columns:135px 1fr 120px 108px; align-items:center; gap:12px; padding:12px 15px; border-top:1px solid #ffffff0c; font-size:13px; }
+    kbd { justify-self:start; background:#132f3e; border:1px solid #6ad9db38; border-bottom-color:#6ad9db66; border-radius:6px; padding:5px 8px; color:#c9ffff; box-shadow: inset 0 -1px #0008; }
+    .verified { color:#7be3b9; font-size:11px; }
+    .suspect { color:#f5c070; font-size:11px; }
+    .jump { color:#9cebf0; text-align:right; }
+    .float { position:absolute; right:46px; bottom:48px; width:355px; border:1px solid #bafcff30; border-radius:13px; background:#102632d9; box-shadow:0 22px 64px #000a; backdrop-filter:blur(32px) saturate(145%); overflow:hidden; opacity:.88; }
+    .float-head { padding:12px 15px; display:flex; justify-content:space-between; background:#ffffff0b; border-bottom:1px solid #ffffff12; }
+    .float-row { display:flex; justify-content:space-between; padding:10px 15px; font-size:12px; border-bottom:1px solid #ffffff09; }
+    .float-row:last-child { border:0; }
+    .pill { font-size:10px; border:1px solid #6ee1dc44; color:#8cebe6; padding:3px 6px; border-radius:99px; }
+    @media (max-width: 900px) { .desktop{padding:16px}.window{width:100%}.float{position:relative;right:auto;bottom:auto;margin:18px;width:min(355px,90%)}.layout{grid-template-columns:1fr}nav{display:none}.row{grid-template-columns:110px 1fr}.row>*:nth-child(n+3){display:none} }
+  </style>
+</head>
+<body>
+  <div class="desktop">
+    <div class="radar"></div>
+    <section class="window" aria-label="KeyRadar 主窗口草图">
+      <header class="titlebar">
+        <div class="brand"><span class="logo"></span><span>KeyRadar <span class="muted">键位雷达</span></span></div>
+        <div class="status"><span class="live">● 监听中</span><span>检查更新</span><span>—　□　×</span></div>
+      </header>
+      <div class="layout">
+        <nav>
+          <div class="nav-item active">雷达总览　1</div>
+          <div class="nav-item">全局快捷键</div>
+          <div class="nav-item">当前应用</div>
+          <div class="nav-item">归属未知　3</div>
+          <div class="nav-item">规则库</div>
+          <div class="nav-item">设置</div>
+        </nav>
+        <main>
+          <div class="headline"><div><h1>快捷键雷达</h1><div class="muted">76 个全局快捷键 · 1 个确定冲突 · 3 个待确认</div></div><button>重新扫描</button></div>
+          <div class="search">⌕　Alt + A　<span class="muted">直接按组合键或输入应用名称</span></div>
+          <div class="alert"><span><strong>发现冲突</strong>　Alt + A 被多个运行中的应用声明</span><span>查看证据　›</span></div>
+          <div class="group">
+            <div class="group-head"><strong>⌄　微信</strong><span class="muted">4 个快捷键</span></div>
+            <div class="row"><kbd>Alt + A</kbd><span>截图</span><span class="verified">● 配置中确认</span><span class="jump">转到微信 ↗</span></div>
+            <div class="row"><kbd>Ctrl + Alt + W</kbd><span>打开微信</span><span class="verified">● 已确认</span><span class="jump">转到微信 ↗</span></div>
+          </div>
+          <div class="group">
+            <div class="group-head"><strong>⌄　某截图工具</strong><span class="muted">3 个快捷键</span></div>
+            <div class="row"><kbd>Alt + A</kbd><span>区域截图</span><span class="suspect">● 疑似归属</span><span class="jump">深度确认 ›</span></div>
+          </div>
+          <div class="group"><div class="group-head"><strong>›　Windows 系统</strong><span class="muted">128 个快捷键</span></div></div>
+        </main>
+      </div>
+    </section>
+    <aside class="float" aria-label="前台应用快捷键浮窗草图">
+      <div class="float-head"><strong>Google Chrome</strong><span class="pill">当前前台</span></div>
+      <div class="float-row"><kbd>Ctrl + L</kbd><span>地址栏</span></div>
+      <div class="float-row"><kbd>Ctrl + Shift + T</kbd><span>恢复标签页</span></div>
+      <div class="float-row"><kbd>Ctrl + W</kbd><span>关闭标签页</span></div>
+      <div class="float-row"><kbd>F6</kbd><span>切换焦点区域</span></div>
+    </aside>
+  </div>
+</body>
+</html>

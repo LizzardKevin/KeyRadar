@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "KeyRadar.App (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "KeyRadar.App (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <Deterministic>true</Deterministic>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RepositoryUrl>https://github.com/LizzardKevin/KeyRadar</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <Authors>LizzardKevin and KeyRadar contributors</Authors>
+    <Copyright>Copyright © 2026 LizzardKevin</Copyright>
+  </PropertyGroup>
+</Project>

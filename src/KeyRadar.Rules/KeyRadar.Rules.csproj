@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>KeyRadar</RootNamespace>
+    <AssemblyName>KeyRadar.Rules</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\KeyRadar.Core\KeyRadar.Core.csproj" />
+  </ItemGroup>
+</Project>

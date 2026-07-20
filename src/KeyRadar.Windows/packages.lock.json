@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0-windows10.0.19041": {
+      "keyradar.core": {
+        "type": "Project"
+      },
+      "keyradar.rules": {
+        "type": "Project",
+        "dependencies": {
+          "KeyRadar.Core": "[1.0.0, )"
+        }
+      }
+    }
+  }
+}
