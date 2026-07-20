@@ -17,6 +17,9 @@ public static class RulePackValidator
     public static RulePackValidationResult Validate(Stream packageStream, ReadOnlySpan<byte> publicKeyBytes)
         => ValidateInternal(packageStream, publicKeyBytes, requireSignature: true);
 
+    public static RulePackValidationResult ValidateLocal(Stream packageStream) =>
+        ValidateInternal(packageStream, [], requireSignature: false);
+
     private static RulePackValidationResult ValidateInternal(
         Stream packageStream,
         ReadOnlySpan<byte> publicKeyBytes,

@@ -55,7 +55,7 @@
           "function": { "$ref": "#/$defs/localizedText" },
           "scope": { "enum": ["foreground", "background", "global", "windowsSystem"] },
           "confidence": {
-            "enum": ["configuration", "hardwareMapping", "systemKnown", "officialDefault", "corroborated", "suspected"]
+            "enum": ["configuration", "userDeclared", "hardwareMapping", "systemKnown", "officialDefault", "corroborated", "suspected"]
           },
           "sources": {
             "type": "array",

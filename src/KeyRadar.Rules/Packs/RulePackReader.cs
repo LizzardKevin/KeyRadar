@@ -18,13 +18,24 @@ public static class RulePackReader
     };
 
     public static RulePackReadResult Read(Stream packageStream, ReadOnlySpan<byte> publicKeyBytes)
+        => ReadInternal(packageStream, publicKeyBytes, isLocal: false);
+
+    public static RulePackReadResult ReadLocal(Stream packageStream) =>
+        ReadInternal(packageStream, [], isLocal: true);
+
+    private static RulePackReadResult ReadInternal(
+        Stream packageStream,
+        ReadOnlySpan<byte> publicKeyBytes,
+        bool isLocal)
     {
         ArgumentNullException.ThrowIfNull(packageStream);
 
         try
         {
             using var bufferedPackage = Buffer(packageStream);
-            var validation = RulePackValidator.Validate(bufferedPackage, publicKeyBytes);
+            var validation = isLocal
+                ? RulePackValidator.ValidateLocal(bufferedPackage)
+                : RulePackValidator.Validate(bufferedPackage, publicKeyBytes);
             if (!validation.IsValid)
             {
                 return RulePackReadResult.Failure(RulePackReadError.ValidationFailed, validation.Message);
@@ -35,6 +46,12 @@ public static class RulePackReader
             var manifest = JsonSerializer.Deserialize<RulePackManifest>(
                 ReadEntry(archive.GetEntry("manifest.json")!),
                 JsonOptions)!;
+            if (isLocal != (manifest.PackId == "keyradar.local" && manifest.Source == "local"))
+            {
+                return RulePackReadResult.Failure(
+                    RulePackReadError.ValidationFailed,
+                    "The rule-pack identity does not match its trust level.");
+            }
             var variants = new List<ApplicationVariantRule>(manifest.Files.Count);
             var identities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -59,7 +76,11 @@ public static class RulePackReader
                 variants.Add(variant);
             }
 
-            return RulePackReadResult.Success(new RulePack(manifest.PackId, manifest.Version, variants));
+            return RulePackReadResult.Success(new RulePack(
+                manifest.PackId,
+                manifest.Version,
+                variants,
+                isLocal ? RulePackTrust.UnsignedLocal : RulePackTrust.SignedOfficial));
         }
         catch (Exception exception) when (
             exception is InvalidDataException or
@@ -220,6 +241,7 @@ public static class RulePackReader
         confidence = value switch
         {
             "configuration" => OwnershipConfidence.LocalConfiguration,
+            "userDeclared" => OwnershipConfidence.UserDeclared,
             "hardwareMapping" => OwnershipConfidence.HardwareMapping,
             "systemKnown" => OwnershipConfidence.SystemKnown,
             "officialDefault" => OwnershipConfidence.OfficialDefault,

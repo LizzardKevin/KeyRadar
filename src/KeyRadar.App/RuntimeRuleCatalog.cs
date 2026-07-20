@@ -82,15 +82,29 @@ internal static class RuntimeRuleCatalog
             activePackPath,
             bundledPackPath,
             OfficialReleaseKey.GetBytes());
+        RulePackReadResult? localResult = null;
+        var localPackPath = Path.Combine(RulesDirectory, "local.krpack");
+        if (File.Exists(localPackPath))
+        {
+            using var localStream = File.OpenRead(localPackPath);
+            localResult = RulePackReader.ReadLocal(localStream);
+        }
 
         lock (Gate)
         {
-            _current = result.IsSuccess ? result.Pack!.Variants : [];
+            _current = LayeredRuleCatalog.Resolve(
+                localResult is { IsSuccess: true } ? localResult.Pack!.Variants : [],
+                result.IsSuccess ? result.Pack!.Variants : [],
+                []);
             _activeVersion = result is { IsSuccess: true } ? result.Pack!.Version : null;
-            _isAvailable = result.IsSuccess;
-            _statusMessage = result.IsSuccess
-                ? $"已加载官方签名规则包 {result.Pack!.Version}。"
-                : result.Message;
+            _isAvailable = result.IsSuccess || localResult is { IsSuccess: true };
+            _statusMessage = localResult is { IsSuccess: false }
+                ? $"本地规则不可用：{localResult.Message}"
+                : result.IsSuccess
+                    ? $"已加载官方签名规则包 {result.Pack!.Version}{(localResult is { IsSuccess: true } ? " · 用户声明规则（未签名）" : string.Empty)}。"
+                    : localResult is { IsSuccess: true }
+                        ? "官方规则不可用；仅加载用户声明规则（未签名）。"
+                        : result.Message;
         }
 
         return result;
