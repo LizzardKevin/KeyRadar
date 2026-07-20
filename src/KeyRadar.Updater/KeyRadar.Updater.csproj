@@ -6,4 +6,8 @@
     <AssemblyName>KeyRadar.Updater</AssemblyName>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NSec.Cryptography" Version="26.4.0" />
+  </ItemGroup>
 </Project>

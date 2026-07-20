@@ -27,6 +27,11 @@
           "xunit.v3.mtp-v1": "[3.2.2]"
         }
       },
+      "libsodium": {
+        "type": "Transitive",
+        "resolved": "1.0.22",
+        "contentHash": "KPD9SloJFclrsjnhABu7dzWrcyYkwPbvx5l1gRSPAX/0n+OBtSiVCKtGFv4n+ecWUHU0tCG9LSSwoZZx673zBQ=="
+      },
       "Microsoft.ApplicationInsights": {
         "type": "Transitive",
         "resolved": "2.23.0",
@@ -89,6 +94,14 @@
         "type": "Transitive",
         "resolved": "5.0.0",
         "contentHash": "dDoKi0PnDz31yAyETfRntsLArTlVAVzUzCIvvEDsDsucrl33Dl8pIJG06ePTJTI3tGpeyHS9Cq7Foc/s4EeKcg=="
+      },
+      "NSec.Cryptography": {
+        "type": "Transitive",
+        "resolved": "26.4.0",
+        "contentHash": "0vsCtY5f+YgQROiWNqzgWp+l2pddfk9FkWoGV/bEo0MuEYPKlJWuoA8aOfO6qp3f+EnObKE3zSJhn1PspJeJVg==",
+        "dependencies": {
+          "libsodium": "[1.0.22, 1.0.23)"
+        }
       },
       "xunit.analyzers": {
         "type": "Transitive",
@@ -158,7 +171,10 @@
         }
       },
       "keyradar.updater": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "NSec.Cryptography": "[26.4.0, )"
+        }
       }
     }
   }
