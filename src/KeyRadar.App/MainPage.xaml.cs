@@ -10,6 +10,7 @@ using KeyRadar.Rules.Updates;
 using KeyRadar.Hotkeys;
 using KeyRadar.Updater.Updates;
 using KeyRadar.Windows.Applications;
+using KeyRadar.Windows.Configuration;
 using KeyRadar.Windows.DeepConfirmation;
 using KeyRadar.Windows.Hotkeys;
 using KeyRadar.Windows.Hardware;
@@ -132,6 +133,14 @@ public sealed partial class MainPage : Page
                     catalog),
             })
             .ToArray();
+        var localConfigurations = await new RunningApplicationConfigurationRegistry(
+            [new ShareXConfigurationReader()])
+            .ReadAsync(
+                matchedSnapshots
+                    .Where(item => item.Match.Selected is not null)
+                    .Select(item => new RunningApplicationVariant(item.Snapshot.Process, item.Match.Selected!))
+                    .ToArray(),
+                cancellationToken);
         var matched = matchedSnapshots
             .Where(item => item.Match.Selected is not null)
             .Select(item => new { item.Snapshot, Rules = item.Match.Selected! })
@@ -147,6 +156,46 @@ public sealed partial class MainPage : Page
             var presence = applicationProcesses.Any(item => item.Snapshot.Presence == ApplicationPresence.Foreground)
                 ? ApplicationPresence.Foreground
                 : ApplicationPresence.Background;
+            var configured = localConfigurations
+                .Where(item => item.ApplicationId.Equals(rules.ApplicationId, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            var ruleRows = rules.Hotkeys.Select(hotkey =>
+            {
+                var local = configured.FirstOrDefault(item => item.Gesture == hotkey.Gesture);
+                string? availabilityLabel = null;
+                if (hotkey.Scope == HotkeyScope.Global)
+                {
+                    occupancyByGesture.TryGetValue(hotkey.Gesture, out var availability);
+                    availabilityLabel = availability?.Availability switch
+                    {
+                        HotkeyProbeAvailability.Occupied => " · 当前已占用",
+                        HotkeyProbeAvailability.AvailableAtScanTime => " · 扫描瞬间可注册",
+                        HotkeyProbeAvailability.SystemReserved => " · 系统保留或无法探测",
+                        _ => " · 无法探测",
+                    };
+
+                    if (availability?.Availability == HotkeyProbeAvailability.Occupied) occupiedGlobalHotkeyCount++;
+                }
+
+                return HotkeyRowViewModel.Create(
+                    hotkey.Gesture.ToString(),
+                    local?.Function ?? hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
+                    local?.Scope ?? hotkey.Scope,
+                    local is null ? hotkey.Confidence : OwnershipConfidence.LocalConfiguration,
+                    process.Id,
+                    availabilityLabel,
+                    hotkey.Sources,
+                    evidenceLabel: local is null ? null : $"证据：{local.Evidence}");
+            });
+            var configuredOnlyRows = configured
+                .Where(local => rules.Hotkeys.All(hotkey => hotkey.Gesture != local.Gesture))
+                .Select(local => HotkeyRowViewModel.Create(
+                    local.Gesture.ToString(),
+                    local.Function,
+                    local.Scope,
+                    OwnershipConfidence.LocalConfiguration,
+                    process.Id,
+                    evidenceLabel: $"证据：{local.Evidence}"));
 
             groups.Add(new ApplicationGroupViewModel(
                 rules.ApplicationId,
@@ -155,35 +204,7 @@ public sealed partial class MainPage : Page
                 BuildEvidenceSummary(process),
                 presence == ApplicationPresence.Foreground ? "\uE7C4" : "\uE8A7",
                 false,
-                rules.Hotkeys.Select(hotkey =>
-                {
-                    string? availabilityLabel = null;
-                    if (hotkey.Scope == HotkeyScope.Global)
-                    {
-                        occupancyByGesture.TryGetValue(hotkey.Gesture, out var availability);
-                        availabilityLabel = availability?.Availability switch
-                        {
-                            HotkeyProbeAvailability.Occupied => " · 当前已占用",
-                            HotkeyProbeAvailability.AvailableAtScanTime => " · 扫描瞬间可注册",
-                            HotkeyProbeAvailability.SystemReserved => " · 系统保留或无法探测",
-                            _ => " · 无法探测",
-                        };
-
-                        if (availability?.Availability == HotkeyProbeAvailability.Occupied)
-                        {
-                            occupiedGlobalHotkeyCount++;
-                        }
-                    }
-
-                    return HotkeyRowViewModel.Create(
-                        hotkey.Gesture.ToString(),
-                        hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
-                        hotkey.Scope,
-                        hotkey.Confidence,
-                        process.Id,
-                        availabilityLabel,
-                        hotkey.Sources);
-                }).ToArray(),
+                ruleRows.Concat(configuredOnlyRows).ToArray(),
                 process.Id));
         }
 

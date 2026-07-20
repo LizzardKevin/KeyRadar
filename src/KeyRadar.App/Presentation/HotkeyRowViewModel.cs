@@ -70,12 +70,13 @@ public sealed class HotkeyRowViewModel : INotifyPropertyChanged
         int processId,
         string? availabilityLabel = null,
         IReadOnlyList<string>? sources = null,
-        bool? canDeepConfirm = null) =>
+        bool? canDeepConfirm = null,
+        string? evidenceLabel = null) =>
         new(
             gesture,
             function,
             ScopeLabelFor(scope),
-            sources is { Count: > 0 } ? "证据：厂商文档 · 官方签名规则包" : "证据：官方签名规则包",
+            evidenceLabel ?? (sources is { Count: > 0 } ? "证据：厂商文档 · 官方签名规则包" : "证据：官方签名规则包"),
             ConfidenceLabelFor(confidence) + availabilityLabel,
             processId,
             canDeepConfirm ?? (processId > 0 && scope == HotkeyScope.Global));
