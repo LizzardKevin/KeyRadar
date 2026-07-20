@@ -14,6 +14,7 @@ using KeyRadar.Windows.Configuration;
 using KeyRadar.Windows.DeepConfirmation;
 using KeyRadar.Windows.Hotkeys;
 using KeyRadar.Windows.Hardware;
+using KeyRadar.Windows.SystemState;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Input;
@@ -108,12 +109,13 @@ public sealed partial class MainPage : Page
         _latestSnapshots = snapshots;
         _latestProbeResults = occupancyResults;
         var catalog = RuntimeRuleCatalog.Current;
+        var windowsSession = WindowsSessionStateReader.Read();
         var occupancyByGesture = occupancyResults.ToDictionary(result => result.Gesture);
         var groups = new List<ApplicationGroupViewModel>();
         var windowsRules = catalog.FirstOrDefault(rule => rule.ApplicationId == "windows-system");
         if (windowsRules is not null)
         {
-            groups.Add(CreateWindowsGroup(windowsRules));
+            groups.Add(CreateWindowsGroup(windowsRules, windowsSession));
         }
         var occupiedGlobalHotkeyCount = 0;
 
@@ -346,22 +348,36 @@ public sealed partial class MainPage : Page
         RuleStatusInfoBar.Message = RuntimeRuleCatalog.StatusMessage;
     }
 
-    private static ApplicationGroupViewModel CreateWindowsGroup(ApplicationVariantRule rules)
+    private static ApplicationGroupViewModel CreateWindowsGroup(
+        ApplicationVariantRule rules,
+        WindowsSessionState session)
     {
+        var rows = rules.Hotkeys.Select(hotkey => HotkeyRowViewModel.Create(
+            hotkey.Gesture.ToString(),
+            hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
+            hotkey.Scope,
+            hotkey.Confidence,
+            processId: 0,
+            sources: hotkey.Sources)).ToList();
+        if (session.PrintScreenOpensSnippingTool == true)
+        {
+            rows.Add(HotkeyRowViewModel.Create(
+                "PrintScreen",
+                "打开 Windows 截图工具",
+                HotkeyScope.WindowsSystem,
+                OwnershipConfidence.LocalConfiguration,
+                processId: 0,
+                evidenceLabel: "证据：当前用户 Windows 键盘设置"));
+        }
+
         return new ApplicationGroupViewModel(
             "windows-system",
             rules.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
             "系统级",
-            "官方签名规则包 · 默认折叠",
+            $"{session.WindowsVersion} · {session.InputLanguage} · 默认折叠",
             "\uE782",
             false,
-            rules.Hotkeys.Select(hotkey => HotkeyRowViewModel.Create(
-                hotkey.Gesture.ToString(),
-                hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
-                hotkey.Scope,
-                hotkey.Confidence,
-                processId: 0,
-                sources: hotkey.Sources)).ToArray());
+            rows);
     }
 
     private static string BuildEvidenceSummary(ProcessDescriptor process)
