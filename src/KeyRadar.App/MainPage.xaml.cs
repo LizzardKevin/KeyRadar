@@ -538,6 +538,19 @@ public sealed partial class MainPage : Page
             if (local.IsSuccess) existing.AddRange(local.Pack!.Variants);
         }
 
+        var existingVariant = existing.FirstOrDefault(item => item.ApplicationId.Equals(applicationId, StringComparison.OrdinalIgnoreCase));
+        if (existingVariant is not null)
+        {
+            variant = variant with
+            {
+                Hotkeys = existingVariant.Hotkeys
+                    .Where(item => item.Gesture != gesture)
+                    .Append(variant.Hotkeys[0])
+                    .OrderBy(item => item.Gesture.ToString(), StringComparer.Ordinal)
+                    .ToArray(),
+            };
+        }
+
         existing.RemoveAll(item => item.ApplicationId.Equals(applicationId, StringComparison.OrdinalIgnoreCase));
         existing.Add(variant);
         LocalRulePackWriter.SaveAtomically(localPath, existing);
@@ -546,11 +559,76 @@ public sealed partial class MainPage : Page
         await ShowUpdateMessageAsync("用户规则已保存", "用户声明 · 未经官方验证。可在设置中导出 local.krpack 进行备份。");
     }
 
+    private async void ImportMyRulesButton_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new global::Windows.Storage.Pickers.FileOpenPicker();
+        picker.FileTypeFilter.Add(".krpack");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, ((App)Application.Current).GetMainWindowHandle());
+        var file = await picker.PickSingleFileAsync();
+        if (file is null) return;
+
+        RulePackReadResult read;
+        await using (var stream = await file.OpenStreamForReadAsync())
+        {
+            read = RulePackReader.ReadLocal(stream);
+        }
+
+        if (!read.IsSuccess)
+        {
+            await ShowUpdateMessageAsync("用户规则未导入", "该文件不是有效的本地未签名 KeyRadar 规则包。");
+            return;
+        }
+
+        var variants = read.Pack!.Variants;
+        var hotkeyCount = variants.Sum(variant => variant.Hotkeys.Count);
+        var preview = string.Join("\n", variants.Take(12).Select(variant =>
+            $"• {variant.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name)}：{variant.Hotkeys.Count} 个热键"));
+        var confirm = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "导入未签名用户规则？",
+            Content = $"它将识别 {variants.Count} 个应用变体，包含 {hotkeyCount} 个热键。\n\n{preview}\n\n来源：用户分享 · 未签名 · 未经官方验证。导入后将替换当前 local.krpack。",
+            PrimaryButtonText = "导入并替换",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+
+        var localPath = Path.Combine(RuntimeRuleCatalog.RulesDirectory, "local.krpack");
+        LocalRulePackWriter.SaveAtomically(localPath, variants);
+        RuntimeRuleCatalog.Reload();
+        await ScanAsync();
+    }
+
+    private async void ExportMyRulesButton_Click(object sender, RoutedEventArgs e)
+    {
+        var localPath = Path.Combine(RuntimeRuleCatalog.RulesDirectory, "local.krpack");
+        if (!File.Exists(localPath))
+        {
+            await ShowUpdateMessageAsync("没有用户规则", "请先在“我的规则”中保存至少一条用户声明。");
+            return;
+        }
+
+        var picker = new global::Windows.Storage.Pickers.FileSavePicker
+        {
+            SuggestedFileName = "KeyRadar-My-Rules",
+        };
+        picker.FileTypeChoices.Add("KeyRadar rule pack", [".krpack"]);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, ((App)Application.Current).GetMainWindowHandle());
+        var destination = await picker.PickSaveFileAsync();
+        if (destination is null) return;
+        await using var source = File.OpenRead(localPath);
+        await using var output = await destination.OpenStreamForWriteAsync();
+        output.SetLength(0);
+        await source.CopyToAsync(output);
+        await output.FlushAsync();
+    }
+
     private void SubmitCandidateRuleButton_Click(object sender, RoutedEventArgs e)
     {
         var title = Uri.EscapeDataString("[候选规则] 应用热键归属");
         var body = Uri.EscapeDataString("请填写：\n- 软件名称、版本与发行渠道：\n- exe 名称与发布者：\n- 热键、功能与范围：\n- 是否修改过软件设置：\n- 官方文档链接或脱敏截图：\n- 冲突现象：\n\n请勿提交普通按键流、用户名、完整窗口标题、本地路径、账号或隐私数据。");
-        Process.Start(new ProcessStartInfo($"https://github.com/LizzardKevin/KeyRadar/issues/new?title={title}&body={body}") { UseShellExecute = true });
+        Process.Start(new ProcessStartInfo($"https://github.com/LizzardKevin/KeyRadar/issues/new?template=candidate-rule.yml&title={title}&body={body}") { UseShellExecute = true });
     }
 
     private static string ToIdentifier(string value)

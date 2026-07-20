@@ -1,3 +1,5 @@
+# Intentionally disabled until the owner confirms the local v1.0.0 executable.
+# Move this file to .github/workflows/release.yml only after that explicit confirmation.
 name: Release
 
 on:

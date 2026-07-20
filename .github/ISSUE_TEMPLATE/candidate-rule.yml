@@ -1,0 +1,56 @@
+name: 候选热键规则
+description: 提交经过脱敏的应用热键证据，供维护者审核并制作多语言官方规则。
+title: "[候选规则] "
+labels: ["candidate-rule"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        只需使用一种语言填写。请勿提交普通按键流、用户名、完整窗口标题、本地安装路径、账号、宏文本或其他隐私数据。
+  - type: input
+    id: application
+    attributes:
+      label: 软件名称
+    validations:
+      required: true
+  - type: input
+    id: version_distribution
+    attributes:
+      label: 版本与发行渠道
+      placeholder: 例如 4.0.x，中国官网桌面版
+    validations:
+      required: true
+  - type: input
+    id: executable_publisher
+    attributes:
+      label: exe 名称与发布者
+      placeholder: 只填写文件名，不要填写完整路径
+    validations:
+      required: true
+  - type: textarea
+    id: hotkeys
+    attributes:
+      label: 热键、功能与作用范围
+      placeholder: Alt+A → 截图 → 全局
+    validations:
+      required: true
+  - type: dropdown
+    id: customized
+    attributes:
+      label: 是否修改过软件内的热键设置
+      options: ["没有", "修改过", "无法确认"]
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 官方文档或脱敏设置截图
+      description: 截图必须去除账号、窗口标题、路径及其他隐私内容。
+    validations:
+      required: true
+  - type: textarea
+    id: conflict
+    attributes:
+      label: 观察到的冲突现象
+    validations:
+      required: true

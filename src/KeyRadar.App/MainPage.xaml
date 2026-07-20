@@ -316,6 +316,8 @@
                             <Button Click="CheckUpdateButton_Click" Content="检查程序更新" />
                             <Button Click="UpdateRulesButton_Click" Content="下载最新规则包" />
                             <Button Click="OpenMyRulesButton_Click" Content="我的规则" />
+                            <Button Click="ImportMyRulesButton_Click" Content="导入用户规则" />
+                            <Button Click="ExportMyRulesButton_Click" Content="导出用户规则" />
                             <Button Click="SubmitCandidateRuleButton_Click" Content="上传候选规则" />
                             <Button Click="ExportDiagnosticsButton_Click" Content="导出诊断" />
                         </StackPanel>
