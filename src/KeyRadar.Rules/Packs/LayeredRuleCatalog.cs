@@ -9,8 +9,9 @@ public static class LayeredRuleCatalog
     {
         var selected = new Dictionary<string, ApplicationVariantRule>(StringComparer.OrdinalIgnoreCase);
         AddMissing(selected, userRules);
-        AddMissing(selected, updatedOfficialRules);
-        AddMissing(selected, bundledRules);
+        var userApplications = userRules.Select(rule => rule.ApplicationId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        AddMissing(selected, updatedOfficialRules.Where(rule => !userApplications.Contains(rule.ApplicationId)));
+        AddMissing(selected, bundledRules.Where(rule => !userApplications.Contains(rule.ApplicationId)));
         return selected.Values
             .OrderBy(rule => rule.ApplicationId, StringComparer.Ordinal)
             .ThenBy(rule => rule.VariantId, StringComparer.Ordinal)

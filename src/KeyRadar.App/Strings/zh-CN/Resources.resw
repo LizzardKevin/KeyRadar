@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="NavRadar.Text" xml:space="preserve"><value>雷达总览</value></data>
+  <data name="NavHotkeys.Text" xml:space="preserve"><value>热键总览</value></data>
+  <data name="NavSettings.Text" xml:space="preserve"><value>设置</value></data>
+  <data name="CardConflicts.Text" xml:space="preserve"><value>冲突</value></data>
+  <data name="CardAvailable.Text" xml:space="preserve"><value>当前可注册</value></data>
+  <data name="CardForeground.Text" xml:space="preserve"><value>前台热键</value></data>
+  <data name="CardUnconfirmed.Text" xml:space="preserve"><value>待确认</value></data>
+  <data name="CurrentSession.Text" xml:space="preserve"><value>当前桌面会话</value></data>
+  <data name="RescanButton.Content" xml:space="preserve"><value>重新扫描</value></data>
+  <data name="HotkeyOverviewTitle.Text" xml:space="preserve"><value>热键总览</value></data>
+  <data name="AppearanceTitle.Text" xml:space="preserve"><value>外观与语言</value></data>
+  <data name="LanguageLabel.Text" xml:space="preserve"><value>显示语言</value></data>
+  <data name="ThemeLabel.Text" xml:space="preserve"><value>应用主题</value></data>
+  <data name="MaintenanceTitle.Text" xml:space="preserve"><value>维护与规则</value></data>
+</root>

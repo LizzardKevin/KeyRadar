@@ -18,6 +18,11 @@ public partial class App : Application
 
     public App()
     {
+        var language = AppPreferences.Load().Language;
+        if (language != "system")
+        {
+            global::Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = language;
+        }
         InitializeComponent();
     }
 

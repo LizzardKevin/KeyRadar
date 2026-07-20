@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using KeyRadar.Diagnostics;
 using KeyRadar.Conflicts;
 using KeyRadar.Rules;
@@ -14,6 +15,9 @@ using KeyRadar.Windows.Hotkeys;
 using KeyRadar.Windows.Hardware;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Input;
+using Windows.System;
+using Windows.UI.Core;
 
 namespace KeyRadar;
 
@@ -28,6 +32,8 @@ public sealed partial class MainPage : Page
     private IReadOnlyList<ApplicationSnapshot> _latestSnapshots = [];
     private IReadOnlyList<HotkeyProbeResult> _latestProbeResults = [];
     private CancellationTokenSource? _scanCancellation;
+    private AppPreferences _preferences = new();
+    private bool _preferencesReady;
 
     public ObservableCollection<ApplicationGroupViewModel> FilteredGroups { get; } = [];
 
@@ -36,6 +42,11 @@ public sealed partial class MainPage : Page
         _updateClient = new UpdateCheckClient(_updateHttpClient, OfficialReleaseKey.GetBytes());
         _ruleUpdateClient = new RuleUpdateClient(_updateHttpClient, OfficialReleaseKey.GetBytes());
         InitializeComponent();
+        _preferences = AppPreferences.Load();
+        RequestedTheme = _preferences.ToElementTheme();
+        SelectComboItem(LanguageComboBox, _preferences.Language);
+        SelectComboItem(ThemeComboBox, _preferences.Theme);
+        _preferencesReady = true;
         Loaded += MainPage_Loaded;
         Unloaded += MainPage_Unloaded;
     }
@@ -302,7 +313,12 @@ public sealed partial class MainPage : Page
         var appCount = _allGroups.Count(group => group.ProcessId > 0);
         var hotkeyCount = _allGroups.Sum(group => group.Hotkeys.Count);
         var totalOccupied = occupancyResults.Count(result => result.Availability == HotkeyProbeAvailability.Occupied);
+        ConflictCountText.Text = duplicateGestures.Length.ToString(System.Globalization.CultureInfo.CurrentCulture);
+        AvailableCountText.Text = occupancyResults.Count(result => result.Availability == HotkeyProbeAvailability.AvailableAtScanTime).ToString(System.Globalization.CultureInfo.CurrentCulture);
+        ForegroundCountText.Text = _allGroups.Where(group => group.PresenceLabel.Contains("前台", StringComparison.Ordinal)).Sum(group => group.Hotkeys.Count).ToString(System.Globalization.CultureInfo.CurrentCulture);
+        UnconfirmedCountText.Text = _allGroups.SelectMany(group => group.Hotkeys).Count(hotkey => hotkey.ConfidenceLabel.Contains("未知", StringComparison.Ordinal) || hotkey.ConfidenceLabel.Contains("疑似", StringComparison.Ordinal)).ToString(System.Globalization.CultureInfo.CurrentCulture);
         SummaryText.Text = $"识别 {appCount} 个运行中的支持应用 · {hotkeyCount} 个可发现热键 · {totalOccupied} 个标准全局占用";
+        DashboardStatusText.Text = $"扫描完成：{totalOccupied} 个标准全局占用；无法安全归属的项目已保留为未知。";
         ScanStatusText.Text = "扫描完成；KeyRadar 未发送、拦截或吞掉任何热键";
         ScanProgress.IsActive = false;
         RuleStatusInfoBar.IsOpen = !RuntimeRuleCatalog.IsAvailable;
@@ -355,6 +371,223 @@ public sealed partial class MainPage : Page
     }
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e) => await ScanAsync();
+
+    private void RadarOverviewNav_Click(object sender, RoutedEventArgs e) => ShowSection("radar");
+
+    private void HotkeyOverviewNav_Click(object sender, RoutedEventArgs e) => ShowSection("hotkeys");
+
+    private void SettingsNav_Click(object sender, RoutedEventArgs e) => ShowSection("settings");
+
+    private void ShowSection(string section)
+    {
+        RadarOverviewPanel.Visibility = section == "radar" ? Visibility.Visible : Visibility.Collapsed;
+        HotkeyOverviewPanel.Visibility = section == "hotkeys" ? Visibility.Visible : Visibility.Collapsed;
+        SettingsPanel.Visibility = section == "settings" ? Visibility.Visible : Visibility.Collapsed;
+        PageTitleText.Text = section switch
+        {
+            "hotkeys" => "热键总览",
+            "settings" => "设置",
+            _ => "雷达总览",
+        };
+    }
+
+    private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_preferencesReady || ThemeComboBox.SelectedItem is not ComboBoxItem { Tag: string theme }) return;
+        _preferences = _preferences with { Theme = theme };
+        RequestedTheme = _preferences.ToElementTheme();
+        _preferences.Save();
+    }
+
+    private async void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_preferencesReady || LanguageComboBox.SelectedItem is not ComboBoxItem { Tag: string language }) return;
+        _preferences = _preferences with { Language = language };
+        _preferences.Save();
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "显示语言已保存 / Language saved",
+            Content = "语言将在重新打开 KeyRadar 后完整应用。 / The language will be fully applied after restarting KeyRadar.",
+            CloseButtonText = "确定 / OK",
+        };
+        await dialog.ShowAsync();
+    }
+
+    private static void SelectComboItem(ComboBox comboBox, string tag)
+    {
+        comboBox.SelectedItem = comboBox.Items
+            .OfType<ComboBoxItem>()
+            .FirstOrDefault(item => string.Equals(item.Tag as string, tag, StringComparison.Ordinal))
+            ?? comboBox.Items[0];
+    }
+
+    private async void OpenMyRulesButton_Click(object sender, RoutedEventArgs e)
+    {
+        var running = _latestSnapshots
+            .Select(snapshot => snapshot.Process)
+            .DistinctBy(process => process.Id)
+            .OrderBy(process => process.ExecutableName, StringComparer.OrdinalIgnoreCase)
+            .Select(process => new ProcessChoice(process))
+            .ToArray();
+        if (running.Length == 0)
+        {
+            await ShowUpdateMessageAsync("没有可选应用", "请先完成一次扫描，再从当前运行的应用中选择。");
+            return;
+        }
+
+        var processBox = new ComboBox { Header = "当前运行的应用", ItemsSource = running, DisplayMemberPath = nameof(ProcessChoice.Display), SelectedIndex = 0 };
+        var gestureBox = new TextBox { Header = "热键", IsReadOnly = true, PlaceholderText = "点击“录入热键”后按下组合" };
+        var captureButton = new Button { Content = "录入热键" };
+        var functionBox = new TextBox { Header = "功能名称", PlaceholderText = "例如：截图" };
+        var scopeBox = new ComboBox { Header = "作用范围", SelectedIndex = 0 };
+        scopeBox.Items.Add(new ComboBoxItem { Content = "全局", Tag = "global" });
+        scopeBox.Items.Add(new ComboBoxItem { Content = "应用内", Tag = "foreground" });
+        var note = new TextBlock { Text = "只保存明确录入的组合键，不保存普通输入。该规则将标记为“用户声明 · 未经官方验证”。", TextWrapping = TextWrapping.Wrap };
+        var captureArmed = false;
+        captureButton.Click += (_, _) =>
+        {
+            captureArmed = true;
+            captureButton.Content = "请按组合键…";
+            gestureBox.Focus(FocusState.Programmatic);
+        };
+        gestureBox.KeyDown += (_, args) =>
+        {
+            if (!captureArmed || IsModifierKey(args.Key)) return;
+            var gestureText = ComposeGesture(args.Key);
+            if (gestureText is null) return;
+            gestureBox.Text = gestureText;
+            captureArmed = false;
+            captureButton.Content = "重新录入";
+            args.Handled = true;
+        };
+
+        var content = new StackPanel { Spacing = 10, MinWidth = 430 };
+        content.Children.Add(processBox);
+        content.Children.Add(gestureBox);
+        content.Children.Add(captureButton);
+        content.Children.Add(functionBox);
+        content.Children.Add(scopeBox);
+        content.Children.Add(note);
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "我的规则",
+            Content = content,
+            PrimaryButtonText = "保存用户规则",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary ||
+            processBox.SelectedItem is not ProcessChoice selected ||
+            !HotkeyGesture.TryParse(gestureBox.Text, out var gesture) ||
+            string.IsNullOrWhiteSpace(functionBox.Text))
+        {
+            return;
+        }
+
+        await SaveUserRuleAsync(
+            selected.Process,
+            gesture,
+            functionBox.Text.Trim(),
+            scopeBox.SelectedItem is ComboBoxItem { Tag: "global" } ? HotkeyScope.Global : HotkeyScope.Foreground);
+    }
+
+    private async Task SaveUserRuleAsync(
+        ProcessDescriptor process,
+        HotkeyGesture gesture,
+        string function,
+        HotkeyScope scope)
+    {
+        var officialMatch = new ApplicationVariantMatcher().Match(
+            new ApplicationIdentity(process.ExecutableName, process.Version, process.Publisher, process.CompanyName, process.PackageFamilyName, process.Distribution),
+            RuntimeRuleCatalog.Current.Where(rule => rule.VariantId != "user"));
+        var applicationId = officialMatch.Selected?.ApplicationId ?? ToIdentifier(Path.GetFileNameWithoutExtension(process.ExecutableName));
+        if (officialMatch.Candidates.Count > 0)
+        {
+            var overwrite = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = "最新规则包已收录此应用",
+                Content = "保存后，用户声明规则将优先于官方规则。是否覆盖该应用的官方归属结果？",
+                PrimaryButtonText = "覆盖并保存",
+                CloseButtonText = "取消",
+                DefaultButton = ContentDialogButton.Close,
+            };
+            if (await overwrite.ShowAsync() != ContentDialogResult.Primary) return;
+        }
+
+        var locale = _preferences.Language == "en-US" ? "en-US" : "zh-CN";
+        var variant = new ApplicationVariantRule(
+            applicationId,
+            "user",
+            new LocalizedText(new Dictionary<string, string> { [locale] = officialMatch.Selected?.DisplayName.Resolve(locale) ?? process.ExecutableName }),
+            new ApplicationMatchRule(
+                [process.ExecutableName],
+                string.IsNullOrWhiteSpace(process.Publisher) ? [] : [process.Publisher],
+                null,
+                string.IsNullOrWhiteSpace(process.PackageFamilyName) ? [] : [process.PackageFamilyName],
+                process.Distribution),
+            [new HotkeyRule(gesture, new LocalizedText(new Dictionary<string, string> { [locale] = function }), scope, OwnershipConfidence.UserDeclared)]);
+        var localPath = Path.Combine(RuntimeRuleCatalog.RulesDirectory, "local.krpack");
+        var existing = new List<ApplicationVariantRule>();
+        if (File.Exists(localPath))
+        {
+            using var stream = File.OpenRead(localPath);
+            var local = RulePackReader.ReadLocal(stream);
+            if (local.IsSuccess) existing.AddRange(local.Pack!.Variants);
+        }
+
+        existing.RemoveAll(item => item.ApplicationId.Equals(applicationId, StringComparison.OrdinalIgnoreCase));
+        existing.Add(variant);
+        LocalRulePackWriter.SaveAtomically(localPath, existing);
+        RuntimeRuleCatalog.Reload();
+        await ScanAsync();
+        await ShowUpdateMessageAsync("用户规则已保存", "用户声明 · 未经官方验证。可在设置中导出 local.krpack 进行备份。");
+    }
+
+    private void SubmitCandidateRuleButton_Click(object sender, RoutedEventArgs e)
+    {
+        var title = Uri.EscapeDataString("[候选规则] 应用热键归属");
+        var body = Uri.EscapeDataString("请填写：\n- 软件名称、版本与发行渠道：\n- exe 名称与发布者：\n- 热键、功能与范围：\n- 是否修改过软件设置：\n- 官方文档链接或脱敏截图：\n- 冲突现象：\n\n请勿提交普通按键流、用户名、完整窗口标题、本地路径、账号或隐私数据。");
+        Process.Start(new ProcessStartInfo($"https://github.com/LizzardKevin/KeyRadar/issues/new?title={title}&body={body}") { UseShellExecute = true });
+    }
+
+    private static string ToIdentifier(string value)
+    {
+        var normalized = Regex.Replace(value.ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-');
+        return string.IsNullOrEmpty(normalized) ? "user-application" : normalized;
+    }
+
+    private static bool IsModifierKey(VirtualKey key) => key is
+        VirtualKey.Control or VirtualKey.LeftControl or VirtualKey.RightControl or
+        VirtualKey.Menu or VirtualKey.LeftMenu or VirtualKey.RightMenu or
+        VirtualKey.Shift or VirtualKey.LeftShift or VirtualKey.RightShift or
+        VirtualKey.LeftWindows or VirtualKey.RightWindows;
+
+    private static string? ComposeGesture(VirtualKey key)
+    {
+        var parts = new List<string>();
+        if (IsDown(VirtualKey.Control)) parts.Add("Ctrl");
+        if (IsDown(VirtualKey.Shift)) parts.Add("Shift");
+        if (IsDown(VirtualKey.Menu)) parts.Add("Alt");
+        if (IsDown(VirtualKey.LeftWindows) || IsDown(VirtualKey.RightWindows)) parts.Add("Win");
+        if (parts.Count == 0) return null;
+        var primary = key is >= VirtualKey.Number0 and <= VirtualKey.Number9
+            ? ((int)key - (int)VirtualKey.Number0).ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : key.ToString();
+        parts.Add(primary);
+        var text = string.Join('+', parts);
+        return HotkeyGesture.TryParse(text, out var parsed) ? parsed.ToString() : null;
+    }
+
+    private static bool IsDown(VirtualKey key) =>
+        InputKeyboardSource.GetKeyStateForCurrentThread(key).HasFlag(CoreVirtualKeyStates.Down);
+
+    private sealed record ProcessChoice(ProcessDescriptor Process)
+    {
+        public string Display => $"{Process.ExecutableName} · PID {Process.Id}";
+    }
 
     private async void CheckUpdateButton_Click(object sender, RoutedEventArgs e)
     {

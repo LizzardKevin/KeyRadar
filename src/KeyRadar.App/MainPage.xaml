@@ -31,46 +31,24 @@
             BorderThickness="0,0,1,0">
             <StackPanel Padding="12,20" Spacing="4">
                 <TextBlock Margin="12,0,0,14" Foreground="{StaticResource RadarMutedBrush}" Text="导航" />
-                <RadioButton IsChecked="True">
+                <RadioButton x:Name="RadarOverviewNav" Click="RadarOverviewNav_Click" GroupName="MainNavigation" IsChecked="True">
                     <StackPanel Orientation="Horizontal" Spacing="12">
                         <FontIcon FontSize="16" Glyph="&#xE9D9;" />
-                        <TextBlock Text="雷达总览" />
+                        <TextBlock x:Uid="NavRadar" Text="雷达总览" />
                     </StackPanel>
                 </RadioButton>
-                <RadioButton>
+                <RadioButton x:Name="HotkeyOverviewNav" Click="HotkeyOverviewNav_Click" GroupName="MainNavigation">
                     <StackPanel Orientation="Horizontal" Spacing="12">
                         <FontIcon FontSize="16" Glyph="&#xE774;" />
-                        <TextBlock Text="全局热键" />
+                        <TextBlock x:Uid="NavHotkeys" Text="热键总览" />
                     </StackPanel>
                 </RadioButton>
-                <RadioButton>
+                <RadioButton x:Name="SettingsNav" Click="SettingsNav_Click" GroupName="MainNavigation">
                     <StackPanel Orientation="Horizontal" Spacing="12">
-                        <FontIcon FontSize="16" Glyph="&#xE7C4;" />
-                        <TextBlock Text="当前应用" />
+                        <FontIcon FontSize="16" Glyph="&#xE713;" />
+                        <TextBlock x:Uid="NavSettings" Text="设置" />
                     </StackPanel>
                 </RadioButton>
-                <RadioButton>
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <FontIcon FontSize="16" Glyph="&#xE9CE;" />
-                        <TextBlock Text="归属未知" />
-                    </StackPanel>
-                </RadioButton>
-                <RadioButton>
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <FontIcon FontSize="16" Glyph="&#xE8F1;" />
-                        <TextBlock Text="规则库" />
-                    </StackPanel>
-                </RadioButton>
-
-                <StackPanel VerticalAlignment="Bottom">
-                    <TextBlock Margin="12,26,12,4" Foreground="{StaticResource RadarMutedBrush}" Text="隐私状态" />
-                    <Border Padding="12" Background="#331F8A70" CornerRadius="8">
-                        <StackPanel Spacing="4">
-                            <TextBlock Foreground="{StaticResource RadarSuccessBrush}" Text="● 零遥测" />
-                            <TextBlock FontSize="12" Foreground="{StaticResource RadarMutedBrush}" Text="不记录普通按键内容" TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
             </StackPanel>
         </Border>
 
@@ -85,7 +63,7 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel>
-                        <TextBlock FontSize="28" FontWeight="SemiBold" Text="热键雷达" />
+                        <TextBlock x:Name="PageTitleText" FontSize="28" FontWeight="SemiBold" Text="雷达总览" />
                         <TextBlock x:Name="SummaryText" Margin="0,5,0,0" Foreground="{StaticResource RadarMutedBrush}" Text="正在扫描当前前后台应用…" />
                     </StackPanel>
                     <Button Grid.Column="1" HorizontalAlignment="Right" Click="RefreshButton_Click">
@@ -126,6 +104,63 @@
                         Click="ExportDiagnosticsButton_Click"
                         Content="导出诊断" />
                 </Grid>
+
+                <StackPanel x:Name="RadarOverviewPanel" Spacing="14">
+                    <Grid ColumnSpacing="12" RowSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Padding="18" Background="#4A5B232D" BorderBrush="#66FF8A9B" BorderThickness="1" CornerRadius="12">
+                            <StackPanel Spacing="9">
+                                <FontIcon HorizontalAlignment="Left" Foreground="#FFFF8A9B" Glyph="&#xEA39;" />
+                                <TextBlock x:Name="ConflictCountText" FontSize="30" FontWeight="SemiBold" Text="0" />
+                                <TextBlock x:Uid="CardConflicts" Text="冲突" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="1" Padding="18" Background="#3A164A3E" BorderBrush="#5576E5BD" BorderThickness="1" CornerRadius="12">
+                            <StackPanel Spacing="9">
+                                <FontIcon HorizontalAlignment="Left" Foreground="{StaticResource RadarSuccessBrush}" Glyph="&#xE73E;" />
+                                <TextBlock x:Name="AvailableCountText" FontSize="30" FontWeight="SemiBold" Text="0" />
+                                <TextBlock x:Uid="CardAvailable" Text="当前可注册" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="2" Padding="18" Background="#3A17364E" BorderBrush="#557AB8F5" BorderThickness="1" CornerRadius="12">
+                            <StackPanel Spacing="9">
+                                <FontIcon HorizontalAlignment="Left" Foreground="#FF86C5FF" Glyph="&#xE7C4;" />
+                                <TextBlock x:Name="ForegroundCountText" FontSize="30" FontWeight="SemiBold" Text="0" />
+                                <TextBlock x:Uid="CardForeground" Text="前台热键" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="3" Padding="18" Background="#3A4A3A16" BorderBrush="#55E6C46D" BorderThickness="1" CornerRadius="12">
+                            <StackPanel Spacing="9">
+                                <FontIcon HorizontalAlignment="Left" Foreground="#FFFFD67D" Glyph="&#xE9CE;" />
+                                <TextBlock x:Name="UnconfirmedCountText" FontSize="30" FontWeight="SemiBold" Text="0" />
+                                <TextBlock x:Uid="CardUnconfirmed" Text="待确认" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                    <Border Padding="20" Background="{StaticResource RadarPanelBrush}" BorderBrush="{StaticResource RadarBorderBrush}" BorderThickness="1" CornerRadius="12">
+                        <Grid ColumnSpacing="20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Width="56" FontSize="38" Foreground="{StaticResource RadarAccentBrush}" Glyph="&#xE9D9;" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="5">
+                                <TextBlock x:Uid="CurrentSession" FontSize="18" FontWeight="SemiBold" Text="当前桌面会话" />
+                                <TextBlock x:Name="DashboardStatusText" Foreground="{StaticResource RadarMutedBrush}" Text="正在建立当前可发现热键快照…" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Button x:Uid="RescanButton" Grid.Column="2" Click="RefreshButton_Click" Content="重新扫描" />
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel x:Name="HotkeyOverviewPanel" Spacing="14" Visibility="Collapsed">
+                    <TextBlock x:Uid="HotkeyOverviewTitle" FontSize="20" FontWeight="SemiBold" Text="热键总览" />
 
                 <AutoSuggestBox
                     x:Name="SearchBox"
@@ -246,6 +281,46 @@
                     <FontIcon HorizontalAlignment="Center" FontSize="36" Foreground="{StaticResource RadarMutedBrush}" Glyph="&#xE9D9;" />
                     <TextBlock Margin="0,12,0,0" FontSize="18" HorizontalAlignment="Center" Text="当前筛选没有匹配项" />
                     <TextBlock Margin="0,5,0,0" Foreground="{StaticResource RadarMutedBrush}" Text="清空搜索可查看全部已识别热键" />
+                </StackPanel>
+                </StackPanel>
+
+                <StackPanel x:Name="SettingsPanel" Spacing="14" Visibility="Collapsed">
+                    <TextBlock x:Uid="AppearanceTitle" FontSize="20" FontWeight="SemiBold" Text="外观与语言" />
+                    <Border Padding="18" Background="{StaticResource RadarPanelBrush}" BorderBrush="{StaticResource RadarBorderBrush}" BorderThickness="1" CornerRadius="10">
+                        <Grid ColumnSpacing="16" RowSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="240" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock x:Uid="LanguageLabel" VerticalAlignment="Center" Text="显示语言" />
+                            <ComboBox x:Name="LanguageComboBox" Grid.Column="1" SelectionChanged="LanguageComboBox_SelectionChanged">
+                                <ComboBoxItem Content="跟随系统" Tag="system" />
+                                <ComboBoxItem Content="简体中文" Tag="zh-CN" />
+                                <ComboBoxItem Content="English" Tag="en-US" />
+                            </ComboBox>
+                            <TextBlock x:Uid="ThemeLabel" Grid.Row="1" VerticalAlignment="Center" Text="应用主题" />
+                            <ComboBox x:Name="ThemeComboBox" Grid.Row="1" Grid.Column="1" SelectionChanged="ThemeComboBox_SelectionChanged">
+                                <ComboBoxItem Content="跟随系统" Tag="system" />
+                                <ComboBoxItem Content="浅色" Tag="light" />
+                                <ComboBoxItem Content="深色" Tag="dark" />
+                            </ComboBox>
+                        </Grid>
+                    </Border>
+                    <TextBlock x:Uid="MaintenanceTitle" FontSize="20" FontWeight="SemiBold" Text="维护与规则" />
+                    <Border Padding="18" Background="{StaticResource RadarPanelBrush}" BorderBrush="{StaticResource RadarBorderBrush}" BorderThickness="1" CornerRadius="10">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Click="CheckUpdateButton_Click" Content="检查程序更新" />
+                            <Button Click="UpdateRulesButton_Click" Content="下载最新规则包" />
+                            <Button Click="OpenMyRulesButton_Click" Content="我的规则" />
+                            <Button Click="SubmitCandidateRuleButton_Click" Content="上传候选规则" />
+                            <Button Click="ExportDiagnosticsButton_Click" Content="导出诊断" />
+                        </StackPanel>
+                    </Border>
+                    <InfoBar IsClosable="False" IsOpen="True" Severity="Informational" Title="能力边界" Message="低级 Hook、Raw Input、驱动层拦截、私有或云端 Profile、板载宏及上下文热键可能无法完整发现；无法安全归属时始终显示未知。" />
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>
