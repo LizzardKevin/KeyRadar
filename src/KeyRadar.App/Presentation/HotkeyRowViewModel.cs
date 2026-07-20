@@ -19,7 +19,10 @@ public sealed class HotkeyRowViewModel : INotifyPropertyChanged
         bool canDeepConfirm,
         HotkeyProbeAvailability? probeAvailability = null,
         bool isGlobal = false,
-        bool isUnconfirmed = false)
+        bool isUnconfirmed = false,
+        HotkeyScope? scope = null,
+        OwnershipConfidence? confidence = null,
+        bool isHardware = false)
     {
         Gesture = gesture;
         Function = function;
@@ -31,6 +34,9 @@ public sealed class HotkeyRowViewModel : INotifyPropertyChanged
         ProbeAvailability = probeAvailability;
         IsGlobal = isGlobal;
         IsUnconfirmed = isUnconfirmed;
+        Scope = scope;
+        Confidence = confidence;
+        IsHardware = isHardware;
     }
 
     public string Gesture { get; set; }
@@ -62,6 +68,12 @@ public sealed class HotkeyRowViewModel : INotifyPropertyChanged
 
     public bool IsUnconfirmed { get; }
 
+    public HotkeyScope? Scope { get; }
+
+    public OwnershipConfidence? Confidence { get; }
+
+    public bool IsHardware { get; }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public void MarkConfirmed() => ConfidenceLabel = UiText.Pick("● 已确认", "● Confirmed");
@@ -89,9 +101,11 @@ public sealed class HotkeyRowViewModel : INotifyPropertyChanged
                 : UiText.Pick("证据：官方签名规则包", "Evidence: signed official rule pack")),
             ConfidenceLabelFor(confidence) + availabilityLabel,
             processId,
-            canDeepConfirm ?? (processId > 0 && scope == HotkeyScope.Global),
+            canDeepConfirm ?? false,
             isGlobal: scope == HotkeyScope.Global,
-            isUnconfirmed: confidence is OwnershipConfidence.Suspected or OwnershipConfidence.Unknown or OwnershipConfidence.UserDeclared);
+            isUnconfirmed: confidence is OwnershipConfidence.Suspected or OwnershipConfidence.Unknown or OwnershipConfidence.UserDeclared,
+            scope: scope,
+            confidence: confidence);
 
     public static HotkeyRowViewModel FromProbe(HotkeyProbeResult result) => new(
         result.Gesture.ToString(),
@@ -100,6 +114,8 @@ public sealed class HotkeyRowViewModel : INotifyPropertyChanged
             HotkeyProbeAvailability.Occupied => UiText.Pick("功能未知", "Function unknown"),
             HotkeyProbeAvailability.AvailableAtScanTime => UiText.Pick("扫描瞬间可注册", "Available at scan time"),
             HotkeyProbeAvailability.SystemReserved => UiText.Pick("系统保留或无法探测", "System reserved or not probeable"),
+            HotkeyProbeAvailability.ProbeError when result.Win32ErrorCode == WindowsHotkeyProbeSafetyGate.PhysicalKeyHeldErrorCode =>
+                UiText.Pick("物理功能键持续按下 · 已跳过探测", "Physical function key held · probe skipped"),
             _ => UiText.Pick(
                 $"探测错误{(result.Win32ErrorCode is int code ? $"（{code}）" : string.Empty)}",
                 $"Probe error{(result.Win32ErrorCode is int errorCode ? $" ({errorCode})" : string.Empty)}"),
@@ -111,13 +127,18 @@ public sealed class HotkeyRowViewModel : INotifyPropertyChanged
             HotkeyProbeAvailability.Occupied => UiText.Pick("● 已占用 · 归属未知", "● Occupied · owner unknown"),
             HotkeyProbeAvailability.AvailableAtScanTime => UiText.Pick("○ 当前可注册", "○ Available now"),
             HotkeyProbeAvailability.SystemReserved => UiText.Pick("◆ 系统保留", "◆ System reserved"),
+            HotkeyProbeAvailability.ProbeError when result.Win32ErrorCode == WindowsHotkeyProbeSafetyGate.PhysicalKeyHeldErrorCode =>
+                UiText.Pick("! 物理键按下 · 未探测", "! Physical key held · not probed"),
             _ => UiText.Pick("! 无法探测", "! Not probeable"),
         },
         processId: 0,
-        canDeepConfirm: result.Availability is HotkeyProbeAvailability.Occupied or HotkeyProbeAvailability.ProbeError,
+        canDeepConfirm: result.Availability is HotkeyProbeAvailability.Occupied or HotkeyProbeAvailability.ProbeError &&
+            result.Win32ErrorCode != WindowsHotkeyProbeSafetyGate.PhysicalKeyHeldErrorCode,
         probeAvailability: result.Availability,
         isGlobal: true,
-        isUnconfirmed: result.Availability is HotkeyProbeAvailability.Occupied or HotkeyProbeAvailability.ProbeError);
+        isUnconfirmed: result.Availability is HotkeyProbeAvailability.Occupied or HotkeyProbeAvailability.ProbeError,
+        scope: HotkeyScope.Global,
+        confidence: OwnershipConfidence.Unknown);
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

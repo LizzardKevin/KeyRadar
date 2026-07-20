@@ -56,6 +56,80 @@ public sealed class HotkeyEvidenceMergerTests
         Assert.Equal(HotkeyConflictStatus.HardwareMappingCollision, Assert.Single(result).Conflict);
     }
 
+    [Fact]
+    public void Two_running_rule_candidates_are_a_possible_interception_not_a_definite_conflict()
+    {
+        var target = HotkeyGesture.Parse("Ctrl+Shift+A");
+
+        var result = HotkeyEvidenceMerger.Merge(
+            [Probe(target)],
+            [],
+            [],
+            [RuleCandidate("feishu", target, "Screenshot"), RuleCandidate("dingtalk", target, "Screenshot")]);
+
+        var item = Assert.Single(result);
+        Assert.Equal(HotkeyOwnershipStatus.PossibleOwner, item.Ownership);
+        Assert.Equal(HotkeyConflictStatus.PossibleInterception, item.Conflict);
+    }
+
+    [Fact]
+    public void A_local_owner_and_a_different_rule_candidate_are_a_possible_interception()
+    {
+        var target = HotkeyGesture.Parse("Alt+A");
+        var local = new LocalConfigurationHotkey("wechat", target, "Screenshot", HotkeyScope.Global, "Local config");
+
+        var result = HotkeyEvidenceMerger.Merge(
+            [Probe(target)],
+            [local],
+            [],
+            [RuleCandidate("other-app", target, "Capture")]);
+
+        Assert.Equal(HotkeyConflictStatus.PossibleInterception, Assert.Single(result).Conflict);
+    }
+
+    [Fact]
+    public void An_inactive_hardware_profile_does_not_participate_in_conflicts()
+    {
+        var target = HotkeyGesture.Parse("Alt+A");
+        var profile = new HardwareProfileDescriptor(
+            "logitech-g-hub", "Logitech G Keyboard", "Photoshop Profile",
+            HardwareProfileReadStatus.Inactive, false, null,
+            [new HardwareMapping("G2", HardwareMappingTargetKind.Hotkey, target, "Alt+A", true)],
+            "Inactive profile");
+
+        var result = HotkeyEvidenceMerger.Merge(
+            [Probe(target)],
+            [],
+            [profile],
+            [RuleCandidate("wechat", target, "Screenshot")]);
+
+        var item = Assert.Single(result);
+        Assert.DoesNotContain("logitech-g-hub", item.Owners);
+        Assert.Equal(HotkeyConflictStatus.None, item.Conflict);
+    }
+
+    [Fact]
+    public void A_user_imported_current_profile_is_possible_evidence_not_a_definite_collision()
+    {
+        var target = HotkeyGesture.Parse("Alt+A");
+        var profile = new HardwareProfileDescriptor(
+            "logitech-g-hub", "Logitech G Keyboard", "Desktop Profile",
+            HardwareProfileReadStatus.Active, false, null,
+            [new HardwareMapping("G2", HardwareMappingTargetKind.Hotkey, target, "Alt+A", true)],
+            "User-imported profile",
+            IsUserDeclared: true);
+
+        var result = HotkeyEvidenceMerger.Merge(
+            [Probe(target)],
+            [],
+            [profile],
+            [RuleCandidate("wechat", target, "Screenshot")]);
+
+        var item = Assert.Single(result);
+        Assert.Equal(HotkeyConflictStatus.PossibleInterception, item.Conflict);
+        Assert.Equal(HotkeyOwnershipStatus.PossibleOwner, item.Ownership);
+    }
+
     private static HotkeyProbeResult Probe(HotkeyGesture gesture) => new(
         gesture,
         HotkeyProbeAvailability.Occupied,

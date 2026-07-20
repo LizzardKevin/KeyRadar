@@ -54,9 +54,17 @@ public static class HotkeyEvidenceMerger
         IReadOnlyList<HardwareProfileDescriptor> hardwareProfiles,
         IReadOnlyList<RunningRuleHotkey> runningRules)
     {
+        var activeHardwareProfiles = hardwareProfiles
+            .Where(profile => profile.Status == HardwareProfileReadStatus.Active)
+            .Select(profile => profile with
+            {
+                Mappings = profile.Mappings.Where(mapping => mapping.ParticipatesInConflict).ToArray(),
+            })
+            .Where(profile => profile.Mappings.Count > 0)
+            .ToArray();
         var gestures = probes.Select(item => item.Gesture)
             .Concat(localConfigurations.Select(item => item.Gesture))
-            .Concat(hardwareProfiles.SelectMany(profile => profile.Mappings)
+            .Concat(activeHardwareProfiles.SelectMany(profile => profile.Mappings)
                 .Where(mapping => mapping.TargetGesture is not null)
                 .Select(mapping => mapping.TargetGesture!.Value))
             .Concat(runningRules.Select(item => item.Gesture))
@@ -68,7 +76,7 @@ public static class HotkeyEvidenceMerger
             gesture,
             probes.FirstOrDefault(item => item.Gesture == gesture),
             localConfigurations.Where(item => item.Gesture == gesture).ToArray(),
-            hardwareProfiles.Where(profile => profile.Mappings.Any(mapping => mapping.TargetGesture == gesture)).ToArray(),
+            activeHardwareProfiles.Where(profile => profile.Mappings.Any(mapping => mapping.TargetGesture == gesture)).ToArray(),
             runningRules.Where(item => item.Gesture == gesture).ToArray())).ToArray();
     }
 
@@ -96,7 +104,9 @@ public static class HotkeyEvidenceMerger
         var ownership = local.Count > 0
             ? HotkeyOwnershipStatus.LocalConfigurationFound
             : hardware.Count > 0
-                ? HotkeyOwnershipStatus.HardwareMappingFound
+                ? hardware.All(profile => profile.IsUserDeclared)
+                    ? HotkeyOwnershipStatus.PossibleOwner
+                    : HotkeyOwnershipStatus.HardwareMappingFound
                 : rules.Count == 1
                     ? rules[0].Confidence == OwnershipConfidence.SystemKnown
                         ? HotkeyOwnershipStatus.WindowsKnown
@@ -107,11 +117,25 @@ public static class HotkeyEvidenceMerger
                             ? HotkeyOwnershipStatus.OccupiedOwnerUnknown
                             : HotkeyOwnershipStatus.Unknown;
 
-        var conflict = hardware.Count > 0 && (local.Count > 0 || rules.Count > 0)
+        var localOwners = local
+            .Select(item => item.ApplicationId)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var ruleOwners = rules
+            .Select(item => item.ApplicationId)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var exactHardware = hardware.Where(profile => !profile.IsUserDeclared).ToArray();
+        var declaredHardware = hardware.Where(profile => profile.IsUserDeclared).ToArray();
+        var conflict = exactHardware.Length > 0 && (local.Count > 0 || rules.Count > 0)
             ? HotkeyConflictStatus.HardwareMappingCollision
-            : local.Select(item => item.ApplicationId).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1
+            : declaredHardware.Length > 0 && (local.Count > 0 || rules.Count > 0)
+                ? HotkeyConflictStatus.PossibleInterception
+            : localOwners.Length > 1
                 ? HotkeyConflictStatus.DefiniteConflict
-                : rules.Select(item => item.ApplicationId).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1
+                : localOwners.Length > 0 && ruleOwners.Any(owner => !localOwners.Contains(owner, StringComparer.OrdinalIgnoreCase))
+                    ? HotkeyConflictStatus.PossibleInterception
+                    : ruleOwners.Length > 1
                     ? HotkeyConflictStatus.PossibleInterception
                     : HotkeyConflictStatus.None;
         var primary = local.FirstOrDefault();

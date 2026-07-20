@@ -5,6 +5,11 @@ namespace KeyRadar.Windows.Foreground;
 
 public static partial class ForegroundApplicationReader
 {
+    private static readonly Lock CacheLock = new();
+    private static nint _cachedWindowHandle;
+    private static uint _cachedProcessId;
+    private static string? _cachedExecutableName;
+
     public static ForegroundApplication? Read()
     {
         var windowHandle = GetForegroundWindow();
@@ -13,10 +18,27 @@ public static partial class ForegroundApplicationReader
             return null;
         }
 
+        lock (CacheLock)
+        {
+            if (_cachedWindowHandle == windowHandle &&
+                _cachedProcessId == processId &&
+                _cachedExecutableName is not null)
+            {
+                return new ForegroundApplication((int)processId, windowHandle, _cachedExecutableName);
+            }
+        }
+
         try
         {
             using var process = Process.GetProcessById((int)processId);
             var executableName = TryGetExecutableName(process);
+            lock (CacheLock)
+            {
+                _cachedWindowHandle = windowHandle;
+                _cachedProcessId = processId;
+                _cachedExecutableName = executableName;
+            }
+
             return new ForegroundApplication(process.Id, windowHandle, executableName);
         }
         catch (ArgumentException)

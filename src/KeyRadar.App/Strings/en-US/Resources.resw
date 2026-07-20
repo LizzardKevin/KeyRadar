@@ -51,6 +51,7 @@
   <data name="ExportUserRulesButton.Content" xml:space="preserve"><value>Export user rules</value></data>
   <data name="SubmitCandidateButton.Content" xml:space="preserve"><value>Submit candidate rule</value></data>
   <data name="SettingsExportDiagnosticsButton.Content" xml:space="preserve"><value>Export diagnostics</value></data>
+  <data name="ImportHardwareProfileButton.Content" xml:space="preserve"><value>Import hardware profile</value></data>
   <data name="CapabilityBoundaryInfo.Title" xml:space="preserve"><value>Detection limits</value></data>
   <data name="CapabilityBoundaryInfo.Message" xml:space="preserve"><value>Low-level hooks, Raw Input, driver interception, private or cloud profiles, onboard macros, and contextual hotkeys may not be fully discoverable. Items without safe ownership evidence remain unknown.</value></data>
   <data name="MainTitleBar.Title" xml:space="preserve"><value>KeyRadar · Hotkey Radar</value></data>
@@ -58,4 +59,25 @@
   <data name="CurrentApplicationLabel.Text" xml:space="preserve"><value>Current app</value></data>
   <data name="ForegroundHotkeyOverlaySubtitle.Text" xml:space="preserve"><value>Foreground app hotkeys · no focus stealing</value></data>
   <data name="LiveLabel.Text" xml:space="preserve"><value>Live</value></data>
+  <data name="SortModeComboBox.Header" xml:space="preserve"><value>Arrange</value></data>
+  <data name="SortByApplication.Content" xml:space="preserve"><value>By application</value></data>
+  <data name="SortByGesture.Content" xml:space="preserve"><value>By hotkey</value></data>
+  <data name="SortByConfidence.Content" xml:space="preserve"><value>By confidence</value></data>
+  <data name="CategoryFilterComboBox.Header" xml:space="preserve"><value>Category</value></data>
+  <data name="CategoryAll.Content" xml:space="preserve"><value>All categories</value></data>
+  <data name="CategoryForeground.Content" xml:space="preserve"><value>Foreground apps</value></data>
+  <data name="CategoryBackground.Content" xml:space="preserve"><value>Background apps</value></data>
+  <data name="CategoryGlobal.Content" xml:space="preserve"><value>Global hotkeys</value></data>
+  <data name="CategoryHardware.Content" xml:space="preserve"><value>Hardware mappings</value></data>
+  <data name="CategoryWindows.Content" xml:space="preserve"><value>Windows system</value></data>
+  <data name="CategoryUnknown.Content" xml:space="preserve"><value>Owner unknown</value></data>
+  <data name="ModifierFilterComboBox.Header" xml:space="preserve"><value>Key type</value></data>
+  <data name="ModifierAll.Content" xml:space="preserve"><value>All key types</value></data>
+  <data name="ModifierFunction.Content" xml:space="preserve"><value>Function/navigation</value></data>
+  <data name="ConfidenceFilterComboBox.Header" xml:space="preserve"><value>Confidence</value></data>
+  <data name="ConfidenceAll.Content" xml:space="preserve"><value>All confidence levels</value></data>
+  <data name="ConfidenceConfirmed.Content" xml:space="preserve"><value>Confirmed</value></data>
+  <data name="ConfidenceLocal.Content" xml:space="preserve"><value>Local config/hardware</value></data>
+  <data name="ConfidenceOfficial.Content" xml:space="preserve"><value>Official/system known</value></data>
+  <data name="ConfidenceUnknown.Content" xml:space="preserve"><value>Suspected/unknown</value></data>
 </root>

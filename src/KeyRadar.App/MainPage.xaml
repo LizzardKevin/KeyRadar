@@ -171,6 +171,47 @@
                     QueryIcon="Find"
                     TextChanged="SearchBox_TextChanged" />
 
+                <Grid ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Name="SortModeComboBox" x:Uid="SortModeComboBox" Header="排列" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="HotkeyFilterComboBox_SelectionChanged">
+                        <ComboBoxItem x:Uid="SortByApplication" Content="按应用" Tag="application" />
+                        <ComboBoxItem x:Uid="SortByGesture" Content="按热键" Tag="gesture" />
+                        <ComboBoxItem x:Uid="SortByConfidence" Content="按可信度" Tag="confidence" />
+                    </ComboBox>
+                    <ComboBox x:Name="CategoryFilterComboBox" x:Uid="CategoryFilterComboBox" Grid.Column="1" Header="类别" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="HotkeyFilterComboBox_SelectionChanged">
+                        <ComboBoxItem x:Uid="CategoryAll" Content="全部类别" Tag="all" />
+                        <ComboBoxItem x:Uid="CategoryForeground" Content="前台应用" Tag="foreground" />
+                        <ComboBoxItem x:Uid="CategoryBackground" Content="后台应用" Tag="background" />
+                        <ComboBoxItem x:Uid="CategoryGlobal" Content="全局热键" Tag="global" />
+                        <ComboBoxItem x:Uid="CategoryHardware" Content="硬件映射" Tag="hardware" />
+                        <ComboBoxItem x:Uid="CategoryWindows" Content="Windows 系统" Tag="windows" />
+                        <ComboBoxItem x:Uid="CategoryUnknown" Content="归属未知" Tag="unknown" />
+                    </ComboBox>
+                    <ComboBox x:Name="ModifierFilterComboBox" x:Uid="ModifierFilterComboBox" Grid.Column="2" Header="键型" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="HotkeyFilterComboBox_SelectionChanged">
+                        <ComboBoxItem x:Uid="ModifierAll" Content="全部键型" Tag="all" />
+                        <ComboBoxItem Content="Win" Tag="win" />
+                        <ComboBoxItem Content="Alt" Tag="alt" />
+                        <ComboBoxItem Content="Ctrl" Tag="ctrl" />
+                        <ComboBoxItem Content="Shift" Tag="shift" />
+                        <ComboBoxItem Content="Space" Tag="space" />
+                        <ComboBoxItem Content="Backspace" Tag="backspace" />
+                        <ComboBoxItem Content="PrintScreen" Tag="printscreen" />
+                        <ComboBoxItem x:Uid="ModifierFunction" Content="功能/导航键" Tag="functional" />
+                    </ComboBox>
+                    <ComboBox x:Name="ConfidenceFilterComboBox" x:Uid="ConfidenceFilterComboBox" Grid.Column="3" Header="可信度" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="HotkeyFilterComboBox_SelectionChanged">
+                        <ComboBoxItem x:Uid="ConfidenceAll" Content="全部可信度" Tag="all" />
+                        <ComboBoxItem x:Uid="ConfidenceConfirmed" Content="已确认" Tag="confirmed" />
+                        <ComboBoxItem x:Uid="ConfidenceLocal" Content="本机配置/硬件" Tag="local" />
+                        <ComboBoxItem x:Uid="ConfidenceOfficial" Content="官方/系统已知" Tag="official" />
+                        <ComboBoxItem x:Uid="ConfidenceUnknown" Content="疑似/未知" Tag="unknown" />
+                    </ComboBox>
+                </Grid>
+
                 <InfoBar
                     x:Name="RuleStatusInfoBar"
                     x:Uid="RuleUnavailableInfo"
@@ -336,6 +377,7 @@
                             <Button x:Uid="ExportUserRulesButton" Grid.Row="1" HorizontalAlignment="Stretch" Click="ExportMyRulesButton_Click" Content="导出用户规则" />
                             <Button x:Uid="SubmitCandidateButton" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" Click="SubmitCandidateRuleButton_Click" Content="上传候选规则" />
                             <Button x:Uid="SettingsExportDiagnosticsButton" Grid.Row="1" Grid.Column="2" HorizontalAlignment="Stretch" Click="ExportDiagnosticsButton_Click" Content="导出诊断" />
+                            <Button x:Uid="ImportHardwareProfileButton" Grid.Row="1" Grid.Column="3" HorizontalAlignment="Stretch" Click="ImportHardwareProfileButton_Click" Content="导入硬件 Profile" />
                         </Grid>
                     </Border>
                     <InfoBar x:Uid="CapabilityBoundaryInfo" IsClosable="False" IsOpen="True" Severity="Informational" Title="能力边界" Message="低级 Hook、Raw Input、驱动层拦截、私有或云端 Profile、板载宏及上下文热键可能无法完整发现；无法安全归属时始终显示未知。" />

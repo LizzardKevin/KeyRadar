@@ -18,6 +18,7 @@ int wmain(int argumentCount, wchar_t* arguments[])
 {
     DWORD virtualKey = 0;
     DWORD modifiers = 0;
+    DWORD holdMilliseconds = 0;
     for (int index = 1; index + 1 < argumentCount; index += 2)
     {
         if (wcscmp(arguments[index], L"--vk") == 0)
@@ -27,6 +28,10 @@ int wmain(int argumentCount, wchar_t* arguments[])
         else if (wcscmp(arguments[index], L"--mod") == 0)
         {
             if (!ParseUnsigned(arguments[index + 1], 0xF, modifiers)) return 2;
+        }
+        else if (wcscmp(arguments[index], L"--hold-ms") == 0)
+        {
+            if (!ParseUnsigned(arguments[index + 1], 30000, holdMilliseconds)) return 2;
         }
         else
         {
@@ -38,6 +43,13 @@ int wmain(int argumentCount, wchar_t* arguments[])
     MSG message{};
     PeekMessageW(&message, nullptr, WM_USER, WM_USER, PM_NOREMOVE);
     if (!RegisterHotKey(nullptr, 1, modifiers | MOD_NOREPEAT, virtualKey)) return 3;
+
+    if (holdMilliseconds > 0)
+    {
+        Sleep(holdMilliseconds);
+        UnregisterHotKey(nullptr, 1);
+        return 0;
+    }
 
     const auto posted = PostThreadMessageW(
         GetCurrentThreadId(),

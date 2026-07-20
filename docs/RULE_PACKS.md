@@ -1,9 +1,11 @@
 # KeyRadar Rule Packs
 
-KeyRadar has exactly one formal rule source: the declarative JSON documents in
-the repository's `rules/` directory. Release automation validates those files
-and turns them into an Ed25519-signed ZIP archive with the `.krpack` extension.
-The application does not contain a parallel C# catalog or a hidden fallback.
+KeyRadar's official rules have exactly one maintained source: the declarative
+JSON documents in the repository's `rules/` directory. Packaging validates
+those files and turns them into an Ed25519-signed ZIP archive with the `.krpack`
+extension. The application does not contain a parallel C# catalog or a hidden
+fallback. The number of application variants is dynamic and is never a release
+constant.
 
 ## Archive layout
 
@@ -54,22 +56,25 @@ the bundled pack.
 
 ## Rule document
 
-Rule documents follow [`schemas/keyradar-rule-v1.schema.json`](../schemas/keyradar-rule-v1.schema.json).
+Rule documents follow [`schemas/keyradar-rule-v2.schema.json`](../schemas/keyradar-rule-v2.schema.json).
 Readers are allowlisted and bounded. A rule may identify executables, declare
-shortcuts, and name a supported configuration source; it cannot run commands,
+hotkeys, and name a supported configuration source; it cannot run commands,
 load libraries, use environment expansion, or read arbitrary paths.
 
-There is no rule precedence stack. KeyRadar reads exactly one verified official
-pack at a time: `active.krpack` when present, otherwise the version-matched pack
-bundled with the application. If neither can be verified, the UI displays
-“规则不可用，请重新下载/导入” and shows no fabricated shortcut results.
+Official rules use exactly one verified pack at a time: `active.krpack` when
+present, otherwise the version-matched pack bundled with the application. A
+separate unsigned `local.krpack` stores user declarations. Runtime precedence is
+user local rules, active signed official rules, then the bundled signed pack;
+evidence from every matching source is retained. If no official pack can be
+verified, the UI displays “规则不可用，请重新下载/导入” and still shows actual
+RegisterHotKey occupancy results without fabricating rule ownership.
 
 ## Contribution checklist
 
 - Use stable executable names and a unique lowercase application ID.
 - Link the vendor documentation or configuration evidence in `sources`.
-- State scope and confidence for every shortcut.
+- State scope and confidence for every hotkey.
 - Do not include personal paths, window titles, usernames, or real user config.
 - Add or update catalog tests before submitting the rule.
-- Keep all Windows system shortcuts in `rules/windows-system.json`; they are not
+- Keep all Windows system hotkeys in `rules/windows-system.json`; they are not
   compiled into the application.

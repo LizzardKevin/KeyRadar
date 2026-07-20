@@ -1,5 +1,4 @@
 using Microsoft.UI.Xaml;
-using KeyRadar.Hotkeys;
 using Windows.Graphics;
 
 // To learn more about WinUI, the WinUI project structure,
@@ -29,11 +28,4 @@ public sealed partial class MainWindow : Window
         RootFrame.Navigate(typeof(MainPage));
     }
 
-    public void ShowObservedGesture(HotkeyGesture gesture)
-    {
-        if (RootFrame.Content is MainPage page)
-        {
-            page.ShowObservedGesture(gesture);
-        }
-    }
 }

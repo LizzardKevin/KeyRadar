@@ -1,7 +1,6 @@
 using System.Globalization;
 using KeyRadar.Rules;
 using KeyRadar.Windows.Foreground;
-using KeyRadar.Windows.Input;
 using KeyRadar.Windows.Lifecycle;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -13,7 +12,6 @@ public partial class App : Application
     private MainWindow? _mainWindow;
     private ForegroundOverlayWindow? _overlayWindow;
     private DispatcherQueueTimer? _foregroundTimer;
-    private GlobalHotkeyObserver? _hotkeyObserver;
     private SingleInstanceGuard? _singleInstance;
     private int _lastForegroundProcessId;
 
@@ -22,7 +20,7 @@ public partial class App : Application
         var language = AppPreferences.Load().Language;
         if (language != "system")
         {
-            global::Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = language;
+            global::Microsoft.Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = language;
             var culture = CultureInfo.GetCultureInfo(language);
             CultureInfo.CurrentCulture = culture;
             CultureInfo.CurrentUICulture = culture;
@@ -53,27 +51,12 @@ public partial class App : Application
         _mainWindow.Activate();
         TryWriteUpdateHealthMarker();
 
-        _hotkeyObserver = new GlobalHotkeyObserver();
-        _hotkeyObserver.GestureObserved += HotkeyObserver_GestureObserved;
-        try
-        {
-            _hotkeyObserver.Start();
-        }
-        catch (System.ComponentModel.Win32Exception)
-        {
-            _hotkeyObserver.Dispose();
-            _hotkeyObserver = null;
-        }
-
         _foregroundTimer = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _foregroundTimer.Interval = TimeSpan.FromMilliseconds(250);
         _foregroundTimer.IsRepeating = true;
         _foregroundTimer.Tick += ForegroundTimer_Tick;
         _foregroundTimer.Start();
     }
-
-    private void HotkeyObserver_GestureObserved(object? sender, HotkeyGestureObservedEventArgs args) =>
-        _mainWindow?.ShowObservedGesture(args.Gesture);
 
     private void ForegroundTimer_Tick(DispatcherQueueTimer sender, object args)
     {
@@ -122,12 +105,6 @@ public partial class App : Application
         }
 
         _overlayWindow?.Close();
-        if (_hotkeyObserver is not null)
-        {
-            _hotkeyObserver.GestureObserved -= HotkeyObserver_GestureObserved;
-            _hotkeyObserver.Dispose();
-            _hotkeyObserver = null;
-        }
         _overlayWindow = null;
         _mainWindow = null;
         _singleInstance?.Dispose();

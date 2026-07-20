@@ -91,6 +91,25 @@ public sealed class GlobalHotkeyOccupancyScannerTests
         Assert.Equal(HotkeyProbeSafety.Cancel, gate.Check());
     }
 
+    [Fact]
+    public void Safety_gate_can_ignore_only_an_explicitly_skipped_extended_function_key()
+    {
+        var held = WindowsHotkeyProbeSafetyGate.CaptureHeldExtendedFunctionKeys(
+            virtualKey => virtualKey == 0x85 ? unchecked((short)0x8000) : (short)0);
+        var gate = new WindowsHotkeyProbeSafetyGate(
+            virtualKey => virtualKey == 0x85 ? unchecked((short)0x8000) : (short)0,
+            isDefaultDesktop: () => true,
+            ignoredVirtualKeys: held);
+        var textKeyGate = new WindowsHotkeyProbeSafetyGate(
+            virtualKey => virtualKey == 0x41 ? unchecked((short)0x8000) : (short)0,
+            isDefaultDesktop: () => true,
+            ignoredVirtualKeys: held);
+
+        Assert.Contains(0x85, held);
+        Assert.Equal(HotkeyProbeSafety.Safe, gate.Check());
+        Assert.Equal(HotkeyProbeSafety.Pause, textKeyGate.Check());
+    }
+
     private sealed class SequenceRegistrationApi(params HotkeyRegistrationAttempt[] attempts)
         : IHotkeyRegistrationApi
     {

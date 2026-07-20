@@ -24,7 +24,12 @@ public sealed class DiagnosticBundleWriterTests
                     "x64",
                     "standard",
                     "foreground",
-                    [new DiagnosticHotkey("Alt+A", "截图", "global", "configuration", "official-rule")]),
+                    [new DiagnosticHotkey(
+                        "Alt+A",
+                        $"Capture for {Environment.UserName} from C:\\Users\\SecretUser\\capture.txt",
+                        "global",
+                        "configuration",
+                        @"Imported from \\server\private\profile.json")]),
             ]);
 
         try
@@ -39,6 +44,8 @@ public sealed class DiagnosticBundleWriterTests
             Assert.Contains("WeChat.exe", json);
             Assert.DoesNotContain("SecretUser", json, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain(@"C:\Users", json, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(Environment.UserName, json, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(@"\\server\private", json, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {

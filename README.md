@@ -74,6 +74,7 @@ standalone Release assets.
 - [Implementation plan](docs/superpowers/plans/2026-07-20-keyradar-v1-schema-v2-ui.md)
 - [Privacy](docs/PRIVACY.md)
 - [Rule-pack authoring](docs/RULE_PACKS.md)
+- [Hardware profile import](docs/HARDWARE_PROFILES.md)
 - [Release testing](docs/RELEASE_TESTING.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)

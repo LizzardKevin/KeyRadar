@@ -4,6 +4,7 @@ namespace KeyRadar.Windows.Hotkeys;
 
 public sealed partial class WindowsHotkeyProbeSafetyGate : IHotkeyProbeSafetyGate
 {
+    public const int PhysicalKeyHeldErrorCode = 170;
     private const uint DesktopReadObjects = 0x0001;
     private const int UserObjectName = 2;
     private static readonly int[] KeyboardVirtualKeys =
@@ -20,16 +21,32 @@ public sealed partial class WindowsHotkeyProbeSafetyGate : IHotkeyProbeSafetyGat
         .. Enumerable.Range(0xBA, 0x07),
         .. Enumerable.Range(0xDB, 0x05),
     ];
+    private static readonly int[] ExtendedFunctionVirtualKeys =
+    [
+        .. Enumerable.Range(0x7C, 0x0C),
+        .. Enumerable.Range(0xA6, 0x12),
+    ];
 
     private readonly Func<int, short> _getKeyState;
     private readonly Func<bool> _isDefaultDesktop;
+    private readonly IReadOnlySet<int> _ignoredVirtualKeys;
 
     public WindowsHotkeyProbeSafetyGate(
         Func<int, short>? getKeyState = null,
-        Func<bool>? isDefaultDesktop = null)
+        Func<bool>? isDefaultDesktop = null,
+        IReadOnlySet<int>? ignoredVirtualKeys = null)
     {
         _getKeyState = getKeyState ?? GetAsyncKeyState;
         _isDefaultDesktop = isDefaultDesktop ?? IsDefaultDesktop;
+        _ignoredVirtualKeys = ignoredVirtualKeys ?? new HashSet<int>();
+    }
+
+    public static IReadOnlySet<int> CaptureHeldExtendedFunctionKeys(Func<int, short>? getKeyState = null)
+    {
+        var read = getKeyState ?? GetAsyncKeyState;
+        return ExtendedFunctionVirtualKeys
+            .Where(virtualKey => (read(virtualKey) & 0x8000) != 0)
+            .ToHashSet();
     }
 
     public HotkeyProbeSafety Check()
@@ -41,6 +58,10 @@ public sealed partial class WindowsHotkeyProbeSafetyGate : IHotkeyProbeSafetyGat
 
         foreach (var virtualKey in KeyboardVirtualKeys)
         {
+            if (_ignoredVirtualKeys.Contains(virtualKey))
+            {
+                continue;
+            }
             if ((_getKeyState(virtualKey) & 0x8000) != 0)
             {
                 return HotkeyProbeSafety.Pause;

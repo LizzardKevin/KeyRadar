@@ -12,6 +12,7 @@ using KeyRadar.Updater.Updates;
 using KeyRadar.Windows.Applications;
 using KeyRadar.Windows.Configuration;
 using KeyRadar.Windows.DeepConfirmation;
+using KeyRadar.Windows.Evidence;
 using KeyRadar.Windows.Hotkeys;
 using KeyRadar.Windows.Hardware;
 using KeyRadar.Windows.SystemState;
@@ -30,12 +31,16 @@ public sealed partial class MainPage : Page
     private readonly HttpClient _updateHttpClient = new() { Timeout = TimeSpan.FromSeconds(30) };
     private readonly UpdateCheckClient _updateClient;
     private readonly RuleUpdateClient _ruleUpdateClient;
+    private readonly RunningApplicationConfigurationRegistry _configurationRegistry = new(
+        [new ShareXConfigurationReader(), new GreenshotConfigurationReader()]);
+    private readonly ImportedHardwareProfileStore _hardwareProfileStore = new();
     private IReadOnlyList<ApplicationGroupViewModel> _allGroups = [];
     private IReadOnlyList<ApplicationSnapshot> _latestSnapshots = [];
     private IReadOnlyList<HotkeyProbeResult> _latestProbeResults = [];
     private CancellationTokenSource? _scanCancellation;
     private AppPreferences _preferences = new();
     private bool _preferencesReady;
+    private bool _filtersReady;
 
     public ObservableCollection<ApplicationGroupViewModel> FilteredGroups { get; } = [];
 
@@ -44,6 +49,7 @@ public sealed partial class MainPage : Page
         _updateClient = new UpdateCheckClient(_updateHttpClient, OfficialReleaseKey.GetBytes());
         _ruleUpdateClient = new RuleUpdateClient(_updateHttpClient, OfficialReleaseKey.GetBytes());
         InitializeComponent();
+        _filtersReady = true;
         _preferences = AppPreferences.Load();
         RequestedTheme = _preferences.ToElementTheme();
         SelectComboItem(LanguageComboBox, _preferences.Language);
@@ -51,13 +57,6 @@ public sealed partial class MainPage : Page
         _preferencesReady = true;
         Loaded += MainPage_Loaded;
         Unloaded += MainPage_Unloaded;
-    }
-
-    public void ShowObservedGesture(HotkeyGesture gesture)
-    {
-        var display = gesture.ToString();
-        SearchBox.Text = display;
-        ApplyFilter(display);
     }
 
     private async void MainPage_Loaded(object sender, RoutedEventArgs e)
@@ -87,7 +86,13 @@ public sealed partial class MainPage : Page
             hardwareEnvironment = HardwareEnvironmentScanner.Match(
                 snapshots.Select(snapshot => snapshot.Process).DistinctBy(process => process.Id).ToArray(),
                 hidDevices);
+            hardwareEnvironment = AddImportedHardwareProfile(hardwareEnvironment);
             var candidates = StandardGlobalHotkeyCandidateSource.Create();
+            var heldExtendedKeys = WindowsHotkeyProbeSafetyGate.CaptureHeldExtendedFunctionKeys();
+            var skippedCandidates = candidates
+                .Where(candidate => NativeHotkeyMapper.TryMap(candidate, out var virtualKey, out _) && heldExtendedKeys.Contains((int)virtualKey))
+                .ToArray();
+            var probeCandidates = candidates.Except(skippedCandidates).ToArray();
             var progress = new Progress<HotkeyScanProgress>(item =>
                 ScanStatusText.Text = UiText.Pick(
                     $"正在探测标准全局热键 {item.Completed}/{item.Total} · {item.Current}",
@@ -97,8 +102,18 @@ public sealed partial class MainPage : Page
                 using var registrationApi = new Win32HotkeyRegistrationApi();
                 var occupancyScanner = new GlobalHotkeyOccupancyScanner(
                     new GlobalHotkeyAvailabilityProbe(registrationApi),
-                    new WindowsHotkeyProbeSafetyGate());
-                return await occupancyScanner.ScanAsync(candidates, progress, cancellationToken);
+                    new WindowsHotkeyProbeSafetyGate(ignoredVirtualKeys: heldExtendedKeys));
+                var scanned = await occupancyScanner.ScanAsync(probeCandidates, progress, cancellationToken);
+                var skippedAt = DateTimeOffset.UtcNow;
+                var skipped = skippedCandidates.Select(candidate => new HotkeyProbeResult(
+                    candidate,
+                    HotkeyProbeAvailability.ProbeError,
+                    HotkeyProbeMechanism.RegisterHotKeyProbe,
+                    HotkeyOwner.Unknown,
+                    skippedAt,
+                    WindowsHotkeyProbeSafetyGate.PhysicalKeyHeldErrorCode));
+                var byGesture = scanned.Concat(skipped).ToDictionary(result => result.Gesture);
+                return candidates.Select(candidate => byGesture[candidate]).ToArray();
             }, cancellationToken);
         }
         catch (OperationCanceledException)
@@ -125,7 +140,7 @@ public sealed partial class MainPage : Page
         var occupancyByGesture = occupancyResults.ToDictionary(result => result.Gesture);
         var groups = new List<ApplicationGroupViewModel>();
         var windowsRules = catalog.FirstOrDefault(rule => rule.ApplicationId == "windows-system");
-        if (windowsRules is not null)
+        if (windowsRules is not null || windowsSession.PrintScreenOpensSnippingTool == true)
         {
             groups.Add(CreateWindowsGroup(windowsRules, windowsSession));
         }
@@ -147,9 +162,7 @@ public sealed partial class MainPage : Page
                     catalog),
             })
             .ToArray();
-        var localConfigurations = await new RunningApplicationConfigurationRegistry(
-            [new ShareXConfigurationReader(), new GreenshotConfigurationReader()])
-            .ReadAsync(
+        var localConfigurations = await _configurationRegistry.ReadAsync(
                 matchedSnapshots
                     .Where(item => item.Match.Selected is not null)
                     .Select(item => new RunningApplicationVariant(item.Snapshot.Process, item.Match.Selected!))
@@ -177,6 +190,7 @@ public sealed partial class MainPage : Page
             {
                 var local = configured.FirstOrDefault(item => item.Gesture == hotkey.Gesture);
                 string? availabilityLabel = null;
+                var canDeepConfirm = false;
                 if (hotkey.Scope == HotkeyScope.Global)
                 {
                     occupancyByGesture.TryGetValue(hotkey.Gesture, out var availability);
@@ -188,7 +202,11 @@ public sealed partial class MainPage : Page
                         _ => UiText.Pick(" · 无法探测", " · not probeable"),
                     };
 
-                    if (availability?.Availability == HotkeyProbeAvailability.Occupied) occupiedGlobalHotkeyCount++;
+                    if (availability?.Availability == HotkeyProbeAvailability.Occupied)
+                    {
+                        occupiedGlobalHotkeyCount++;
+                        canDeepConfirm = local is null;
+                    }
                 }
 
                 return HotkeyRowViewModel.Create(
@@ -199,6 +217,7 @@ public sealed partial class MainPage : Page
                     process.Id,
                     availabilityLabel,
                     hotkey.Sources,
+                    canDeepConfirm: canDeepConfirm,
                     evidenceLabel: local is null ? null : UiText.Pick("证据：", "Evidence: ") + UiText.LocalizeExternal(local.Evidence));
             });
             var configuredOnlyRows = configured
@@ -242,6 +261,9 @@ public sealed partial class MainPage : Page
                     hotkey.Scope,
                     OwnershipConfidence.Suspected,
                     process.Id,
+                    canDeepConfirm: hotkey.Scope == HotkeyScope.Global &&
+                        occupancyByGesture.TryGetValue(hotkey.Gesture, out var availability) &&
+                        availability.Availability == HotkeyProbeAvailability.Occupied,
                     sources: hotkey.Sources)).ToArray(),
                 process.Id,
                 isForeground: ambiguous.Snapshot.Presence == ApplicationPresence.Foreground));
@@ -249,27 +271,7 @@ public sealed partial class MainPage : Page
 
         if (hardwareEnvironment.Software.Count > 0)
         {
-            var hardwareRows = hardwareEnvironment.Software.Select(software =>
-            {
-                var profile = hardwareEnvironment.Profiles.FirstOrDefault(item => item.SoftwareId == software.Id);
-                var device = hardwareEnvironment.Devices.FirstOrDefault(item =>
-                    software.Id.StartsWith("logi", StringComparison.Ordinal) && item.VendorId == "046D" ||
-                    software.Id == "razer-synapse" && item.VendorId == "1532" ||
-                    software.Id == "corsair-icue" && item.VendorId == "1B1C");
-                var state = profile is not null
-                    ? UiText.Pick("当前 Profile · 无法安全读取", "Current profile · cannot be read safely")
-                    : software.IsRunning
-                        ? UiText.Pick("管理软件正在运行 · 未检测到匹配设备", "Management software is running · no matching device detected")
-                        : UiText.Pick("设备已连接 · 管理软件未运行", "Device connected · management software is not running");
-                return new HotkeyRowViewModel(
-                    device?.ModelName ?? software.DisplayName,
-                    state,
-                    UiText.Pick("硬件映射", "Hardware mapping"),
-                    profile is null ? UiText.Pick("证据：运行进程与 HID 厂商/型号", "Evidence: running process and HID vendor/model") : UiText.LocalizeExternal(profile.Evidence),
-                    profile is not null ? UiText.Pick("! 无法完整发现", "! Not fully discoverable") : UiText.Pick("○ 当前未生效", "○ Not currently active"),
-                    software.ProcessId ?? 0,
-                    canDeepConfirm: false);
-            }).ToArray();
+            var hardwareRows = CreateHardwareRows(hardwareEnvironment);
             groups.Add(new ApplicationGroupViewModel(
                 "hardware-mappings",
                 UiText.Pick("硬件映射", "Hardware mappings"),
@@ -318,33 +320,62 @@ public sealed partial class MainPage : Page
         }
 
         _allGroups = groups
-            .OrderBy(group => group.Id != "windows-system")
-            .ThenByDescending(group => group.IsForeground)
+            .OrderBy(group => group.IsForeground
+                ? 0
+                : group.Id == "hardware-mappings"
+                    ? 1
+                    : group.ProcessId > 0
+                        ? 2
+                        : group.Id == "windows-system"
+                            ? 3
+                            : group.Id == "unknown-occupancy"
+                                ? 4
+                                : 5)
             .ThenBy(group => group.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
 
-        var duplicateGestures = _allGroups
-            .SelectMany(group => group.Hotkeys.Select(hotkey => new { Group = group, Hotkey = hotkey }))
-            .Where(item => item.Hotkey.IsGlobal)
-            .GroupBy(item => item.Hotkey.Gesture, StringComparer.OrdinalIgnoreCase)
-            .Where(group => group.Select(item => item.Group.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+        var runningRuleHotkeys = matchedSnapshots
+            .SelectMany(item => item.Match.Selected is not null
+                ? [item.Match.Selected]
+                : item.Match.Candidates.Select(candidate => candidate.Variant))
+            .SelectMany(variant => variant.Hotkeys.Select(hotkey => new RunningRuleHotkey(
+                variant.ApplicationId,
+                hotkey.Gesture,
+                hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
+                hotkey.Scope,
+                hotkey.Confidence,
+                string.Join(" · ", hotkey.Sources))))
+            .DistinctBy(item => $"{item.ApplicationId}\u001F{item.Gesture}", StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        foreach (var duplicate in duplicateGestures)
+        var mergedEvidence = HotkeyEvidenceMerger.Merge(
+            occupancyResults,
+            localConfigurations,
+            hardwareEnvironment.Profiles,
+            runningRuleHotkeys);
+        var conflicts = mergedEvidence
+            .Where(item => item.Conflict != HotkeyConflictStatus.None)
+            .ToArray();
+        var conflictGestures = conflicts
+            .Select(item => item.Gesture.ToString())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var group in _allGroups.Where(group => group.Hotkeys.Any(item => conflictGestures.Contains(item.Gesture))))
         {
-            foreach (var item in duplicate)
-            {
-                item.Group.IsExpanded = true;
-            }
+            group.IsExpanded = true;
         }
 
-        ConflictInfoBar.IsOpen = duplicateGestures.Length > 0;
-        if (duplicateGestures.Length > 0)
+        var definiteConflictCount = conflicts.Count(item => item.Conflict is
+            HotkeyConflictStatus.DefiniteConflict or HotkeyConflictStatus.HardwareMappingCollision);
+        var possibleConflictCount = conflicts.Length - definiteConflictCount;
+        ConflictInfoBar.IsOpen = conflicts.Length > 0;
+        if (conflicts.Length > 0)
         {
             ConflictInfoBar.Severity = InfoBarSeverity.Warning;
-            ConflictInfoBar.Title = UiText.Pick("发现确定冲突", "Confirmed conflicts found");
+            ConflictInfoBar.Title = definiteConflictCount > 0
+                ? UiText.Pick("发现确定冲突", "Confirmed conflicts found")
+                : UiText.Pick("发现可能冲突", "Possible conflicts found");
             ConflictInfoBar.Message = UiText.Pick(
-                $"{duplicateGestures.Length} 个全局组合键被多个运行中应用声明。冲突应用已自动展开。",
-                $"{duplicateGestures.Length} global combinations are declared by multiple running apps. Conflicting apps were expanded automatically.");
+                $"确定冲突 {definiteConflictCount} 个 · 可能拦截 {possibleConflictCount} 个。相关应用已自动展开。",
+                $"{definiteConflictCount} confirmed · {possibleConflictCount} possible interceptions. Related apps were expanded automatically.");
         }
 
         ApplyFilter(SearchBox.Text);
@@ -352,7 +383,7 @@ public sealed partial class MainPage : Page
         var appCount = _allGroups.Count(group => group.ProcessId > 0);
         var hotkeyCount = _allGroups.Sum(group => group.Hotkeys.Count);
         var totalOccupied = occupancyResults.Count(result => result.Availability == HotkeyProbeAvailability.Occupied);
-        ConflictCountText.Text = duplicateGestures.Length.ToString(System.Globalization.CultureInfo.CurrentCulture);
+        ConflictCountText.Text = conflicts.Length.ToString(System.Globalization.CultureInfo.CurrentCulture);
         AvailableCountText.Text = occupancyResults.Count(result => result.Availability == HotkeyProbeAvailability.AvailableAtScanTime).ToString(System.Globalization.CultureInfo.CurrentCulture);
         ForegroundCountText.Text = _allGroups.Where(group => group.IsForeground).Sum(group => group.Hotkeys.Count).ToString(System.Globalization.CultureInfo.CurrentCulture);
         UnconfirmedCountText.Text = _allGroups.SelectMany(group => group.Hotkeys).Count(hotkey => hotkey.IsUnconfirmed).ToString(System.Globalization.CultureInfo.CurrentCulture);
@@ -371,10 +402,10 @@ public sealed partial class MainPage : Page
     }
 
     private static ApplicationGroupViewModel CreateWindowsGroup(
-        ApplicationVariantRule rules,
+        ApplicationVariantRule? rules,
         WindowsSessionState session)
     {
-        var rows = rules.Hotkeys.Select(hotkey => HotkeyRowViewModel.Create(
+        var rows = (rules?.Hotkeys ?? []).Select(hotkey => HotkeyRowViewModel.Create(
             hotkey.Gesture.ToString(),
             hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
             hotkey.Scope,
@@ -394,12 +425,79 @@ public sealed partial class MainPage : Page
 
         return new ApplicationGroupViewModel(
             "windows-system",
-            rules.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
+            rules?.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name) ?? UiText.Pick("Windows 系统", "Windows system"),
             UiText.Pick("系统级", "System level"),
             $"{session.WindowsVersion} · {session.InputLanguage} · {UiText.Pick("默认折叠", "collapsed by default")}",
             "\uE782",
             false,
             rows);
+    }
+
+    private static IReadOnlyList<HotkeyRowViewModel> CreateHardwareRows(HardwareEnvironmentSnapshot environment)
+    {
+        var rows = new List<HotkeyRowViewModel>();
+        foreach (var software in environment.Software)
+        {
+            var profiles = environment.Profiles
+                .Where(profile => profile.SoftwareId.Equals(software.Id, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(profile => profile.Status == HardwareProfileReadStatus.Active)
+                .ThenByDescending(profile => profile.Mappings.Count)
+                .ToArray();
+            var device = environment.Devices.FirstOrDefault(item =>
+                software.Id.StartsWith("logi", StringComparison.Ordinal) && item.VendorId == "046D" ||
+                software.Id == "razer-synapse" && item.VendorId == "1532" ||
+                software.Id == "corsair-icue" && item.VendorId == "1B1C");
+            foreach (var profile in profiles.Where(profile => profile.Mappings.Count > 0))
+            {
+                foreach (var mapping in profile.Mappings)
+                {
+                    var profileState = profile.Status == HardwareProfileReadStatus.Active
+                        ? UiText.Pick("当前生效", "active now")
+                        : UiText.Pick("未生效", "inactive");
+                    var declaration = profile.IsUserDeclared
+                        ? UiText.Pick("用户声明 · 未实时验证", "user-declared · not live-verified")
+                        : UiText.Pick("已实时读取", "read from the active profile");
+                    var onboard = profile.IsOnboardMemory
+                        ? UiText.Pick($" · 板载{(profile.Slot is null ? string.Empty : $"槽位 {profile.Slot}")}", $" · onboard{(profile.Slot is null ? string.Empty : $" slot {profile.Slot}")}")
+                        : string.Empty;
+                    rows.Add(new HotkeyRowViewModel(
+                        mapping.TargetGesture?.ToString() ?? mapping.PhysicalTrigger,
+                        $"{mapping.PhysicalTrigger} → {mapping.DisplayTarget}",
+                        UiText.Pick("硬件映射", "Hardware mapping"),
+                        $"{profile.ProfileName} · {profileState}{onboard} · {declaration} · {UiText.LocalizeExternal(profile.Evidence)}",
+                        profile.IsUserDeclared
+                            ? UiText.Pick("● 用户声明 · 未经官方验证", "● User declared · not officially verified")
+                            : UiText.Pick("● 硬件映射已发现", "● Hardware mapping found"),
+                        software.ProcessId ?? 0,
+                        canDeepConfirm: false,
+                        isGlobal: mapping.ParticipatesInConflict,
+                        isUnconfirmed: profile.IsUserDeclared,
+                        confidence: profile.IsUserDeclared ? OwnershipConfidence.UserDeclared : OwnershipConfidence.HardwareMapping,
+                        isHardware: true));
+                }
+            }
+
+            if (profiles.All(profile => profile.Mappings.Count == 0))
+            {
+                var profile = profiles.FirstOrDefault();
+                var state = profile is not null
+                    ? UiText.Pick("当前 Profile · 无法安全读取", "Current profile · cannot be read safely")
+                    : software.IsRunning
+                        ? UiText.Pick("管理软件正在运行 · 未检测到匹配设备", "Management software is running · no matching device detected")
+                        : UiText.Pick("设备已连接 · 管理软件未运行", "Device connected · management software is not running");
+                rows.Add(new HotkeyRowViewModel(
+                    device?.ModelName ?? software.DisplayName,
+                    state,
+                    UiText.Pick("硬件映射", "Hardware mapping"),
+                    profile is null ? UiText.Pick("证据：运行进程与 HID 厂商/型号", "Evidence: running process and HID vendor/model") : UiText.LocalizeExternal(profile.Evidence),
+                    profile is not null ? UiText.Pick("! 无法完整发现", "! Not fully discoverable") : UiText.Pick("○ 当前未生效", "○ Not currently active"),
+                    software.ProcessId ?? 0,
+                    canDeepConfirm: false,
+                    isHardware: true));
+            }
+        }
+
+        return rows;
     }
 
     private static string BuildEvidenceSummary(ProcessDescriptor process)
@@ -430,6 +528,54 @@ public sealed partial class MainPage : Page
     }
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e) => await ScanAsync();
+
+    private async void ImportHardwareProfileButton_Click(object sender, RoutedEventArgs e)
+    {
+        var warning = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = UiText.Pick("导入声明式硬件 Profile", "Import a declarative hardware profile"),
+            Content = UiText.Pick(
+                "KeyRadar 只读取你选择的 JSON，并仅保留设备、Profile、物理触发键和组合键目标。宏文本与启动路径会被强制隐藏。厂商私有或加密导出格式不会被猜测解析；导入结果标记为“用户声明 · 未实时验证”，不会冒充确定证据。",
+                "KeyRadar reads only the JSON you select and retains only the device, profile, physical trigger, and hotkey target. Macro text and launch paths are forcibly hidden. Proprietary or encrypted vendor exports are not guessed; imported results are marked user-declared and not live-verified."),
+            PrimaryButtonText = UiText.Pick("选择 JSON", "Choose JSON"),
+            CloseButtonText = UiText.Pick("取消", "Cancel"),
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        if (await warning.ShowAsync() != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        var picker = new global::Windows.Storage.Pickers.FileOpenPicker();
+        picker.FileTypeFilter.Add(".json");
+        WinRT.Interop.InitializeWithWindow.Initialize(
+            picker,
+            ((App)Application.Current).GetMainWindowHandle());
+        var file = await picker.PickSingleFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        var result = await _hardwareProfileStore.ImportAsync(file.Path, CancellationToken.None);
+        if (result.IsSuccess)
+        {
+            await ScanAsync();
+        }
+
+        await ShowUpdateMessageAsync(
+            result.IsSuccess
+                ? UiText.Pick("硬件 Profile 已导入", "Hardware profile imported")
+                : UiText.Pick("无法导入硬件 Profile", "Hardware profile could not be imported"),
+            result.IsSuccess
+                ? UiText.Pick(
+                    "已保存脱敏后的用户声明 Profile。只有对应硬件或管理软件当前存在时才会显示，并作为可能证据参与冲突判断。",
+                    "The redacted user-declared profile was saved. It appears only when the matching hardware or management software is present and participates as possible evidence.")
+                : UiText.Pick(
+                    $"文件未通过 KeyRadar 硬件 Profile Schema v1 校验（{result.Code}）。当前配置保持不变。",
+                    $"The file did not pass KeyRadar hardware profile Schema v1 validation ({result.Code}). The current configuration was kept."));
+    }
 
     private void RadarOverviewNav_Click(object sender, RoutedEventArgs e) => ShowSection("radar");
 
@@ -1091,25 +1237,133 @@ public sealed partial class MainPage : Page
         }
     }
 
+    private void HotkeyFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_filtersReady) ApplyFilter(SearchBox.Text);
+    }
+
     private void ApplyFilter(string? query)
     {
         FilteredGroups.Clear();
         var normalized = query?.Trim();
+        var category = SelectedTag(CategoryFilterComboBox);
+        var modifier = SelectedTag(ModifierFilterComboBox);
+        var confidence = SelectedTag(ConfidenceFilterComboBox);
+        var sortMode = SelectedTag(SortModeComboBox);
+        var filtered = new List<ApplicationGroupViewModel>();
 
         foreach (var group in _allGroups)
         {
-            if (string.IsNullOrWhiteSpace(normalized) ||
-                group.DisplayName.Contains(normalized, StringComparison.CurrentCultureIgnoreCase) ||
-                group.Hotkeys.Any(hotkey =>
+            var groupMatchesSearch = !string.IsNullOrWhiteSpace(normalized) &&
+                group.DisplayName.Contains(normalized, StringComparison.CurrentCultureIgnoreCase);
+            var rows = group.Hotkeys
+                .Where(hotkey => string.IsNullOrWhiteSpace(normalized) || groupMatchesSearch ||
                     hotkey.Gesture.Contains(normalized, StringComparison.OrdinalIgnoreCase) ||
-                    hotkey.Function.Contains(normalized, StringComparison.CurrentCultureIgnoreCase)))
+                    hotkey.Function.Contains(normalized, StringComparison.CurrentCultureIgnoreCase))
+                .Where(hotkey => MatchesCategory(group, hotkey, category))
+                .Where(hotkey => MatchesModifier(hotkey, modifier))
+                .Where(hotkey => MatchesConfidence(hotkey, confidence));
+            rows = sortMode switch
             {
-                FilteredGroups.Add(group);
+                "gesture" => rows.OrderBy(hotkey => hotkey.Gesture, StringComparer.OrdinalIgnoreCase),
+                "confidence" => rows.OrderBy(ConfidenceRank).ThenBy(hotkey => hotkey.Gesture, StringComparer.OrdinalIgnoreCase),
+                _ => rows,
+            };
+            var materialized = rows.ToArray();
+            if (materialized.Length == 0)
+            {
+                continue;
             }
+
+            filtered.Add(new ApplicationGroupViewModel(
+                group.Id,
+                group.DisplayName,
+                group.PresenceLabel,
+                group.EvidenceSummary,
+                group.IconGlyph,
+                group.IsExpanded || !string.IsNullOrWhiteSpace(normalized) || category != "all" || modifier != "all" || confidence != "all",
+                materialized,
+                group.ProcessId,
+                group.IsForeground));
         }
+
+        if (sortMode == "gesture")
+        {
+            filtered = filtered.OrderBy(group => group.Hotkeys[0].Gesture, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+        else if (sortMode == "confidence")
+        {
+            filtered = filtered.OrderBy(group => ConfidenceRank(group.Hotkeys[0])).ThenBy(group => group.DisplayName, StringComparer.CurrentCultureIgnoreCase).ToList();
+        }
+
+        foreach (var group in filtered) FilteredGroups.Add(group);
 
         EmptyState.Visibility = FilteredGroups.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    private static string SelectedTag(ComboBox? comboBox) =>
+        comboBox?.SelectedItem is ComboBoxItem { Tag: string tag } ? tag : "all";
+
+    private static bool MatchesCategory(
+        ApplicationGroupViewModel group,
+        HotkeyRowViewModel hotkey,
+        string category) => category switch
+    {
+        "foreground" => group.IsForeground,
+        "background" => group.ProcessId > 0 && !group.IsForeground && group.Id != "hardware-mappings",
+        "global" => hotkey.IsGlobal,
+        "hardware" => hotkey.IsHardware || group.Id == "hardware-mappings",
+        "windows" => group.Id == "windows-system",
+        "unknown" => group.Id == "unknown-occupancy" || hotkey.Confidence is OwnershipConfidence.Suspected or OwnershipConfidence.Unknown,
+        _ => true,
+    };
+
+    private static bool MatchesModifier(HotkeyRowViewModel hotkey, string modifier)
+    {
+        if (modifier == "all") return true;
+        if (!HotkeyGesture.TryParse(hotkey.Gesture, out var gesture)) return false;
+        return modifier switch
+        {
+            "win" => gesture.Modifiers.HasFlag(HotkeyModifiers.Windows),
+            "alt" => gesture.Modifiers.HasFlag(HotkeyModifiers.Alt),
+            "ctrl" => gesture.Modifiers.HasFlag(HotkeyModifiers.Control),
+            "shift" => gesture.Modifiers.HasFlag(HotkeyModifiers.Shift),
+            "space" => gesture.Key.Equals("Space", StringComparison.OrdinalIgnoreCase),
+            "backspace" => gesture.Key.Equals("Backspace", StringComparison.OrdinalIgnoreCase),
+            "printscreen" => gesture.Key.Equals("PrintScreen", StringComparison.OrdinalIgnoreCase),
+            "functional" => IsFunctionalKey(gesture.Key),
+            _ => true,
+        };
+    }
+
+    private static bool MatchesConfidence(HotkeyRowViewModel hotkey, string confidence) => confidence switch
+    {
+        "confirmed" => hotkey.Confidence == OwnershipConfidence.Confirmed,
+        "local" => hotkey.Confidence is OwnershipConfidence.LocalConfiguration or OwnershipConfidence.HardwareMapping,
+        "official" => hotkey.Confidence is OwnershipConfidence.SystemKnown or OwnershipConfidence.Corroborated or OwnershipConfidence.OfficialDefault,
+        "unknown" => hotkey.Confidence is null or OwnershipConfidence.Suspected or OwnershipConfidence.Unknown or OwnershipConfidence.UserDeclared,
+        _ => true,
+    };
+
+    private static int ConfidenceRank(HotkeyRowViewModel hotkey) => hotkey.Confidence switch
+    {
+        OwnershipConfidence.Confirmed => 0,
+        OwnershipConfidence.LocalConfiguration or OwnershipConfidence.HardwareMapping => 1,
+        OwnershipConfidence.SystemKnown or OwnershipConfidence.Corroborated => 2,
+        OwnershipConfidence.OfficialDefault => 3,
+        OwnershipConfidence.UserDeclared => 4,
+        OwnershipConfidence.Suspected => 5,
+        _ => 6,
+    };
+
+    private static bool IsFunctionalKey(string key) =>
+        key.StartsWith('F') && int.TryParse(key.AsSpan(1), out var number) && number is >= 1 and <= 24 ||
+        key.StartsWith("Browser", StringComparison.OrdinalIgnoreCase) ||
+        key.StartsWith("Media", StringComparison.OrdinalIgnoreCase) ||
+        key.StartsWith("Volume", StringComparison.OrdinalIgnoreCase) ||
+        key.StartsWith("Launch", StringComparison.OrdinalIgnoreCase) ||
+        key is "Backspace" or "Tab" or "Enter" or "Esc" or "Space" or "PageUp" or "PageDown" or
+            "End" or "Home" or "Left" or "Up" or "Right" or "Down" or "PrintScreen" or "Insert" or "Delete";
 
     private void JumpToApplication_Click(object sender, RoutedEventArgs e)
     {
@@ -1117,6 +1371,104 @@ public sealed partial class MainPage : Page
         {
             _ = ApplicationActivator.TryActivate(processId);
         }
+    }
+
+    private async Task<IReadOnlyList<DeepConfirmationCandidate>> RefreshDeepConfirmationCandidatesAsync(
+        HotkeyGesture target,
+        CancellationToken cancellationToken)
+    {
+        var snapshots = await Task.Run(
+            () => _scanner.Scan(Environment.ProcessId),
+            cancellationToken).ConfigureAwait(false);
+        var catalog = RuntimeRuleCatalog.Current;
+        var matcher = new ApplicationVariantMatcher();
+        var runningVariants = snapshots
+            .Select(snapshot => new
+            {
+                Snapshot = snapshot,
+                Match = matcher.Match(
+                    new ApplicationIdentity(
+                        snapshot.Process.ExecutableName,
+                        snapshot.Process.Version,
+                        snapshot.Process.Publisher,
+                        snapshot.Process.CompanyName,
+                        snapshot.Process.PackageFamilyName,
+                        snapshot.Process.Distribution),
+                    catalog),
+            })
+            .Where(item => item.Match.Selected is not null)
+            .Select(item => new RunningApplicationVariant(item.Snapshot.Process, item.Match.Selected!))
+            .DistinctBy(item => $"{item.Process.Id}\u001F{item.Variant.ApplicationId}", StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var localConfigurations = await _configurationRegistry
+            .ReadAsync(runningVariants, cancellationToken)
+            .ConfigureAwait(false);
+        var candidates = localConfigurations
+            .Where(item => item.Gesture == target)
+            .Select(item =>
+            {
+                var variant = runningVariants.First(candidate => candidate.Variant.ApplicationId.Equals(
+                    item.ApplicationId,
+                    StringComparison.OrdinalIgnoreCase)).Variant;
+                return new DeepConfirmationCandidate(
+                    item.ApplicationId,
+                    variant.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
+                    DeepConfirmationEvidenceKind.LocalConfiguration);
+            })
+            .ToList();
+
+        var devices = await Task.Run(
+            () => new RawInputHidDeviceSource().ReadConnected(),
+            cancellationToken).ConfigureAwait(false);
+        var hardware = HardwareEnvironmentScanner.Match(
+            snapshots.Select(snapshot => snapshot.Process).DistinctBy(process => process.Id).ToArray(),
+            devices);
+        hardware = AddImportedHardwareProfile(hardware);
+        candidates.AddRange(hardware.Profiles
+            .Where(profile => profile.Status == HardwareProfileReadStatus.Active && !profile.IsUserDeclared)
+            .Where(profile => profile.Mappings.Any(mapping => mapping.ParticipatesInConflict && mapping.TargetGesture == target))
+            .Select(profile => new DeepConfirmationCandidate(
+                profile.SoftwareId,
+                profile.DeviceName,
+                DeepConfirmationEvidenceKind.ActiveHardwareProfile)));
+        candidates.AddRange(hardware.Profiles
+            .Where(profile => profile.Status == HardwareProfileReadStatus.Active && profile.IsUserDeclared)
+            .Where(profile => profile.Mappings.Any(mapping => mapping.ParticipatesInConflict && mapping.TargetGesture == target))
+            .Select(profile => new DeepConfirmationCandidate(
+                profile.SoftwareId,
+                profile.DeviceName,
+                DeepConfirmationEvidenceKind.UserDeclaredHardwareProfile)));
+        candidates.AddRange(runningVariants
+            .Where(item => item.Variant.Hotkeys.Any(hotkey => hotkey.Gesture == target))
+            .Select(item => new DeepConfirmationCandidate(
+                item.Variant.ApplicationId,
+                item.Variant.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
+                DeepConfirmationEvidenceKind.OfficialRule)));
+
+        return candidates
+            .DistinctBy(candidate => $"{candidate.OwnerId}\u001F{candidate.Evidence}", StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private HardwareEnvironmentSnapshot AddImportedHardwareProfile(HardwareEnvironmentSnapshot snapshot)
+    {
+        var imported = _hardwareProfileStore.Load();
+        if (imported is null ||
+            !snapshot.Software.Any(software =>
+                software.Id.Equals(imported.SoftwareId, StringComparison.OrdinalIgnoreCase) &&
+                (software.IsRunning || software.HasMatchingDevice)))
+        {
+            return snapshot;
+        }
+
+        return snapshot with
+        {
+            Profiles = snapshot.Profiles
+                .Where(profile => !profile.IsUserDeclared)
+                .Append(imported)
+                .ToArray(),
+        };
     }
 
     private async void DeepConfirmButton_Click(object sender, RoutedEventArgs e)
@@ -1143,15 +1495,32 @@ public sealed partial class MainPage : Page
                 group.DisplayName,
                 DeepConfirmationEvidenceKind.OfficialRule))
             .ToArray();
-        var result = await Task.Run(async () =>
+        ImmediateDeepConfirmationResult result;
+        using var confirmationTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        try
         {
-            using var registrationApi = new Win32HotkeyRegistrationApi();
-            var service = new ImmediateDeepConfirmationService(
-                target => new GlobalHotkeyAvailabilityProbe(registrationApi).Probe(target));
-            return await service.ConfirmAsync(
-                new ImmediateDeepConfirmationRequest(gesture, candidates),
-                CancellationToken.None);
-        });
+            result = await Task.Run(async () =>
+            {
+                using var registrationApi = new Win32HotkeyRegistrationApi();
+                var service = new ImmediateDeepConfirmationService(
+                    target => new GlobalHotkeyAvailabilityProbe(registrationApi).Probe(target),
+                    RefreshDeepConfirmationCandidatesAsync,
+                    new NativeHotkeyReprobeService().ProbeAsync);
+                return await service.ConfirmAsync(
+                    new ImmediateDeepConfirmationRequest(gesture, candidates),
+                    confirmationTimeout.Token);
+            }, confirmationTimeout.Token);
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
+        {
+            ConflictInfoBar.Severity = InfoBarSeverity.Warning;
+            ConflictInfoBar.Title = UiText.Pick("无法确认", "Unable to confirm");
+            ConflictInfoBar.Message = UiText.Pick(
+                "即时复核已取消或辅助组件无法安全启动；没有模拟、触发或拦截该热键。",
+                "The immediate recheck was canceled or its helper could not start safely. The hotkey was not simulated, triggered, or blocked.");
+            ((Button)sender).IsEnabled = row.CanDeepConfirm;
+            return;
+        }
 
         switch (result.Conclusion)
         {
@@ -1182,42 +1551,33 @@ public sealed partial class MainPage : Page
                 break;
         }
 
+        ConflictInfoBar.Message += BuildNativeProbeEvidence(result.NativeProbes);
+
         ((Button)sender).IsEnabled = row.CanDeepConfirm;
     }
 
-    private void RegisterObservedConflict(HotkeyRowViewModel candidate, int ownerProcessId)
+    private static string BuildNativeProbeEvidence(IReadOnlyList<NativeHotkeyProbeResult> probes)
     {
-        var ownerSnapshot = _latestSnapshots.FirstOrDefault(snapshot => snapshot.Process.Id == ownerProcessId);
-        var ownerExecutable = ownerSnapshot?.Process.ExecutableName ?? $"PID {ownerProcessId}";
-        var ownerRules = ApplicationRuleMatcher.FindByExecutableName(RuntimeRuleCatalog.Current, ownerExecutable);
-        var ownerDisplayName = ownerRules?.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name) ?? ownerExecutable;
-        var groupId = $"confirmed-owner-{ownerProcessId}";
-        var confirmedRow = HotkeyRowViewModel.Create(
-            candidate.Gesture,
-            UiText.Pick($"已确认接收；与候选应用的“{candidate.Function}”冲突", $"Confirmed receiver; conflicts with candidate function ‘{candidate.Function}’"),
-            HotkeyScope.Global,
-            OwnershipConfidence.Confirmed,
-            ownerProcessId);
-
-        foreach (var group in _allGroups.Where(group => group.Hotkeys.Contains(candidate)))
+        if (probes.Count == 0)
         {
-            group.IsExpanded = true;
+            return UiText.Pick(
+                "\n原生 x86/x64 辅助组件不可用；本次仅使用托管复核。",
+                "\nNative x86/x64 helpers were unavailable; this result used the managed recheck only.");
         }
 
-        var ownerGroup = new ApplicationGroupViewModel(
-            groupId,
-            ownerDisplayName,
-            ownerSnapshot?.Presence == ApplicationPresence.Foreground ? UiText.Pick("● 前台", "● Foreground") : UiText.Pick("后台", "Background"),
-            UiText.Pick("按需深度确认", "On-demand deep confirmation") + $" · WM_HOTKEY · PID {ownerProcessId}",
-            "\uE8A7",
-            true,
-            [confirmedRow],
-            ownerProcessId,
-            isForeground: ownerSnapshot?.Presence == ApplicationPresence.Foreground);
-        _allGroups = _allGroups
-            .Where(group => !group.Id.Equals(groupId, StringComparison.OrdinalIgnoreCase))
-            .Append(ownerGroup)
-            .ToArray();
-        ApplyFilter(SearchBox.Text);
+        var details = probes.Select(probe =>
+        {
+            var architecture = probe.Architecture == NativeProbeArchitecture.X64 ? "x64" : "x86";
+            var availability = probe.Availability switch
+            {
+                HotkeyProbeAvailability.Occupied => UiText.Pick("已占用", "occupied"),
+                HotkeyProbeAvailability.AvailableAtScanTime => UiText.Pick("复核瞬间可注册", "available at recheck time"),
+                HotkeyProbeAvailability.SystemReserved => UiText.Pick("系统保留", "system reserved"),
+                _ => UiText.Pick("探测错误", "probe error"),
+            };
+            return $"{architecture}: {availability}";
+        });
+        return UiText.Pick("\n原生复核：", "\nNative recheck: ") + string.Join(" · ", details);
     }
+
 }

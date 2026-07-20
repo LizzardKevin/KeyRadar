@@ -56,7 +56,8 @@ public sealed record HardwareProfileDescriptor(
     bool IsOnboardMemory,
     string? Slot,
     IReadOnlyList<HardwareMapping> Mappings,
-    string Evidence);
+    string Evidence,
+    bool IsUserDeclared = false);
 
 public sealed record HardwareEnvironmentSnapshot(
     IReadOnlyList<HidDeviceDescriptor> Devices,

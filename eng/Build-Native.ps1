@@ -17,6 +17,7 @@ $msbuild = Join-Path $installationPath "MSBuild\Current\Bin\MSBuild.exe"
 if (-not (Test-Path -LiteralPath $msbuild)) {
     throw "MSBuild.exe was not found in the selected Visual Studio installation."
 }
+
 $projects = @(
     "native\KeyRadar.Native\KeyRadar.Native.vcxproj",
     "native\KeyRadar.Native.Host\KeyRadar.Native.Host.vcxproj",
@@ -39,40 +40,53 @@ finally {
 }
 
 $nativeRoot = Join-Path $repositoryRoot "artifacts\native"
-& (Join-Path $nativeRoot "x64\$Configuration\KeyRadar.Native.Host.x64.exe") --self-test
-if ($LASTEXITCODE -ne 0) { throw "x64 native self-test failed." }
-& (Join-Path $nativeRoot "Win32\$Configuration\KeyRadar.Native.Host.x86.exe") --self-test
-if ($LASTEXITCODE -ne 0) { throw "x86 native self-test failed." }
-
 foreach ($architecture in @(
     @{ Platform = "x64"; Suffix = "x64" },
     @{ Platform = "Win32"; Suffix = "x86" }
 )) {
     $directory = Join-Path $nativeRoot "$($architecture.Platform)\$Configuration"
-    $resultPath = Join-Path $directory "integration-result.pid"
-    if (Test-Path -LiteralPath $resultPath) { Remove-Item -LiteralPath $resultPath -Force }
-    $observer = Start-Process `
-        -FilePath (Join-Path $directory "KeyRadar.Native.Host.$($architecture.Suffix).exe") `
-        -ArgumentList "--vk", "135", "--mod", "6", "--timeout", "3000", "--result", "integration-result.pid" `
-        -WorkingDirectory $directory `
-        -WindowStyle Hidden `
-        -PassThru
-    Start-Sleep -Milliseconds 200
-    $testApp = Start-Process `
-        -FilePath (Join-Path $directory "KeyRadar.Native.TestApp.$($architecture.Suffix).exe") `
-        -ArgumentList "--vk", "135", "--mod", "6" `
-        -WorkingDirectory $directory `
-        -WindowStyle Hidden `
-        -PassThru
-    $testApp.WaitForExit(3000) | Out-Null
-    $observer.WaitForExit(3000) | Out-Null
-    if (-not $testApp.HasExited -or $testApp.ExitCode -ne 0 -or
-        -not $observer.HasExited -or $observer.ExitCode -ne 0 -or
-        -not (Test-Path -LiteralPath $resultPath) -or
-        [int](Get-Content -LiteralPath $resultPath -Raw) -ne $testApp.Id) {
-        if (-not $observer.HasExited) { Stop-Process -Id $observer.Id -Force }
-        if (-not $testApp.HasExited) { Stop-Process -Id $testApp.Id -Force }
-        throw "$($architecture.Suffix) WM_HOTKEY ownership integration test failed."
+    $hostPath = Join-Path $directory "KeyRadar.Native.Host.$($architecture.Suffix).exe"
+    $testAppPath = Join-Path $directory "KeyRadar.Native.TestApp.$($architecture.Suffix).exe"
+
+    & $hostPath --self-test
+    if ($LASTEXITCODE -ne 0) {
+        throw "$($architecture.Suffix) native self-test failed."
     }
-    Remove-Item -LiteralPath $resultPath -Force
+
+    $occupiedResultPath = Join-Path $directory "occupied-probe.result"
+    $availableResultPath = Join-Path $directory "available-probe.result"
+    foreach ($path in @($occupiedResultPath, $availableResultPath)) {
+        if (Test-Path -LiteralPath $path) {
+            Remove-Item -LiteralPath $path -Force
+        }
+    }
+
+    $testApp = Start-Process `
+        -FilePath $testAppPath `
+        -ArgumentList "--vk", "135", "--mod", "6", "--hold-ms", "1500" `
+        -WorkingDirectory $directory `
+        -WindowStyle Hidden `
+        -PassThru
+    Start-Sleep -Milliseconds 250
+    & $hostPath --vk 135 --mod 6 --result $occupiedResultPath
+    if ($LASTEXITCODE -ne 0 -or
+        -not (Test-Path -LiteralPath $occupiedResultPath) -or
+        (Get-Content -LiteralPath $occupiedResultPath -Raw) -ne "1,1409") {
+        if (-not $testApp.HasExited) { Stop-Process -Id $testApp.Id -Force }
+        throw "$($architecture.Suffix) occupied RegisterHotKey probe test failed."
+    }
+
+    if (-not $testApp.WaitForExit(3000) -or $testApp.ExitCode -ne 0) {
+        if (-not $testApp.HasExited) { Stop-Process -Id $testApp.Id -Force }
+        throw "$($architecture.Suffix) test registration did not release cleanly."
+    }
+
+    & $hostPath --vk 135 --mod 6 --result $availableResultPath
+    if ($LASTEXITCODE -ne 0 -or
+        -not (Test-Path -LiteralPath $availableResultPath) -or
+        (Get-Content -LiteralPath $availableResultPath -Raw) -ne "0,0") {
+        throw "$($architecture.Suffix) released RegisterHotKey probe test failed."
+    }
+
+    Remove-Item -LiteralPath $occupiedResultPath, $availableResultPath -Force
 }

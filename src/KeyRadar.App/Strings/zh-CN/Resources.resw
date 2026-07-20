@@ -51,6 +51,7 @@
   <data name="ExportUserRulesButton.Content" xml:space="preserve"><value>导出用户规则</value></data>
   <data name="SubmitCandidateButton.Content" xml:space="preserve"><value>上传候选规则</value></data>
   <data name="SettingsExportDiagnosticsButton.Content" xml:space="preserve"><value>导出诊断</value></data>
+  <data name="ImportHardwareProfileButton.Content" xml:space="preserve"><value>导入硬件 Profile</value></data>
   <data name="CapabilityBoundaryInfo.Title" xml:space="preserve"><value>能力边界</value></data>
   <data name="CapabilityBoundaryInfo.Message" xml:space="preserve"><value>低级 Hook、Raw Input、驱动层拦截、私有或云端 Profile、板载宏及上下文热键可能无法完整发现；无法安全归属时始终显示未知。</value></data>
   <data name="MainTitleBar.Title" xml:space="preserve"><value>KeyRadar · 键位雷达</value></data>
@@ -58,4 +59,25 @@
   <data name="CurrentApplicationLabel.Text" xml:space="preserve"><value>当前应用</value></data>
   <data name="ForegroundHotkeyOverlaySubtitle.Text" xml:space="preserve"><value>前台应用热键 · 不抢焦点</value></data>
   <data name="LiveLabel.Text" xml:space="preserve"><value>实时</value></data>
+  <data name="SortModeComboBox.Header" xml:space="preserve"><value>排列</value></data>
+  <data name="SortByApplication.Content" xml:space="preserve"><value>按应用</value></data>
+  <data name="SortByGesture.Content" xml:space="preserve"><value>按热键</value></data>
+  <data name="SortByConfidence.Content" xml:space="preserve"><value>按可信度</value></data>
+  <data name="CategoryFilterComboBox.Header" xml:space="preserve"><value>类别</value></data>
+  <data name="CategoryAll.Content" xml:space="preserve"><value>全部类别</value></data>
+  <data name="CategoryForeground.Content" xml:space="preserve"><value>前台应用</value></data>
+  <data name="CategoryBackground.Content" xml:space="preserve"><value>后台应用</value></data>
+  <data name="CategoryGlobal.Content" xml:space="preserve"><value>全局热键</value></data>
+  <data name="CategoryHardware.Content" xml:space="preserve"><value>硬件映射</value></data>
+  <data name="CategoryWindows.Content" xml:space="preserve"><value>Windows 系统</value></data>
+  <data name="CategoryUnknown.Content" xml:space="preserve"><value>归属未知</value></data>
+  <data name="ModifierFilterComboBox.Header" xml:space="preserve"><value>键型</value></data>
+  <data name="ModifierAll.Content" xml:space="preserve"><value>全部键型</value></data>
+  <data name="ModifierFunction.Content" xml:space="preserve"><value>功能/导航键</value></data>
+  <data name="ConfidenceFilterComboBox.Header" xml:space="preserve"><value>可信度</value></data>
+  <data name="ConfidenceAll.Content" xml:space="preserve"><value>全部可信度</value></data>
+  <data name="ConfidenceConfirmed.Content" xml:space="preserve"><value>已确认</value></data>
+  <data name="ConfidenceLocal.Content" xml:space="preserve"><value>本机配置/硬件</value></data>
+  <data name="ConfidenceOfficial.Content" xml:space="preserve"><value>官方/系统已知</value></data>
+  <data name="ConfidenceUnknown.Content" xml:space="preserve"><value>疑似/未知</value></data>
 </root>

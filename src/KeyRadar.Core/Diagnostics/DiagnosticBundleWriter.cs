@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace KeyRadar.Diagnostics;
 
@@ -8,6 +9,10 @@ public static class DiagnosticBundleWriter
 {
     private const int MaximumApplications = 2048;
     private const int MaximumHotkeysPerApplication = 2048;
+    private static readonly Regex AbsolutePathPattern = new(
+        @"(?:[A-Za-z]:[\\/]|\\\\)[^\r\n]*",
+        RegexOptions.CultureInvariant,
+        TimeSpan.FromMilliseconds(100));
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -76,7 +81,19 @@ public static class DiagnosticBundleWriter
 
     private static string Clean(string? value, int maximumLength)
     {
-        var cleaned = new string((value ?? string.Empty)
+        var redacted = AbsolutePathPattern.Replace(value ?? string.Empty, "[path]");
+        var userName = Environment.UserName;
+        if (!string.IsNullOrWhiteSpace(userName))
+        {
+            redacted = Regex.Replace(
+                redacted,
+                Regex.Escape(userName),
+                "[user]",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+                TimeSpan.FromMilliseconds(100));
+        }
+
+        var cleaned = new string(redacted
             .Where(character => !char.IsControl(character))
             .Take(maximumLength)
             .ToArray());
