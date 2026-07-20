@@ -18,13 +18,24 @@ public static class RulePackReader
     };
 
     public static RulePackReadResult Read(Stream packageStream, ReadOnlySpan<byte> publicKeyBytes)
+        => ReadCore(packageStream, publicKeyBytes, isUnsignedLocal: false);
+
+    public static RulePackReadResult ReadUnsignedLocal(Stream packageStream)
+        => ReadCore(packageStream, [], isUnsignedLocal: true);
+
+    private static RulePackReadResult ReadCore(
+        Stream packageStream,
+        ReadOnlySpan<byte> publicKeyBytes,
+        bool isUnsignedLocal)
     {
         ArgumentNullException.ThrowIfNull(packageStream);
 
         try
         {
             using var bufferedPackage = Buffer(packageStream);
-            var validation = RulePackValidator.Validate(bufferedPackage, publicKeyBytes);
+            var validation = isUnsignedLocal
+                ? RulePackValidator.ValidateUnsignedLocal(bufferedPackage)
+                : RulePackValidator.Validate(bufferedPackage, publicKeyBytes);
             if (!validation.IsValid)
             {
                 return RulePackReadResult.Failure(RulePackReadError.ValidationFailed, validation.Message);
@@ -49,7 +60,7 @@ public static class RulePackReader
                         $"The pack declares application '{document.ApplicationId}' more than once.");
                 }
 
-                if (!TryCreateRuleSet(file.Path, document, out var rules, out var error))
+                if (!TryCreateRuleSet(file.Path, document, isUnsignedLocal, out var rules, out var error))
                 {
                     return RulePackReadResult.Failure(RulePackReadError.InvalidRule, error);
                 }
@@ -81,6 +92,7 @@ public static class RulePackReader
     private static bool TryCreateRuleSet(
         string path,
         RuleDocument? document,
+        bool isUnsignedLocal,
         out ApplicationRuleSet? rules,
         out string error)
     {
@@ -117,6 +129,7 @@ public static class RulePackReader
             shortcuts.Add(new ShortcutRule(gesture, item.Function, scope, confidence)
             {
                 Sources = item.Sources?.ToArray() ?? [],
+                Origin = isUnsignedLocal ? RuleOrigin.LocalUnsigned : RuleOrigin.SignedRulePack,
             });
         }
 

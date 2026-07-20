@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using KeyRadar.Conflicts;
+using KeyRadar.Rules;
 
 namespace KeyRadar;
 
@@ -60,15 +61,25 @@ public sealed class ShortcutRowViewModel : INotifyPropertyChanged
         OwnershipConfidence confidence,
         int processId,
         string? availabilityLabel = null,
-        IReadOnlyList<string>? sources = null) =>
+        IReadOnlyList<string>? sources = null,
+        RuleOrigin origin = RuleOrigin.BuiltIn) =>
         new(
             gesture,
             function,
             ScopeLabelFor(scope),
-            sources is { Count: > 0 } ? "证据：厂商官方文档" : "证据：KeyRadar 内置规则",
+            EvidenceLabelFor(origin, sources),
             ConfidenceLabelFor(confidence) + availabilityLabel,
             processId,
             processId > 0 && scope == ShortcutScope.Global);
+
+    private static string EvidenceLabelFor(RuleOrigin origin, IReadOnlyList<string>? sources) => origin switch
+    {
+        RuleOrigin.LocalUnsigned => "证据：未签名本地规则",
+        RuleOrigin.SignedRulePack when sources is { Count: > 0 } => "证据：厂商文档 · 官方签名规则包",
+        RuleOrigin.SignedRulePack => "证据：官方签名规则包",
+        _ when sources is { Count: > 0 } => "证据：厂商官方文档",
+        _ => "证据：KeyRadar 内置规则",
+    };
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

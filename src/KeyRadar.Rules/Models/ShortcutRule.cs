@@ -10,4 +10,6 @@ public sealed record ShortcutRule(
     OwnershipConfidence Confidence = OwnershipConfidence.SystemKnown)
 {
     public IReadOnlyList<string> Sources { get; init; } = [];
+
+    public RuleOrigin Origin { get; init; } = RuleOrigin.BuiltIn;
 }

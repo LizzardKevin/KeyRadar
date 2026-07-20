@@ -15,6 +15,15 @@ public static class RulePackValidator
     private const long MaximumSignatureBytes = 1024;
 
     public static RulePackValidationResult Validate(Stream packageStream, ReadOnlySpan<byte> publicKeyBytes)
+        => ValidateInternal(packageStream, publicKeyBytes, requireSignature: true);
+
+    public static RulePackValidationResult ValidateUnsignedLocal(Stream packageStream)
+        => ValidateInternal(packageStream, [], requireSignature: false);
+
+    private static RulePackValidationResult ValidateInternal(
+        Stream packageStream,
+        ReadOnlySpan<byte> publicKeyBytes,
+        bool requireSignature)
     {
         ArgumentNullException.ThrowIfNull(packageStream);
 
@@ -29,11 +38,13 @@ public static class RulePackValidator
 
             var entries = archive.Entries.ToDictionary(entry => entry.FullName, StringComparer.OrdinalIgnoreCase);
             if (!entries.TryGetValue("manifest.json", out var manifestEntry) ||
-                !entries.TryGetValue("signature.ed25519", out var signatureEntry))
+                requireSignature && !entries.ContainsKey("signature.ed25519"))
             {
                 return RulePackValidationResult.Failure(
                     RulePackValidationError.MissingManifest,
-                    "The package must contain manifest.json and signature.ed25519.");
+                    requireSignature
+                        ? "The package must contain manifest.json and signature.ed25519."
+                        : "The local package must contain manifest.json.");
             }
 
             var manifestBytes = ReadEntry(manifestEntry, MaximumManifestBytes);
@@ -71,7 +82,7 @@ public static class RulePackValidator
                 }
             }
 
-            var expectedEntryCount = manifest.Files.Count + 2;
+            var expectedEntryCount = manifest.Files.Count + (requireSignature ? 2 : 1);
             if (entries.Count != expectedEntryCount)
             {
                 return RulePackValidationResult.Failure(
@@ -79,15 +90,19 @@ public static class RulePackValidator
                     "The package contains a file that is not declared in the manifest.");
             }
 
-            var signatureText = Encoding.ASCII.GetString(ReadEntry(signatureEntry, MaximumSignatureBytes)).Trim();
-            var signature = Convert.FromBase64String(signatureText);
-            var algorithm = SignatureAlgorithm.Ed25519;
-            var publicKey = PublicKey.Import(algorithm, publicKeyBytes, KeyBlobFormat.RawPublicKey);
-            if (!algorithm.Verify(publicKey, manifestBytes, signature))
+            if (requireSignature)
             {
-                return RulePackValidationResult.Failure(
-                    RulePackValidationError.InvalidSignature,
-                    "The Ed25519 signature is not valid for this manifest.");
+                var signatureEntry = entries["signature.ed25519"];
+                var signatureText = Encoding.ASCII.GetString(ReadEntry(signatureEntry, MaximumSignatureBytes)).Trim();
+                var signature = Convert.FromBase64String(signatureText);
+                var algorithm = SignatureAlgorithm.Ed25519;
+                var publicKey = PublicKey.Import(algorithm, publicKeyBytes, KeyBlobFormat.RawPublicKey);
+                if (!algorithm.Verify(publicKey, manifestBytes, signature))
+                {
+                    return RulePackValidationResult.Failure(
+                        RulePackValidationError.InvalidSignature,
+                        "The Ed25519 signature is not valid for this manifest.");
+                }
             }
 
             return RulePackValidationResult.Success();

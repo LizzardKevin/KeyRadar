@@ -23,6 +23,9 @@ public partial class App : Application
 
     public void RequestShutdown() => _mainWindow?.Close();
 
+    internal nint GetMainWindowHandle() =>
+        _mainWindow is null ? 0 : WinRT.Interop.WindowNative.GetWindowHandle(_mainWindow);
+
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         _singleInstance = SingleInstanceGuard.TryAcquire("LizzardKevin.KeyRadar");

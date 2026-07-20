@@ -83,7 +83,6 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel>
                         <TextBlock FontSize="28" FontWeight="SemiBold" Text="快捷键雷达" />
@@ -106,25 +105,25 @@
                             <TextBlock x:Name="CheckUpdateButtonText" Text="检查更新" />
                         </StackPanel>
                     </Button>
-                    <Button
-                        x:Name="UpdateRulesButton"
-                        Grid.Column="3"
-                        Margin="8,0,0,0"
-                        Click="UpdateRulesButton_Click">
+                    <Button x:Name="RulesMenuButton" Grid.Column="3" Margin="8,0,0,0">
+                        <Button.Flyout>
+                            <MenuFlyout>
+                                <MenuFlyoutItem x:Name="UpdateRulesMenuItem" Click="UpdateRulesButton_Click" Icon="Download" Text="更新官方规则" />
+                                <MenuFlyoutItem x:Name="RollbackRulesMenuItem" Click="RollbackRulesButton_Click" Text="回滚官方规则" />
+                                <MenuFlyoutSeparator />
+                                <MenuFlyoutItem Click="ImportLocalRulesButton_Click" Text="导入未签名本地 .krpack…" />
+                                <MenuFlyoutItem x:Name="ExportLocalRulesMenuItem" Click="ExportLocalRulesButton_Click" Text="导出本地规则…" />
+                                <MenuFlyoutItem x:Name="RemoveLocalRulesMenuItem" Click="RemoveLocalRulesButton_Click" Text="移除本地规则" />
+                            </MenuFlyout>
+                        </Button.Flyout>
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon FontSize="14" Glyph="&#xE8F1;" />
-                            <TextBlock x:Name="UpdateRulesButtonText" Text="更新规则" />
+                            <TextBlock Text="规则库" />
                         </StackPanel>
                     </Button>
                     <Button
-                        x:Name="RollbackRulesButton"
-                        Grid.Column="4"
-                        Margin="8,0,0,0"
-                        Click="RollbackRulesButton_Click"
-                        Content="回滚规则" />
-                    <Button
                         x:Name="ExportDiagnosticsButton"
-                        Grid.Column="5"
+                        Grid.Column="4"
                         Margin="8,0,0,0"
                         Click="ExportDiagnosticsButton_Click"
                         Content="导出诊断" />

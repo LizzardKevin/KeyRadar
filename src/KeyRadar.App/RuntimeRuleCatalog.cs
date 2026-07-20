@@ -10,6 +10,7 @@ internal static class RuntimeRuleCatalog
     private static readonly object Gate = new();
     private static IReadOnlyList<ApplicationRuleSet> _current = BuiltInRuleCatalog.Load();
     private static string? _activeVersion;
+    private static bool _hasLocalPack;
 
     public static IReadOnlyList<ApplicationRuleSet> Current
     {
@@ -48,6 +49,17 @@ internal static class RuntimeRuleCatalog
         }
     }
 
+    public static bool HasLocalPack
+    {
+        get
+        {
+            lock (Gate)
+            {
+                return _hasLocalPack;
+            }
+        }
+    }
+
     public static RulePackReadResult? Reload()
     {
         var activePackPath = Path.Combine(RulesDirectory, "active.krpack");
@@ -55,10 +67,30 @@ internal static class RuntimeRuleCatalog
             activePackPath,
             OfficialReleaseKey.GetBytes(),
             out var result);
+        var localPath = Path.Combine(RulesDirectory, LocalRulePackStore.ActiveFileName);
+        var hasLocalPack = false;
+        if (File.Exists(localPath))
+        {
+            try
+            {
+                using var stream = File.OpenRead(localPath);
+                var local = RulePackReader.ReadUnsignedLocal(stream);
+                if (local.IsSuccess)
+                {
+                    catalog = RuleCatalogComposer.Compose(catalog, local.Pack!.Applications);
+                    hasLocalPack = true;
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+            }
+        }
+
         lock (Gate)
         {
             _current = catalog;
             _activeVersion = result is { IsSuccess: true } ? result.Pack!.Version : null;
+            _hasLocalPack = hasLocalPack;
         }
 
         return result;

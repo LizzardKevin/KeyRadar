@@ -115,7 +115,8 @@ public sealed partial class MainPage : Page
                         shortcut.Confidence,
                         process.Id,
                         availabilityLabel,
-                        shortcut.Sources);
+                        shortcut.Sources,
+                        shortcut.Origin);
                 }).ToArray(),
                 process.Id));
         }
@@ -155,6 +156,8 @@ public sealed partial class MainPage : Page
         SummaryText.Text = $"识别 {appCount} 个运行中的支持应用 · {shortcutCount} 个可用快捷键 · {occupiedGlobalShortcutCount} 个全局占用";
         ScanStatusText.Text = "被动监听已就绪；按键功能将正常执行";
         ScanProgress.IsActive = false;
+        ExportLocalRulesMenuItem.IsEnabled = RuntimeRuleCatalog.HasLocalPack;
+        RemoveLocalRulesMenuItem.IsEnabled = RuntimeRuleCatalog.HasLocalPack;
     }
 
     private static ApplicationGroupViewModel CreateWindowsGroup()
@@ -254,8 +257,7 @@ public sealed partial class MainPage : Page
 
     private async void UpdateRulesButton_Click(object sender, RoutedEventArgs e)
     {
-        UpdateRulesButton.IsEnabled = false;
-        UpdateRulesButtonText.Text = "检查中…";
+        UpdateRulesMenuItem.IsEnabled = false;
         try
         {
             var check = await _ruleUpdateClient.CheckAsync(RuntimeRuleCatalog.ActiveVersion);
@@ -286,14 +288,12 @@ public sealed partial class MainPage : Page
         }
         finally
         {
-            UpdateRulesButton.IsEnabled = true;
-            UpdateRulesButtonText.Text = "更新规则";
+            UpdateRulesMenuItem.IsEnabled = true;
         }
     }
 
     private async Task DownloadAndActivateRulesAsync(RuleUpdateManifest manifest)
     {
-        UpdateRulesButtonText.Text = "下载中…";
         Directory.CreateDirectory(RuntimeRuleCatalog.RulesDirectory);
         var candidatePath = Path.Combine(
             RuntimeRuleCatalog.RulesDirectory,
@@ -331,7 +331,7 @@ public sealed partial class MainPage : Page
 
     private async void RollbackRulesButton_Click(object sender, RoutedEventArgs e)
     {
-        RollbackRulesButton.IsEnabled = false;
+        RollbackRulesMenuItem.IsEnabled = false;
         try
         {
             var rollback = RulePackStore.Rollback(
@@ -349,8 +349,99 @@ public sealed partial class MainPage : Page
         }
         finally
         {
-            RollbackRulesButton.IsEnabled = true;
+            RollbackRulesMenuItem.IsEnabled = true;
         }
+    }
+
+    private async void ImportLocalRulesButton_Click(object sender, RoutedEventArgs e)
+    {
+        var warning = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "导入未签名本地规则",
+            Content = "KeyRadar 只会读取你选择的 .krpack 文件，以及包内 manifest.json 和 rules/*.json；不会读取规则中提到的其他路径，也不会执行 EXE、DLL 或脚本。导入后的条目会明确标记为“未签名本地规则”，并优先于官方规则。",
+            PrimaryButtonText = "选择文件",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        if (await warning.ShowAsync() != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        var picker = new global::Windows.Storage.Pickers.FileOpenPicker();
+        picker.FileTypeFilter.Add(".krpack");
+        WinRT.Interop.InitializeWithWindow.Initialize(
+            picker,
+            ((App)Application.Current).GetMainWindowHandle());
+        var file = await picker.PickSingleFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        var import = LocalRulePackStore.Import(file.Path, RuntimeRuleCatalog.RulesDirectory);
+        if (import.IsSuccess)
+        {
+            RuntimeRuleCatalog.Reload();
+            await ScanAsync();
+        }
+
+        await ShowUpdateMessageAsync(
+            import.IsSuccess ? "本地规则已导入" : "本地规则未导入",
+            import.IsSuccess
+                ? $"未签名本地规则包 {import.ActiveVersion} 已启用，所有条目均带有醒目标记。"
+                : import.Message);
+    }
+
+    private async void ExportLocalRulesButton_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new global::Windows.Storage.Pickers.FileSavePicker
+        {
+            SuggestedFileName = "KeyRadar-Local-Rules",
+        };
+        picker.FileTypeChoices.Add("KeyRadar 本地规则包", [".krpack"]);
+        WinRT.Interop.InitializeWithWindow.Initialize(
+            picker,
+            ((App)Application.Current).GetMainWindowHandle());
+        var file = await picker.PickSaveFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        var export = LocalRulePackStore.Export(RuntimeRuleCatalog.RulesDirectory, file.Path);
+        await ShowUpdateMessageAsync(
+            export.IsSuccess ? "本地规则已导出" : "无法导出本地规则",
+            export.Message);
+    }
+
+    private async void RemoveLocalRulesButton_Click(object sender, RoutedEventArgs e)
+    {
+        var confirmation = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "移除未签名本地规则？",
+            Content = "移除后将恢复使用官方签名规则包和内置规则；本地包会保留为上一版备份。",
+            PrimaryButtonText = "移除",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        if (await confirmation.ShowAsync() != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        var removal = LocalRulePackStore.Remove(RuntimeRuleCatalog.RulesDirectory);
+        if (removal.IsSuccess)
+        {
+            RuntimeRuleCatalog.Reload();
+            await ScanAsync();
+        }
+
+        await ShowUpdateMessageAsync(
+            removal.IsSuccess ? "本地规则已移除" : "无法移除本地规则",
+            removal.Message);
     }
 
     private async void ExportDiagnosticsButton_Click(object sender, RoutedEventArgs e)
