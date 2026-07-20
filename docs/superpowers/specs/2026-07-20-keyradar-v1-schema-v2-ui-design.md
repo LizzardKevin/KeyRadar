@@ -1,119 +1,111 @@
-# KeyRadar v1.0.0 Schema v2 and UI Design
+# KeyRadar v1.0.0 Schema v2 与界面设计规格
 
-Status: Approved design
+状态：已确认
 
-Date: 2026-07-20
+日期：2026-07-20
 
-This specification supersedes the rule-model, navigation, localization, and
-user-rule portions of `2026-07-20-keyradar-design.md`. The original detection,
-privacy, native observation, performance, and process-lifetime requirements
-remain in force unless this document explicitly changes them.
+本文档取代 `2026-07-20-keyradar-design.md` 中有关规则模型、导航结构、
+多语言和用户规则的设计。原设计中的检测方式、隐私约束、原生观察组件、
+性能目标和进程生命周期要求继续有效，除非本文明确作出调整。
 
-## Product and release boundary
+## 一、产品版本与发布边界
 
-- Product, executable, repository, namespaces, storage, and assets remain named
-  KeyRadar.
-- The product version remains `v1.0.0` until the first public release.
-- The rule schema version is independent and advances to version 2.
-- The first public release is blocked until the local executable, rule pack,
-  interface, and WeChat `Alt+A` case are accepted by the product owner.
-- Before that acceptance, work is limited to implementation, local validation,
-  commits, and pushes. No GitHub Release or publishing Action may run.
+- 产品、可执行文件、公开仓库、命名空间、本地数据和发布资产统一命名为
+  `KeyRadar`。
+- 第一次公开发布前，产品版本始终保持 `v1.0.0`。
+- 规则 Schema 独立演进，本轮升级为版本 2。
+- 本地 EXE、规则包、界面和微信 `Alt+A` 案例通过用户验收后，才能创建
+  第一次公开 Release。
+- 验收前仅允许实现、进行本地验证、commit 和 push；不得创建 GitHub
+  Release，也不得运行发布用 Actions。
 
-## Terminology
+## 二、统一术语
 
-All new product copy, documentation, schema vocabulary, C# types, tests, and
-future conversation use one term:
+产品文案、文档、Schema、C# 类型、测试和后续沟通统一使用以下术语：
 
-- Chinese: `热键`
-- English: `Hotkey` / `Hotkeys`
-- Schema collection: `hotkeys`
-- Domain types: `HotkeyRule`, `HotkeyGesture`, and equivalent `Hotkey*` names
+- 中文：`热键`
+- 英文：`Hotkey` / `Hotkeys`
+- Schema 集合字段：`hotkeys`
+- 领域类型：`HotkeyRule`、`HotkeyGesture` 及其他 `Hotkey*` 类型
 
-Legacy terminology is migrated rather than retained as an alias because the
-product has not yet shipped.
+由于产品尚未公开发布，旧术语将直接迁移，不保留兼容别名或重复模型。
 
-## Information architecture
+## 三、主界面信息架构
 
-The main navigation contains exactly three destinations:
+左侧主导航仅保留三个栏目：
 
 1. 雷达总览 / Radar Overview
 2. 热键总览 / Hotkey Overview
 3. 设置 / Settings
 
-The former privacy-status card is removed. Privacy remains an invariant, not a
-changing navigation status.
+原有“隐私状态”卡片从导航中移除。隐私是始终成立的产品约束，不作为会
+变化的状态展示。
 
-### Radar Overview
+### 3.1 雷达总览
 
-The page uses a conflict-first dashboard.
+雷达总览采用“冲突优先”的 Dashboard：
 
-- A large hero tile shows the definite-conflict count and the most urgent
-  conflict. When the count is zero it becomes a green status tile stating that
-  the current state is normal.
-- Three compact tiles show available hotkeys, foreground-only hotkeys, and
-  unconfirmed hotkeys.
-- Each tile opens Hotkey Overview with the corresponding filter applied.
-- A small corner action starts a new scan.
-- After the dashboard tiles, a distinct `热键总览` title separates the result
-  section from Radar Overview. A `查看全部` action opens the full destination.
-- The embedded result section retains search and grouped results.
+- 顶部大型 Hero 卡片展示确定冲突数量和最需要处理的冲突。
+- 没有确定冲突时，Hero 卡片变为绿色并显示“当前状态正常”。
+- 下方三个紧凑卡片分别展示“可用热键”“前台生效”和“待确认”。
+- 点击任一指标可进入热键总览，并自动应用对应筛选条件。
+- 页面角落提供小型“重新扫描”按钮。
+- 指标区域之后增加独立的“热键总览”标题，用来明确分隔 Dashboard 与
+  下方热键内容。
+- “热键总览”标题旁提供“查看全部”，点击后进入完整热键总览页面。
+- 雷达总览中的热键内容保留搜索和按应用折叠的结果预览。
 
-### Hotkey Overview
+### 3.2 热键总览
 
-- Search accepts function names, application names, and normalized gestures.
-  Examples include `截图`, `WeChat`, and `Alt+A`.
-- A compact, collapsible facet rail filters by scope, application, primary key
-  family, confidence, and conflict state.
-- Scope facets include Windows, global, background, foreground, and unconfirmed.
-- Key-family facets include Win, Alt, Ctrl, Shift, Space, Backspace, function
-  keys, media keys, and other recognized keys.
-- Results are always grouped into collapsible application-variant tags.
-- Groups containing conflicts expand automatically. Other groups start
-  collapsed.
-- The application activation action appears once in the group header, never on
-  every hotkey row.
-- Rows show gesture, localized function, scope, confidence, conflict state, and
-  a concise evidence summary.
-- Ambiguous matches expose a `变体不确定` detail containing candidates, matched
-  conditions, missing evidence, and sources.
+- 搜索框支持按功能名称、应用名称和标准化组合进行搜索，例如“截图”、
+  “WeChat”和“Alt+A”。
+- 内容区左侧提供紧凑、可折叠的多维筛选栏。
+- 作用范围包括 Windows、全局、后台、前台和未确认。
+- 主按键类别包括 Win、Alt、Ctrl、Shift、Space、Backspace、功能键、
+  媒体键和其他已识别按键。
+- 其他筛选维度包括应用、可信度和冲突状态。
+- 右侧结果始终按应用变体组成可折叠 Tag。
+- 包含冲突的应用自动展开，其余应用默认折叠。
+- “转到应用”仅在应用 Tag 标题层展示一次，不在每条热键中重复。
+- 每条热键展示组合、功能、作用范围、可信度、冲突状态和简要证据。
+- 匹配结果为“变体不确定”时，应用标题提供详情入口，列出候选变体、
+  已命中条件、缺失证据和来源。
 
-### Foreground overlay
+### 3.3 前台浮窗
 
-The existing parallel overlay remains part of v1.0.0. It is translucent,
-topmost, draggable, scrollable, position-persistent, and non-activating. It
-updates when the foreground application changes and hides for the desktop, lock
-screen, KeyRadar itself, and applications without usable rules. It must not
-take focus or block a hotkey.
+v1.0.0 继续保留独立的前台热键浮窗。它必须：
 
-### Settings
+- 半透明、始终置顶、可拖动、可滚动并保存位置；
+- 跟随前台应用实时更新；
+- 不获取焦点、不抢占输入、不拦截热键；
+- 在桌面、锁屏、KeyRadar 自身或没有可用规则时隐藏。
 
-Settings contains:
+### 3.4 设置
 
-- language and theme;
-- application update;
-- rule library and `下载最新规则包`;
-- My Rules;
-- candidate-rule submission;
-- diagnostic export.
+设置包含：
 
-## Localization and theme
+- 语言和主题；
+- 程序更新；
+- 规则库和“下载最新规则包”；
+- 我的规则；
+- 提交候选规则；
+- 导出诊断。
 
-- Product resources use `zh-CN` and `en-US` resource files.
-- Language changes apply without restarting where WinUI permits it; pages are
-  rebuilt when necessary to avoid mixed-language content.
-- Localized rule values are maps keyed by locale.
-- If a rule lacks the selected locale, KeyRadar displays the text actually
-  supplied by the rule. It does not invent a translation.
-- A locally authored or submitted rule may contain one language only and records
-  `submittedLocale`.
-- Themes are System, Light, and Dark and persist locally.
-- Windows 11 uses Mica for the main window and Acrylic for the overlay. Windows
-  10 uses opaque theme-aware colors.
+## 四、多语言与主题
 
-## Rule Schema v2
+- 产品资源使用 `zh-CN` 和 `en-US` 资源文件。
+- 在 WinUI 能力允许的范围内，语言切换即时生效；必要时重建页面，避免
+  同一页面同时出现两种语言。
+- 规则中的多语言文字采用以 locale 为键的映射。
+- 规则缺少当前界面语言时，直接显示规则实际提供的文字，不自动生成翻译。
+- 本地规则和候选规则允许只包含一种语言，并记录 `submittedLocale`。
+- 主题支持“跟随系统”“浅色”和“深色”，选择结果保存在本机。
+- Windows 11 主窗口使用 Mica，前台浮窗使用 Acrylic。
+- Windows 10 自动退化为符合当前主题的纯色背景。
 
-Each official JSON file represents exactly one application variant.
+## 五、规则 Schema v2
+
+每个官方 JSON 文件只描述一个应用变体。
 
 ```json
 {
@@ -140,217 +132,222 @@ Each official JSON file represents exactly one application variant.
       },
       "scope": "global",
       "confidence": "configuration",
-      "sources": ["https://example.invalid/official-document"]
+      "sources": ["https://example.invalid/official-hotkey-document"]
     }
   ]
 }
 ```
 
-`applicationId` and `variantId` are stable identifiers. Display names may
-change without changing identity. Official source URLs must be real during rule
-migration; the example URL above is illustrative only and cannot enter a pack.
+`applicationId` 和 `variantId` 是稳定身份，不随显示名称变化。示例中的
+`example.invalid` 仅用于说明格式，不能进入正式规则包；正式规则必须填写
+真实且能支持相应结论的来源。
 
-Schema v2 is strictly declarative. Its version-range grammar supports bounded
-numeric comparisons and intervals only. It cannot invoke code or arbitrary
-expressions.
+Schema v2 只能声明数据。版本范围仅允许受限的数值比较和区间表达式，
+不得执行代码或任意表达式。
 
-## Process identity and variant matching
+## 六、进程身份与应用变体匹配
 
-The process inventory attempts to collect:
+进程清单尝试读取以下信息：
 
-- executable file name;
-- normalized file version;
-- Authenticode signer publisher;
-- `FileVersionInfo.CompanyName` as weaker publisher evidence;
-- Package Family Name when the process has package identity;
-- a normalized distribution tag such as official, Store, or portable;
-- architecture and privilege information already required by the scanner.
+- EXE 文件名；
+- 标准化文件版本；
+- Authenticode 数字签名发布者；
+- `FileVersionInfo.CompanyName`，仅作为较弱的发布者证据；
+- 进程具有包身份时的 Package Family Name；
+- official、Store、portable 等标准化发行渠道标签；
+- 现有扫描器要求的架构和权限信息。
 
-Full install paths may be used ephemerally to inspect a selected process but are
-not persisted in rules, logs, or diagnostics.
+完整安装路径只允许在当前进程识别期间临时使用，不得写入规则、日志或
+诊断包。
 
-Variant resolution is deterministic and explainable:
+变体匹配必须可解释且结果稳定：
 
-1. Begin with variants whose executable names match.
-2. Exclude a variant when a declared condition and a known machine value
-   explicitly disagree.
-3. Rank remaining evidence by specificity: exact PFN, Authenticode signer,
-   version range, distribution tag, then executable name.
-4. Missing machine evidence reduces confidence but is not a mismatch.
-5. One sufficiently supported best candidate produces a variant match.
-6. Multiple comparable candidates produce `变体不确定`, with all candidates and
-   evidence retained.
-7. Executable-only evidence produces `疑似归属` rather than a forced match.
-8. No supported candidate produces `归属未知` and may enter targeted deep
-   confirmation.
+1. 先选择 EXE 文件名匹配的候选变体。
+2. 规则声明的条件与本机已知值明确冲突时，排除该变体。
+3. 对剩余证据按特异性排序：精确 PFN、Authenticode 发布者、版本范围、
+   发行渠道、EXE 文件名。
+4. 无法读取某项证据时只降低可信度，不视为不匹配。
+5. 只有一个证据充分的最佳候选时，匹配到具体变体。
+6. 存在多个相近候选时，显示“变体不确定”，并保留全部候选和证据。
+7. 只有 EXE 等弱证据时，显示“疑似归属”，不强行确认。
+8. 没有受支持的候选时，显示“归属未知”，允许进入按需深度确认。
 
-Windows display language is not a primary match signal. It controls product
-copy only unless an application genuinely ships different behavior by locale.
+Windows 显示语言不能作为主要匹配条件。只有应用本身确实因地区或语言
+产生不同功能或默认热键时，才拆分对应变体。
 
-## Layered rule catalogs
+## 七、分层规则目录
 
-KeyRadar uses one parser and one matcher while keeping each source intact.
+KeyRadar 使用一个解析器和一个匹配器处理所有规则，同时完整保留每个来源。
 
-Priority is:
+优先级固定为：
 
-1. local user rules;
-2. latest valid official rule pack;
-3. rule pack delivered with the release.
+1. 用户本地规则；
+2. 最新且有效的官方规则包；
+3. Release 随附规则包。
 
-The release contains `KeyRadar-Rules-v1.0.0.krpack`. Runtime storage is:
+Release 内包含 `KeyRadar-Rules-v1.0.0.krpack`。运行时目录为：
 
 - `%LocalAppData%\KeyRadar\rules\official\active.krpack`
 - `%LocalAppData%\KeyRadar\rules\official\previous.krpack`
 - `%LocalAppData%\KeyRadar\rules\local.krpack`
 
-Portable mode places equivalent files under `KeyRadar\data`.
+便携模式使用 `KeyRadar\data` 下的对应目录。
 
-Precedence is evaluated using application identity, normalized gesture, and
-compatible scope. An exact variant match is strongest, but a synthetic local
-variant does not prevent overlap detection when `applicationId` or the observed
-process identity proves that both rules describe the same application.
-Non-overlapping entries merge. Overridden entries and their evidence remain
-available for difference views and recovery.
+优先级以应用身份、标准化热键组合和兼容作用范围为依据。精确变体匹配的
+证据最强，但本地临时变体 ID 与官方变体 ID 不同，不得妨碍系统识别两条
+规则描述的是同一个应用。未重叠条目合并显示；被覆盖条目及其证据继续保留，
+用于差异查看和恢复。
 
-There is no C# rule catalog. If no valid pack is available, the product states
-that rules are unavailable instead of fabricating results.
+项目中不再维护 C# 规则清单。没有任何有效规则包时，软件必须明确提示
+规则不可用，不能生成看似可信的替代结果。
 
-## Rule-pack security and update behavior
+## 八、规则包安全与更新
 
-Official packs require a manifest, per-file SHA-256 digests, Schema v2
-validation, and an Ed25519 signature verified by an embedded public key.
+官方规则包必须包含清单、逐文件 SHA-256、Schema v2 校验结果和 Ed25519
+签名，并使用程序内置公钥验证。
 
-All packs, including unsigned imports, reject:
+包括未签名导入包在内，所有规则包必须拒绝：
 
-- executables, libraries, scripts, and unknown executable content;
-- absolute paths, parent-directory traversal, and duplicate normalized paths;
-- excessive compressed size, expanded size, entry count, and nesting;
-- undeclared files, invalid JSON, incompatible schemas, and invalid ranges.
+- EXE、DLL、脚本和其他可执行内容；
+- 绝对路径、父目录穿越和标准化后重复路径；
+- 超出限制的压缩体积、解压体积、文件数量和嵌套层级；
+- 未在清单声明的文件、无效 JSON、不兼容 Schema 和无效版本范围。
 
-Rule updates are user-initiated. The update path downloads to a temporary file,
-validates completely, preserves the current pack as `previous.krpack`, switches
-atomically, and reloads. Any failure preserves the current working state.
+规则更新只能由用户主动发起，流程为：
 
-If the latest official pack becomes invalid, KeyRadar uses the release-delivered
-pack and shows a persistent prominent warning with `下载最新规则包`. If the
-release-delivered pack is also invalid or missing, KeyRadar shows `规则不可用`.
-It does not silently present stale data as current.
+1. 下载到临时文件；
+2. 完成全部校验；
+3. 将当前官方包保存为 `previous.krpack`；
+4. 原子切换到新包；
+5. 重新加载并在失败时恢复原状态。
 
-## My Rules
+任一环节失败都必须保留当前可用规则。
 
-My Rules is a form-driven editor; raw JSON editing is not required.
+最新官方包损坏或签名失效时，KeyRadar 使用 Release 随附包继续工作，
+同时持续显示醒目警告和“下载最新规则包”按钮。随附包也损坏或缺失时，
+显示“规则不可用”，不得把旧数据静默标记为最新。
 
-The authoring flow is:
+## 九、我的规则
 
-1. Select a process from the current inventory.
-2. Populate executable name, version, signer publisher, and PFN when available.
-3. Enter one explicit hotkey-recording state.
-4. Fill function, scope, notes, and text in the current product language.
-5. Optionally add the second language.
-6. Save atomically to `local.krpack`.
+“我的规则”使用表单编辑，不要求用户直接编辑 JSON。
 
-Every local entry displays `用户声明 · 未经官方验证`.
+录入流程：
 
-Hotkey recording is a bounded one-shot operation. It begins only after an
-explicit click, shows a countdown and cancel action, never blocks the original
-function, and clears its in-memory key state on success, cancel, or timeout. It
-accepts modifier combinations and an allowlist of standalone functional keys,
-including function, Space, Backspace, Escape, and media keys. Standalone ordinary
-letters, digits, and text are discarded. No ordinary key stream is logged or
-persisted.
+1. 从当前进程清单中选择应用。
+2. 自动带入 EXE、版本、数字签名发布者和 PFN。
+3. 主动进入一次热键录入状态。
+4. 填写功能、作用范围、备注和当前界面语言的文字。
+5. 可选填写第二种语言。
+6. 原子写入 `local.krpack`。
 
-Users may edit, disable, recover, export, and import local packs. Destructive
-deletion is recoverable before compaction. Import preview lists applications,
-variants, hotkeys, signature state, fields read by match conditions, and overlaps
-with official rules.
+每条本地规则始终显示“用户声明 · 未经官方验证”。
 
-## Official-overlap resolution
+热键录入是有边界的一次性操作：
 
-When a new official pack includes an application represented by a local rule,
-KeyRadar first detects application coverage by `applicationId` or matching
-process identity. It then identifies actual hotkey overlaps by normalized
-gesture and compatible scope, using an exact variant match as additional
-evidence rather than a mandatory condition. It displays a per-application
-difference view and asks the user to:
+- 只有点击录入按钮后才开始；
+- 显示倒计时和取消按钮；
+- 不拦截原热键功能；
+- 成功、取消或超时后立即清除内存中的按键状态；
+- 接受包含修饰键的组合；
+- 允许单独录入功能键、Space、Backspace、Escape 和媒体键等白名单按键；
+- 单独的普通字母、数字和文字输入立即丢弃；
+- 不记录或保存普通按键流。
 
-- use the official rule;
-- keep My Rule; or
-- inspect differences.
+用户可以编辑、停用、恢复、导出和导入本地规则。删除操作在压缩整理前可
+恢复。导入预览必须列出应用、变体、热键、签名状态、匹配时会读取的字段，
+以及与官方规则的重叠情况。
 
-`Use official` disables only overlapping local entries. It does not delete them.
-Non-overlapping local entries continue to merge. Batch updates may offer
-`全部使用官方规则`, but never select it silently. Invalid official data never
-replaces local data.
+## 十、官方规则重叠处理
 
-## Candidate-rule submission
+最新版官方规则包包含某个本地规则对应的应用时，KeyRadar 先通过
+`applicationId` 或进程身份判断应用是否已收录，再通过标准化热键组合和
+兼容作用范围判断实际重叠。精确变体匹配作为附加证据，不作为唯一前提。
 
-The application creates a candidate from a local entry and shows its exact final
-JSON before leaving KeyRadar. The candidate may contain one language and records
-`submittedLocale`.
+软件按应用展示差异，并询问用户：
 
-The privacy filter rejects or removes ordinary key streams, user names, complete
-window titles, local paths, account data, and fields outside the candidate
-allowlist. The preview lists application name, version, distribution, executable,
-publisher, gesture, function, scope, settings-change status, conflict behavior,
-and provided evidence.
+- 使用官方规则；
+- 保留我的规则；
+- 查看差异。
 
-After explicit confirmation, KeyRadar opens the repository's structured GitHub
-Issue Form in the default browser. Form-field IDs are used as URL query keys to
-prefill supported text fields. The product requests no GitHub token and does not
-publish through an API. The user reviews the form and attaches any already
-redacted screenshots in GitHub.
+选择“使用官方规则”只停用发生重叠的本地条目，不删除本地内容。未重叠
+条目继续合并。批量更新可以提供“全部使用官方规则”，但不能默认替用户
+选择。无效的官方数据不得替换本地规则。
 
-Maintainers review the issue, add evidence and official translations, create the
-official variant JSON, pass validation, and include it in a signed official pack.
+## 十一、提交候选规则
 
-References:
+KeyRadar 从本地规则生成候选内容，并在离开软件前展示最终 JSON。候选内容
+可以只有一种语言，并记录 `submittedLocale`。
+
+隐私过滤器必须拒绝或移除：
+
+- 普通按键流；
+- 用户名；
+- 完整窗口标题；
+- 本地路径；
+- 账号数据；
+- 不在候选字段白名单内的其他内容。
+
+预览需要列出应用名称、版本、发行渠道、EXE、发布者、热键、功能、作用
+范围、是否修改过设置、冲突现象和用户提供的证据。
+
+用户明确确认后，KeyRadar 使用默认浏览器打开仓库中的结构化 GitHub
+Issue Form。表单字段 `id` 作为 URL 查询键，为支持的文字字段预填内容。
+软件不索取 GitHub Token，也不通过 API 代替用户发布。用户在浏览器中
+复核内容，并自行添加已经脱敏的截图。
+
+维护者审核 Issue、补充证据和官方多语言文字、创建正式变体 JSON、通过
+校验后，将其加入签名官方规则包。
+
+GitHub 参考文档：
 
 - https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/creating-an-issue
 - https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-githubs-form-schema
 
-## Migration
+## 十二、现有规则迁移
 
-The current 50 supported applications and Windows system rules migrate to
-Schema v2 JSON. An application may produce multiple variant files, so file count
-is not constrained to 51. The supported-application count remains 50, with
-Windows outside that count.
+当前支持的50个应用和 Windows 系统规则全部迁移为 Schema v2 JSON。一个
+应用可以包含多个变体文件，因此文件总数不限制为51个。支持应用数量仍为
+50个，Windows 系统规则不占应用名额。
 
-Because no public version exists, Schema v1 and its domain model are removed
-rather than retained as a compatibility path. A development-machine Schema v1
-pack is reported as incompatible and cannot override valid v2 data.
+由于产品尚未公开发布，Schema v1 和对应领域模型直接移除，不保留运行时
+兼容层。开发机器上残留的 Schema v1 规则包应被识别为不兼容，且不能覆盖
+有效的 v2 规则。
 
-## Validation and acceptance
+## 十三、验证与验收
 
-Local validation and future CI must invoke the same validators.
+本地验证和未来 CI 必须调用同一套校验器。
 
-Required automated coverage includes:
+自动化测试至少覆盖：
 
-- Schema v2 and localization fallback;
-- strict version-range parsing;
-- exact, partial, ambiguous, and rejected variant matches;
-- publisher-source weighting and missing evidence;
-- local, active-official, and release-delivered precedence;
-- signature, digest, traversal, content-type, and archive-limit failures;
-- invalid-active fallback, persistent warning, and rule-download action;
-- local authoring, one-shot recording, import, export, and recovery;
-- official-overlap differences and non-destructive choices;
-- candidate allowlist, privacy rejection, locale marker, and form URL encoding;
-- search, facets, application grouping, and application-level activation;
-- Chinese, English, System, Light, and Dark behavior.
+- Schema v2 和多语言回退；
+- 严格版本范围解析；
+- 精确、部分、歧义和明确排除的变体匹配；
+- 发布者证据权重和证据缺失；
+- 本地、最新官方和随附规则的优先级；
+- 签名、哈希、路径穿越、内容类型和压缩包限制失败；
+- 最新官方包无效后的回退、持续警告和规则下载按钮；
+- 本地规则录入、一次性热键捕获、导入、导出和恢复；
+- 官方重叠差异和非破坏性选择；
+- 候选字段白名单、隐私拒绝、语言标记和表单 URL 编码；
+- 搜索、多维筛选、应用分组和应用层跳转；
+- 中文、英文、跟随系统、浅色和深色模式。
 
-Existing release gates remain mandatory: x86/x64 and elevation behavior,
-foreground refresh within 250 ms, results within five seconds in a typical
-200-process environment, idle CPU below 0.5% of one core, full process exit
-within two seconds, privacy-safe diagnostics, Windows 10/11 coverage, and
-complete observer unload after targeted confirmation.
+原有发布门槛继续强制执行：
 
-The WeChat acceptance case must show `Alt+A · 截图`, WeChat ownership, evidence,
-the conflict target, and one application-level activation action.
+- x86/x64 和管理员权限行为正确；
+- 前台变化后250毫秒内刷新；
+- 典型200进程环境5秒内显示首批结果；
+- 空闲时 CPU 低于单核0.5%；
+- 关闭主窗口后2秒内全部进程退出；
+- 诊断包符合隐私要求；
+- Windows 10/11 通过测试；
+- 按需深度确认结束后观察组件完全卸载。
 
-## Deferred until local acceptance
+微信验收案例必须显示 `Alt+A · 截图`、微信归属、证据、冲突对象，以及
+应用标题层唯一的“转到应用”入口。
 
-The implementation may add local validators and packaging scripts, but it does
-not create a public release or enable publishing automation. After the product
-owner accepts the local executable and initial pack, a separate approval enables
-GitHub Actions, signing assets, reproducible packaging, and the first `v1.0.0`
-Release.
+## 十四、本地验收前暂缓事项
+
+实现阶段可以增加本地校验器和打包脚本，但不得创建公开 Release，也不得
+启用发布自动化。用户确认本地 EXE 和首个规则包后，再单独批准 GitHub
+Actions、签名资产、可复现打包和第一次 `v1.0.0` Release。
