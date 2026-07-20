@@ -4,7 +4,12 @@
 
 **目标：** 在不发布 Release、不启用发布 Actions 的前提下，把 KeyRadar v1.0.0 本地版本升级为 Schema v2、可解释应用变体匹配、分层规则包、用户规则、候选提交、三栏界面、中英文和三种主题，并生成可供用户本机验收的 EXE 与初始规则包。
 
-**架构：** Core 统一使用 `Hotkey*` 领域模型；Rules 负责 Schema v2、版本范围、变体评分、规则来源合并和安全规则包；Windows 提供不持久化路径的进程身份；App 通过共享会话服务驱动雷达总览、热键总览和设置。用户本地规则与官方规则共用声明式解析器，但通过来源、签名状态和优先级明确区分。
+**架构：** Core 统一使用 `Hotkey*` 领域模型；Windows 先通过可取消的
+`RegisterHotKey` 候选探测生成当前占用事实，再枚举运行应用和 HID 状态；
+Rules 只为运行应用读取 Schema v2、白名单本机配置和规则证据，并与当前硬件
+Profile 合并。App 通过共享会话服务驱动雷达总览、热键总览和设置，未知占用
+项与已归属项使用同一结果模型。用户本地规则与官方规则共用声明式解析器，
+但通过来源、签名状态和优先级明确区分。
 
 **技术栈：** C#、.NET 10 LTS、WinUI 3、Windows App SDK 2.2、System.Text.Json、NSec Ed25519、xUnit、PowerShell、本地 x86/x64 原生组件。
 
@@ -38,11 +43,19 @@
 
 - `src/KeyRadar.Windows/Applications/ProcessDescriptor.cs`：扩充签名发布者、公司名、PFN 和发行标签。
 - `src/KeyRadar.Windows/Applications/ProcessMetadataReader.cs`：读取上述证据，不返回持久化路径。
+- `src/KeyRadar.Windows/Hotkeys/GlobalHotkeyOccupancyScanner.cs`：分批探测候选组合并报告进度。
+- `src/KeyRadar.Windows/Hotkeys/HotkeyCandidateGenerator.cs`：生成安全候选并排除裸文字与安全注意序列。
+- `src/KeyRadar.Windows/Hotkeys/InputActivityGuard.cs`：检测物理按键、锁屏和桌面切换并暂停探测。
+- `src/KeyRadar.Windows/Hardware/HidDeviceInventory.cs`：枚举当前键盘和鼠标身份。
+- `src/KeyRadar.Windows/Hardware/IHardwareProfileReader.cs`：硬件软件白名单读取接口。
+- `src/KeyRadar.Windows/Configuration/IApplicationHotkeyReader.cs`：应用本机设置白名单读取接口。
+- `src/KeyRadar.Windows/DeepConfirmation/ImmediateDeepConfirmationService.cs`：点击后立即复核，不等待按键。
 - `src/KeyRadar.Windows/Input/HotkeyRecordingSession.cs`：一次性、非拦截录入状态。
 
 ### App
 
 - `src/KeyRadar.App/Services/RadarSession.cs`：扫描、匹配、合并、筛选和统计的共享状态。
+- `src/KeyRadar.App/Services/HotkeyEvidenceMerger.cs`：合并占用、配置、硬件、系统和规则证据。
 - `src/KeyRadar.App/Services/LocalizationService.cs`：`zh-CN` / `en-US` 切换与资源读取。
 - `src/KeyRadar.App/Services/ThemeService.cs`：System / Light / Dark 持久化。
 - `src/KeyRadar.App/Pages/RadarOverviewPage.xaml(.cs)`：Hero 与四类统计、嵌入式热键总览。
@@ -331,6 +344,235 @@ git add src/KeyRadar.Windows src/KeyRadar.Rules tests
 git commit -m "feat: match application variants with explainable evidence"
 ```
 
+## Task 4A：实现实际占用优先的标准全局组合扫描
+
+**文件：**
+- 创建：`src/KeyRadar.Windows/Hotkeys/HotkeyAvailability.cs`
+- 创建：`src/KeyRadar.Windows/Hotkeys/HotkeyProbeResult.cs`
+- 创建：`src/KeyRadar.Windows/Hotkeys/HotkeyCandidateGenerator.cs`
+- 创建：`src/KeyRadar.Windows/Hotkeys/IInputActivityGuard.cs`
+- 创建：`src/KeyRadar.Windows/Hotkeys/InputActivityGuard.cs`
+- 创建：`src/KeyRadar.Windows/Hotkeys/GlobalHotkeyOccupancyScanner.cs`
+- 修改：`src/KeyRadar.Windows/Hotkeys/IHotkeyRegistrationApi.cs`
+- 修改：`src/KeyRadar.Windows/Hotkeys/Win32HotkeyRegistrationApi.cs`
+- 测试：`tests/KeyRadar.Windows.Tests/Hotkeys/HotkeyCandidateGeneratorTests.cs`
+- 测试：`tests/KeyRadar.Windows.Tests/Hotkeys/GlobalHotkeyOccupancyScannerTests.cs`
+
+- [ ] **Step 1：编写候选安全范围失败测试**
+
+```csharp
+var candidates = HotkeyCandidateGenerator.CreateDefault();
+Assert.DoesNotContain(candidates, item => item.Modifiers == HotkeyModifiers.None && item.Key == "A");
+Assert.DoesNotContain(candidates, item => item.ToString() == "Ctrl+Alt+Delete");
+Assert.Contains(candidates, item => item.ToString() == "Alt+A");
+Assert.Contains(candidates, item => item.ToString() == "F12");
+Assert.Equal(candidates.Count, candidates.Distinct().Count());
+```
+
+- [ ] **Step 2：编写释放、错误码、取消和进度失败测试**
+
+```csharp
+var results = await scanner.ScanAsync(candidates, progress, cancellationToken);
+Assert.All(api.RegisteredIdentifiers, id => Assert.Contains(id, api.UnregisteredIdentifiers));
+Assert.Equal(HotkeyAvailability.Occupied, results[0].Availability);
+Assert.Equal(1409, results[0].Win32ErrorCode);
+Assert.True(progressValues.SequenceEqual(progressValues.Order()));
+```
+
+- [ ] **Step 3：扩充注册 API 返回值**
+
+```csharp
+public sealed record HotkeyRegistrationResult(
+    HotkeyRegistrationAttempt Attempt,
+    int? Win32ErrorCode);
+```
+
+注册成功必须在 `finally` 中释放；失败区分 `AlreadyRegistered`、
+`SystemReserved`、`Unsupported` 和 `Error`。扫描器不读取 `WM_HOTKEY`。
+
+- [ ] **Step 4：实现输入与桌面活动保护**
+
+`InputActivityGuard` 只读取“是否有按键按下”和最后输入时间，不读取具体普通
+字符。锁屏、非默认桌面、安全桌面或输入未空闲时返回暂停；扫描器等待短暂
+空闲或响应取消，不在用户输入期间抢占注册窗口。
+
+- [ ] **Step 5：实现分批、可取消扫描**
+
+```csharp
+public Task<IReadOnlyList<HotkeyProbeResult>> ScanAsync(
+    IReadOnlyList<HotkeyGesture> candidates,
+    IProgress<HotkeyScanProgress>? progress,
+    CancellationToken cancellationToken);
+```
+
+每条结果记录 UTC 扫描时间、机制 `RegisterHotKeyProbe`、初始未知归属和可选
+Win32 错误码。`AvailableAtScanTime` 文案不得暗示永久可用。
+
+- [ ] **Step 6：运行 Windows 测试并提交**
+
+```powershell
+& .tools/dotnet/dotnet.exe test tests/KeyRadar.Windows.Tests/KeyRadar.Windows.Tests.csproj --nologo
+git add src/KeyRadar.Windows tests/KeyRadar.Windows.Tests
+git commit -m "feat: scan current global hotkey occupancy safely"
+```
+
+## Task 4B：实现运行应用白名单配置读取与 HID 清单
+
+**文件：**
+- 创建：`src/KeyRadar.Windows/Configuration/IApplicationHotkeyReader.cs`
+- 创建：`src/KeyRadar.Windows/Configuration/ApplicationHotkeyReadContext.cs`
+- 创建：`src/KeyRadar.Windows/Configuration/ApplicationHotkeyReadResult.cs`
+- 创建：`src/KeyRadar.Windows/Configuration/WhitelistedConfigurationReaderRegistry.cs`
+- 创建：`src/KeyRadar.Windows/Configuration/WeChatHotkeyReader.cs`
+- 创建：`src/KeyRadar.Windows/Hardware/HidDeviceDescriptor.cs`
+- 创建：`src/KeyRadar.Windows/Hardware/HidDeviceInventory.cs`
+- 测试：`tests/KeyRadar.Windows.Tests/Configuration/WhitelistedConfigurationReaderRegistryTests.cs`
+- 测试：`tests/KeyRadar.Windows.Tests/Configuration/WeChatHotkeyReaderTests.cs`
+- 测试：`tests/KeyRadar.Windows.Tests/Hardware/HidDeviceInventoryTests.cs`
+
+- [ ] **Step 1：编写仅运行应用读取测试**
+
+```csharp
+var results = await registry.ReadRunningAsync(runningApplications, cancellationToken);
+Assert.Contains(results, result => result.ApplicationId == "wechat");
+Assert.DoesNotContain(results, result => result.ApplicationId == "photoshop");
+Assert.DoesNotContain(reader.RequestedPaths, path => !allowedRoots.Contains(Path.GetDirectoryName(path)));
+```
+
+- [ ] **Step 2：定义固定读取器接口**
+
+```csharp
+public interface IApplicationHotkeyReader
+{
+    string ApplicationId { get; }
+    bool Supports(ProcessDescriptor process);
+    Task<ApplicationHotkeyReadResult> ReadAsync(
+        ApplicationHotkeyReadContext context,
+        CancellationToken cancellationToken);
+}
+```
+
+规则 JSON 只能选择程序内置读取器 ID，不能提供任意路径、注册表键或脚本。
+
+- [ ] **Step 3：实现微信首个配置读取器**
+
+读取器只访问审核过的微信设置位置，解析 Alt+A、Ctrl+L 等当前配置；读取失败
+返回不可用证据，不回退为虚构配置。任何临时路径在返回结果前移除。
+
+- [ ] **Step 4：实现 HID 设备清单**
+
+使用 Windows Raw Input 设备信息或 SetupAPI 读取当前键盘、鼠标的 VID、PID、
+厂商、型号和连接状态。设备路径只在枚举期间使用，不进入日志或诊断。
+
+- [ ] **Step 5：运行 Windows 测试并提交**
+
+```powershell
+& .tools/dotnet/dotnet.exe test tests/KeyRadar.Windows.Tests/KeyRadar.Windows.Tests.csproj --nologo
+git add src/KeyRadar.Windows tests/KeyRadar.Windows.Tests
+git commit -m "feat: read running app settings and connected HID inventory"
+```
+
+## Task 4C：实现当前硬件 Profile 与映射读取
+
+**文件：**
+- 创建：`src/KeyRadar.Windows/Hardware/HardwareProfile.cs`
+- 创建：`src/KeyRadar.Windows/Hardware/HardwareMapping.cs`
+- 创建：`src/KeyRadar.Windows/Hardware/IHardwareProfileReader.cs`
+- 创建：`src/KeyRadar.Windows/Hardware/HardwareProfileReaderRegistry.cs`
+- 创建：`src/KeyRadar.Windows/Hardware/LogitechGHubProfileReader.cs`
+- 创建：`src/KeyRadar.Windows/Hardware/LogiOptionsProfileReader.cs`
+- 创建：`src/KeyRadar.Windows/Hardware/RazerSynapseProfileReader.cs`
+- 创建：`src/KeyRadar.Windows/Hardware/CorsairIcueProfileReader.cs`
+- 测试：`tests/KeyRadar.Windows.Tests/Hardware/HardwareProfileReaderRegistryTests.cs`
+
+- [ ] **Step 1：编写运行软件、连接设备和当前 Profile 限制测试**
+
+```csharp
+Assert.Empty(await registry.ReadAsync(noRunningVendors, devices, cancellationToken));
+Assert.Contains(results, profile => profile.IsActive && profile.Vendor == "Logitech");
+Assert.Contains(results.SelectMany(item => item.Mappings), mapping => mapping.OutputGesture?.ToString() == "Alt+A");
+```
+
+- [ ] **Step 2：定义安全映射模型**
+
+```csharp
+public sealed record HardwareMapping(
+    string PhysicalControl,
+    string Layer,
+    HardwareMappingKind Kind,
+    HotkeyGesture? OutputGesture,
+    bool IsMacro,
+    string DisplaySummary);
+```
+
+宏只保存“宏序列”和可安全识别的非文字组合摘要，不保存宏文字、路径或账号。
+
+- [ ] **Step 3：实现白名单厂商适配器**
+
+仅当对应软件进程正在运行且存在相符 HID 设备时调用适配器。无法安全读取
+板载槽位时返回 `OnboardMappingUnavailable`，不得猜测映射。
+
+- [ ] **Step 4：运行 Windows 测试并提交**
+
+```powershell
+& .tools/dotnet/dotnet.exe test tests/KeyRadar.Windows.Tests/KeyRadar.Windows.Tests.csproj --nologo
+git add src/KeyRadar.Windows tests/KeyRadar.Windows.Tests
+git commit -m "feat: read active hardware profiles through safe adapters"
+```
+
+## Task 4D：实现证据合并和点击即运行的深度确认
+
+**文件：**
+- 创建：`src/KeyRadar.Core/Hotkeys/HotkeyEvidence.cs`
+- 创建：`src/KeyRadar.Core/Hotkeys/HotkeyDiscoveryResult.cs`
+- 创建：`src/KeyRadar.Core/Hotkeys/HotkeyEvidenceMerger.cs`
+- 创建：`src/KeyRadar.Windows/DeepConfirmation/ImmediateDeepConfirmationService.cs`
+- 修改：`src/KeyRadar.Windows/DeepConfirmation/DeepConfirmationResult.cs`
+- 删除：等待用户再次按键的 `WaitForTargetAsync` 流程
+- 测试：`tests/KeyRadar.Core.Tests/Hotkeys/HotkeyEvidenceMergerTests.cs`
+- 测试：`tests/KeyRadar.Windows.Tests/DeepConfirmation/ImmediateDeepConfirmationServiceTests.cs`
+
+- [ ] **Step 1：编写未知占用、配置确认和硬件冲突测试**
+
+```csharp
+Assert.Equal(HotkeyOwnership.Unknown, merger.Merge(occupiedOnly).Ownership);
+Assert.Equal(HotkeyConfidence.LocalConfiguration, merger.Merge(wechatConfig).Confidence);
+Assert.Equal(ConflictKind.DefiniteConflict, merger.Merge(wechatAndGHub).Conflict);
+Assert.Single(merger.Merge(allEvidence).Evidence.Where(item => item.Gesture == HotkeyGesture.Parse("Alt+A")));
+```
+
+- [ ] **Step 2：定义只允许的深度确认结论**
+
+```csharp
+public enum DeepConfirmationConclusion
+{
+    ConfirmedOwner,
+    PossibleOwner,
+    OccupiedOwnerUnknown,
+    UnableToConfirm,
+}
+```
+
+- [ ] **Step 3：实现立即复核服务**
+
+点击后依次复核单条占用、运行进程、本机配置、硬件 Profile、Windows 系统
+规则和运行应用规则，完成后立即卸载临时组件。接口中不得存在等待用户按键
+或模拟目标组合的方法。
+
+- [ ] **Step 4：验证纯未知保持未知**
+
+测试模拟 RegisterHotKey 返回占用、其余来源为空，断言结论为
+`OccupiedOwnerUnknown`，没有进程 ID 或应用名被凭空加入。
+
+- [ ] **Step 5：运行 Core 与 Windows 测试并提交**
+
+```powershell
+& .tools/dotnet/dotnet.exe test tests/KeyRadar.Core.Tests/KeyRadar.Core.Tests.csproj --nologo
+& .tools/dotnet/dotnet.exe test tests/KeyRadar.Windows.Tests/KeyRadar.Windows.Tests.csproj --nologo
+git add src/KeyRadar.Core src/KeyRadar.Windows tests
+git commit -m "feat: merge occupancy evidence and confirm without triggering input"
+```
+
 ## Task 5：实现分层规则目录与损坏回退
 
 **文件：**
@@ -583,13 +825,16 @@ Assert.Contains(filtered, row => row.Gesture == "Alt+A");
 
 - [ ] **Step 3：实现共享会话**
 
-`RadarSession` 只依赖抽象扫描器、分层目录、变体匹配器和可用性探测器，
-公开不可变快照和变更事件。所有页面使用同一份扫描结果，避免重复扫描。
+`RadarSession` 依次调用运行状态与 HID 枚举、Windows 系统状态、全局占用
+扫描、运行应用变体匹配、白名单本机配置、当前硬件 Profile 和证据合并，
+公开不可变快照、进度、取消和变更事件。所有页面使用同一份扫描结果，避免
+重复扫描；规则只匹配当前运行应用，未运行应用不得进入结果。
 
 - [ ] **Step 4：实现筛选和应用分组**
 
-筛选支持作用范围、应用、按键类别、可信度、冲突状态和统一搜索。应用组
-只包含一个跳转命令；有冲突时默认展开。
+筛选支持作用范围、应用、按键类别、可信度、占用状态、冲突状态和统一搜索。
+应用组只包含一个跳转命令；有冲突时默认展开。另建“硬件映射”和“归属未知”
+顶级组，未知占用不能因没有应用规则而被过滤掉。
 
 - [ ] **Step 5：加入解决方案并运行测试**
 
@@ -664,13 +909,15 @@ Hero 卡片展示冲突或绿色正常状态；下方展示可用、前台生效
 
 - [ ] **Step 3：实现热键总览**
 
-左侧为可折叠维度筛选，右侧按应用变体折叠。每个应用标题层只有一个
-“转到应用”；热键行不得重复跳转按钮。搜索支持功能、应用和组合。
+左侧为可折叠维度筛选，右侧按应用变体折叠，并提供独立“硬件映射”和
+“归属未知”顶级分组。每个应用标题层只有一个“转到应用”；热键行不得重复
+跳转按钮。搜索支持功能、应用和组合，未知占用按状态和扫描时间展示。
 
 - [ ] **Step 4：实现设置页面**
 
-设置分区包含语言主题、程序更新、规则库与下载按钮、我的规则、候选提交和
-诊断导出。无效 active 包回退时，全局和规则库区域都展示持续警告。
+设置分区包含语言主题、程序更新、规则库与下载按钮、我的规则、候选提交、
+诊断导出和“可发现范围与盲区”。无效 active 包回退时，全局和规则库区域
+都展示持续警告。
 
 - [ ] **Step 5：更新前台浮窗**
 
@@ -790,20 +1037,28 @@ git commit -m "docs: document schema v2 and local rule workflow"
 
 - [ ] **Step 3：验证微信 Alt+A**
 
-在微信运行时确认显示 `Alt+A · 截图`、应用归属、证据、冲突对象和应用标题
-层唯一跳转入口。正常按下 Alt+A 时，微信原功能继续执行。
+先确认被占用但无法归属的 Alt+A 显示“已占用 · 归属未知”。在微信运行且
+本机读取到 Alt+A 配置时，确认显示 `Alt+A · 截图`、应用归属、配置证据、
+冲突对象和应用标题层唯一跳转入口。正常按下 Alt+A 时，微信原功能继续执行。
 
 - [ ] **Step 4：验证用户规则和候选提交**
 
 录入一个测试热键，确认普通文字不被保存；导出和重新导入本地包；模拟官方
-重叠并完成选择；打开预填 GitHub Issue Form，但不提交测试 Issue。
+重叠并完成选择；打开预填 GitHub Issue Form，但不提交测试 Issue。点击未知
+占用的“深度确认”后必须立即复核并返回，不等待用户再次按键，也不触发组合。
 
-- [ ] **Step 5：验证性能和退出**
+- [ ] **Step 5：验证硬件映射与运行应用边界**
+
+在隔离测试 Profile 中验证 G HUB 的 G2 映射到 Alt+A，并与微信本机 Alt+A
+显示确定冲突。关闭 Photoshop、VS Code 等应用后重新扫描，确认它们不进入
+当前列表或冲突计算。板载映射无法读取时必须显示无法读取，不能生成默认值。
+
+- [ ] **Step 6：验证性能、取消和退出**
 
 确认前台切换250毫秒内更新、典型进程扫描5秒内首批结果、60秒空闲 CPU
-低于单核0.5%、关闭后2秒内无 KeyRadar 进程残留。
+低于单核0.5%、扫描取消后没有残留注册、关闭后2秒内无 KeyRadar 进程残留。
 
-- [ ] **Step 6：检查仓库状态并提交最终修正**
+- [ ] **Step 7：检查仓库状态并提交最终修正**
 
 ```powershell
 git status --short
@@ -813,7 +1068,7 @@ git log --oneline --decorate -15
 
 仅提交本轮相关文件，不添加 `artifacts/`、`.tools/` 或用户本地数据。
 
-- [ ] **Step 7：等待用户本地验收**
+- [ ] **Step 8：等待用户本地验收**
 
 向用户提供 EXE 和规则包的绝对路径。用户确认前不 push 发布自动化、不创建
 Release、不启用 GitHub Actions。
