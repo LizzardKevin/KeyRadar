@@ -8,6 +8,58 @@ namespace KeyRadar.Rules.Tests.Packs;
 public sealed class DevelopmentRulePackTests
 {
     [Fact]
+    public void ResolveDotNetHost_uses_dotnet_host_path_when_it_exists()
+    {
+        const string repositoryRoot = @"C:\agent\_work\KeyRadar";
+        const string dotnetHostPath = @"C:\hostedtoolcache\dotnet\dotnet.exe";
+
+        var host = ResolveDotNetHost(
+            repositoryRoot,
+            dotnetHostPath,
+            path => path == dotnetHostPath);
+
+        Assert.Equal(dotnetHostPath, host);
+    }
+
+    [Fact]
+    public void ResolveDotNetHost_uses_repository_tools_dotnet_when_no_valid_dotnet_host_path_exists()
+    {
+        const string repositoryRoot = @"C:\agent\_work\KeyRadar";
+        var repositoryDotNet = Path.Combine(repositoryRoot, ".tools", "dotnet", "dotnet.exe");
+
+        var host = ResolveDotNetHost(
+            repositoryRoot,
+            @"C:\missing\dotnet.exe",
+            path => path == repositoryDotNet);
+
+        Assert.Equal(repositoryDotNet, host);
+    }
+
+    [Fact]
+    public void ResolveDotNetHost_uses_path_dotnet_when_no_valid_host_or_repository_tools_dotnet_exists()
+    {
+        var host = ResolveDotNetHost(
+            @"C:\agent\_work\KeyRadar",
+            @"C:\missing\dotnet.exe",
+            _ => false);
+
+        Assert.Equal("dotnet", host);
+    }
+
+    [Fact]
+    public void ResolveDotNetHost_uses_actual_test_host_when_dotnet_host_path_is_available()
+    {
+        var dotnetHostPath = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH");
+
+        if (!string.IsNullOrWhiteSpace(dotnetHostPath) && File.Exists(dotnetHostPath))
+        {
+            Assert.Equal(
+                dotnetHostPath,
+                ResolveDotNetHost(FindRepositoryRoot(), dotnetHostPath, File.Exists));
+        }
+    }
+
+    [Fact]
     public void Development_rule_pack_is_copied_only_to_Debug_app_output()
     {
         var repositoryRoot = FindRepositoryRoot();
@@ -125,7 +177,10 @@ public sealed class DevelopmentRulePackTests
     {
         var startInfo = new ProcessStartInfo
         {
-            FileName = Path.Combine(workingDirectory, ".tools", "dotnet", "dotnet.exe"),
+            FileName = ResolveDotNetHost(
+                workingDirectory,
+                Environment.GetEnvironmentVariable("DOTNET_HOST_PATH"),
+                File.Exists),
             WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -141,6 +196,20 @@ public sealed class DevelopmentRulePackTests
         var standardError = process.StandardError.ReadToEnd();
         process.WaitForExit();
         Assert.True(process.ExitCode == 0, $"{standardOutput}\n{standardError}");
+    }
+
+    private static string ResolveDotNetHost(
+        string repositoryRoot,
+        string? dotnetHostPath,
+        Func<string, bool> fileExists)
+    {
+        if (!string.IsNullOrWhiteSpace(dotnetHostPath) && fileExists(dotnetHostPath))
+        {
+            return dotnetHostPath;
+        }
+
+        var repositoryDotNet = Path.Combine(repositoryRoot, ".tools", "dotnet", "dotnet.exe");
+        return fileExists(repositoryDotNet) ? repositoryDotNet : "dotnet";
     }
 
     private static string FindRepositoryRoot()
