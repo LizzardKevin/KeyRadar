@@ -31,8 +31,8 @@ public sealed class DevelopmentRulePackTests
             "win-x64",
             "KeyRadar-Development-Rules.krpack");
 
-        File.Delete(debugPack);
-        File.Delete(releasePack);
+        DeleteFileIfExists(debugPack);
+        DeleteFileIfExists(releasePack);
 
         RunDotNet(repositoryRoot, "build", appProject, "-c", "Debug", "--no-restore", "--nologo", "-v:minimal");
         Assert.True(File.Exists(debugPack), "Debug output must contain the unsigned development rule pack.");
@@ -111,6 +111,14 @@ public sealed class DevelopmentRulePackTests
         var standardError = process.StandardError.ReadToEnd();
         process.WaitForExit();
         Assert.True(process.ExitCode == 0, $"{standardOutput}\n{standardError}");
+    }
+
+    private static void DeleteFileIfExists(string path)
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
     }
 
     private static void RunDotNet(string workingDirectory, params string[] arguments)
