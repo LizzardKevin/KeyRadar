@@ -32,10 +32,10 @@ KeyRadar v1.0 is under active development on `codex/keyradar-v1`.
 - [Product design](docs/superpowers/specs/2026-07-20-keyradar-design.md)
 - [Implementation plan](docs/superpowers/plans/2026-07-20-keyradar-v1.md)
 - [Privacy](docs/PRIVACY.md)
+- [Rule-pack authoring](docs/RULE_PACKS.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 
 ## License
 
 [MIT](LICENSE)
-

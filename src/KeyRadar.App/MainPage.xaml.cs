@@ -71,7 +71,7 @@ public sealed partial class MainPage : Page
                 rules.Id,
                 rules.DisplayName,
                 presence == ApplicationPresence.Foreground ? "● 前台" : "后台",
-                $"{process.ExecutableName} · 内置规则证据",
+                BuildEvidenceSummary(process),
                 presence == ApplicationPresence.Foreground ? "\uE7C4" : "\uE8A7",
                 false,
                 rules.Shortcuts.Select(shortcut =>
@@ -146,6 +146,30 @@ public sealed partial class MainPage : Page
             ShortcutScope.WindowsSystem,
             OwnershipConfidence.SystemKnown,
             processId: 0);
+
+    private static string BuildEvidenceSummary(ProcessDescriptor process)
+    {
+        var architecture = process.Architecture switch
+        {
+            ProcessArchitecture.X86 => "x86",
+            ProcessArchitecture.X64 => "x64",
+            ProcessArchitecture.Arm64 => "ARM64",
+            _ => "架构未知",
+        };
+        var privilege = process.PrivilegeLevel switch
+        {
+            ProcessPrivilegeLevel.Elevated => "管理员",
+            ProcessPrivilegeLevel.Standard => "标准权限",
+            _ => "权限未知",
+        };
+        var publisher = string.IsNullOrWhiteSpace(process.Publisher) ? null : process.Publisher.Trim();
+        var version = string.IsNullOrWhiteSpace(process.Version) ? null : process.Version.Trim();
+
+        return string.Join(
+            " · ",
+            new[] { process.ExecutableName, architecture, privilege, publisher, version, "内置规则证据" }
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
+    }
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e) => await ScanAsync();
 

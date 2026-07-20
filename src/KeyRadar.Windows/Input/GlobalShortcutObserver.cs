@@ -101,7 +101,7 @@ public sealed partial class GlobalShortcutObserver : IDisposable
     [LibraryImport("kernel32.dll", EntryPoint = "GetModuleHandleW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
     private static partial nint GetModuleHandle(string? moduleName);
 
-    [LibraryImport("user32.dll", SetLastError = true)]
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowsHookExW", SetLastError = true)]
     private static partial nint SetWindowsHookEx(
         int hookId,
         HookProcedure callback,

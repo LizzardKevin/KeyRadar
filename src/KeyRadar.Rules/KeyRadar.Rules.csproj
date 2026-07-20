@@ -8,4 +8,8 @@
   <ItemGroup>
     <ProjectReference Include="..\KeyRadar.Core\KeyRadar.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NSec.Cryptography" Version="26.4.0" />
+  </ItemGroup>
 </Project>

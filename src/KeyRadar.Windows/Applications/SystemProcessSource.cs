@@ -14,8 +14,7 @@ public sealed class SystemProcessSource : IProcessSource
             {
                 try
                 {
-                    var executableName = TryGetExecutableName(process);
-                    descriptors.Add(new ProcessDescriptor(process.Id, process.ProcessName, executableName));
+                    descriptors.Add(ProcessMetadataReader.Read(process));
                 }
                 catch (InvalidOperationException)
                 {
@@ -27,15 +26,4 @@ public sealed class SystemProcessSource : IProcessSource
         return descriptors;
     }
 
-    private static string TryGetExecutableName(Process process)
-    {
-        try
-        {
-            return process.MainModule?.ModuleName ?? $"{process.ProcessName}.exe";
-        }
-        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or NotSupportedException)
-        {
-            return $"{process.ProcessName}.exe";
-        }
-    }
 }

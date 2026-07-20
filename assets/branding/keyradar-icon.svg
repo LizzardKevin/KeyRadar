@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="KeyRadar radar mark">
+  <defs>
+    <linearGradient id="surface" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#123342" />
+      <stop offset="1" stop-color="#07151f" />
+    </linearGradient>
+    <radialGradient id="sweep" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#69eadb" stop-opacity="0.48" />
+      <stop offset="1" stop-color="#69eadb" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#surface)" stroke="#397b84" stroke-width="20" />
+  <path d="M512 512 L826 329 A360 360 0 0 1 870 512 Z" fill="url(#sweep)" />
+  <g fill="none" stroke="#63d9d7" stroke-opacity="0.72" stroke-width="22">
+    <circle cx="512" cy="512" r="330" />
+    <circle cx="512" cy="512" r="220" />
+    <circle cx="512" cy="512" r="110" />
+  </g>
+  <g stroke="#63d9d7" stroke-opacity="0.34" stroke-width="14">
+    <path d="M182 512h660" />
+    <path d="M512 182v660" />
+  </g>
+  <path d="M512 512L826 329" stroke="#8af3e5" stroke-width="30" stroke-linecap="round" />
+  <circle cx="512" cy="512" r="36" fill="#a0fff0" />
+  <circle cx="716" cy="426" r="30" fill="#ffbf7f" />
+  <circle cx="390" cy="650" r="24" fill="#79efc5" />
+</svg>

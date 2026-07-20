@@ -1,6 +1,7 @@
 using KeyRadar.Rules;
 using KeyRadar.Windows.Foreground;
 using KeyRadar.Windows.Input;
+using KeyRadar.Windows.Lifecycle;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 
@@ -12,6 +13,7 @@ public partial class App : Application
     private ForegroundOverlayWindow? _overlayWindow;
     private DispatcherQueueTimer? _foregroundTimer;
     private GlobalShortcutObserver? _shortcutObserver;
+    private SingleInstanceGuard? _singleInstance;
     private int _lastForegroundProcessId;
 
     public App()
@@ -21,6 +23,13 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        _singleInstance = SingleInstanceGuard.TryAcquire("LizzardKevin.KeyRadar");
+        if (_singleInstance is null)
+        {
+            Exit();
+            return;
+        }
+
         _overlayWindow = new ForegroundOverlayWindow();
         _mainWindow = new MainWindow();
         _mainWindow.Closed += MainWindow_Closed;
@@ -103,6 +112,8 @@ public partial class App : Application
         }
         _overlayWindow = null;
         _mainWindow = null;
+        _singleInstance?.Dispose();
+        _singleInstance = null;
         Exit();
     }
 }
