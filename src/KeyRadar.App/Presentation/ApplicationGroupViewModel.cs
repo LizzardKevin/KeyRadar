@@ -10,7 +10,8 @@ public sealed class ApplicationGroupViewModel
         string iconGlyph,
         bool isExpanded,
         IReadOnlyList<HotkeyRowViewModel> hotkeys,
-        int processId = 0)
+        int processId = 0,
+        bool isForeground = false)
     {
         Id = id;
         DisplayName = displayName;
@@ -20,6 +21,7 @@ public sealed class ApplicationGroupViewModel
         IsExpanded = isExpanded;
         Hotkeys = hotkeys;
         ProcessId = processId;
+        IsForeground = isForeground;
     }
 
     public string Id { get; set; }
@@ -38,7 +40,9 @@ public sealed class ApplicationGroupViewModel
 
     public int ProcessId { get; set; }
 
+    public bool IsForeground { get; set; }
+
     public bool CanJump => ProcessId > 0;
 
-    public string HotkeyCountLabel => $"{Hotkeys.Count} 个热键";
+    public string HotkeyCountLabel => UiText.Pick($"{Hotkeys.Count} 个热键", $"{Hotkeys.Count} hotkeys");
 }

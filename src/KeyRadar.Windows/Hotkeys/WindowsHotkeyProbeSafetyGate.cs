@@ -6,13 +6,56 @@ public sealed partial class WindowsHotkeyProbeSafetyGate : IHotkeyProbeSafetyGat
 {
     private const uint DesktopReadObjects = 0x0001;
     private const int UserObjectName = 2;
+    private static readonly int[] KeyboardVirtualKeys =
+    [
+        0x08, 0x09, 0x0D, 0x10, 0x11, 0x12, 0x14, 0x1B,
+        .. Enumerable.Range(0x20, 0x0F),
+        .. Enumerable.Range(0x30, 0x0A),
+        .. Enumerable.Range(0x41, 0x1A),
+        0x5B, 0x5C,
+        .. Enumerable.Range(0x60, 0x10),
+        .. Enumerable.Range(0x70, 0x18),
+        0x90, 0x91,
+        .. Enumerable.Range(0xA0, 0x18),
+        .. Enumerable.Range(0xBA, 0x07),
+        .. Enumerable.Range(0xDB, 0x05),
+    ];
 
-    public unsafe HotkeyProbeSafety Check()
+    private readonly Func<int, short> _getKeyState;
+    private readonly Func<bool> _isDefaultDesktop;
+
+    public WindowsHotkeyProbeSafetyGate(
+        Func<int, short>? getKeyState = null,
+        Func<bool>? isDefaultDesktop = null)
+    {
+        _getKeyState = getKeyState ?? GetAsyncKeyState;
+        _isDefaultDesktop = isDefaultDesktop ?? IsDefaultDesktop;
+    }
+
+    public HotkeyProbeSafety Check()
+    {
+        if (!_isDefaultDesktop())
+        {
+            return HotkeyProbeSafety.Cancel;
+        }
+
+        foreach (var virtualKey in KeyboardVirtualKeys)
+        {
+            if ((_getKeyState(virtualKey) & 0x8000) != 0)
+            {
+                return HotkeyProbeSafety.Pause;
+            }
+        }
+
+        return HotkeyProbeSafety.Safe;
+    }
+
+    private static unsafe bool IsDefaultDesktop()
     {
         var desktop = OpenInputDesktop(0, false, DesktopReadObjects);
         if (desktop == nint.Zero)
         {
-            return HotkeyProbeSafety.Cancel;
+            return false;
         }
 
         try
@@ -27,7 +70,7 @@ public sealed partial class WindowsHotkeyProbeSafetyGate : IHotkeyProbeSafetyGat
                         (uint)(name.Length * sizeof(char)),
                         out _))
                 {
-                    return HotkeyProbeSafety.Cancel;
+                    return false;
                 }
             }
 
@@ -35,7 +78,7 @@ public sealed partial class WindowsHotkeyProbeSafetyGate : IHotkeyProbeSafetyGat
             var desktopName = new string(name[..(terminator >= 0 ? terminator : name.Length)]);
             if (!desktopName.Equals("Default", StringComparison.OrdinalIgnoreCase))
             {
-                return HotkeyProbeSafety.Cancel;
+                return false;
             }
         }
         finally
@@ -43,15 +86,7 @@ public sealed partial class WindowsHotkeyProbeSafetyGate : IHotkeyProbeSafetyGat
             _ = CloseDesktop(desktop);
         }
 
-        for (var virtualKey = 1; virtualKey < 255; virtualKey++)
-        {
-            if ((GetAsyncKeyState(virtualKey) & 0x8000) != 0)
-            {
-                return HotkeyProbeSafety.Pause;
-            }
-        }
-
-        return HotkeyProbeSafety.Safe;
+        return true;
     }
 
     [LibraryImport("user32.dll", SetLastError = true)]

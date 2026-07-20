@@ -9,7 +9,7 @@ internal static class RuntimeRuleCatalog
     private static readonly object Gate = new();
     private static IReadOnlyList<ApplicationVariantRule> _current = [];
     private static string? _activeVersion;
-    private static string _statusMessage = "规则尚未加载。";
+    private static string _statusMessage = UiText.Pick("规则尚未加载。", "Rules have not been loaded.");
     private static bool _isAvailable;
 
     public static IReadOnlyList<ApplicationVariantRule> Current
@@ -99,12 +99,14 @@ internal static class RuntimeRuleCatalog
             _activeVersion = result is { IsSuccess: true } ? result.Pack!.Version : null;
             _isAvailable = result.IsSuccess || localResult is { IsSuccess: true };
             _statusMessage = localResult is { IsSuccess: false }
-                ? $"本地规则不可用：{localResult.Message}"
+                ? UiText.Pick($"本地规则不可用：{localResult.Message}", $"Local rules are unavailable: {localResult.Message}")
                 : result.IsSuccess
-                    ? $"已加载官方签名规则包 {result.Pack!.Version}{(localResult is { IsSuccess: true } ? " · 用户声明规则（未签名）" : string.Empty)}。"
+                    ? UiText.Pick(
+                        $"已加载官方签名规则包 {result.Pack!.Version}{(localResult is { IsSuccess: true } ? " · 用户声明规则（未签名）" : string.Empty)}。",
+                        $"Loaded signed official rule pack {result.Pack!.Version}{(localResult is { IsSuccess: true } ? " · user-declared rules (unsigned)" : string.Empty)}.")
                     : localResult is { IsSuccess: true }
-                        ? "官方规则不可用；仅加载用户声明规则（未签名）。"
-                        : result.Message;
+                        ? UiText.Pick("官方规则不可用；仅加载用户声明规则（未签名）。", "Official rules are unavailable; only unsigned user-declared rules were loaded.")
+                        : UiText.LocalizeExternal(result.Message);
         }
 
         return result;

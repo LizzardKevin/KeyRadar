@@ -73,7 +73,7 @@ public sealed partial class MainPage : Page
         _scanCancellation = new CancellationTokenSource();
         var cancellationToken = _scanCancellation.Token;
         ScanProgress.IsActive = true;
-        ScanStatusText.Text = "正在枚举运行状态";
+        ScanStatusText.Text = UiText.Pick("正在枚举运行状态", "Enumerating the current running state");
 
         IReadOnlyList<ApplicationSnapshot> snapshots;
         IReadOnlyList<HotkeyProbeResult> occupancyResults;
@@ -89,7 +89,9 @@ public sealed partial class MainPage : Page
                 hidDevices);
             var candidates = StandardGlobalHotkeyCandidateSource.Create();
             var progress = new Progress<HotkeyScanProgress>(item =>
-                ScanStatusText.Text = $"正在探测标准全局热键 {item.Completed}/{item.Total} · {item.Current}");
+                ScanStatusText.Text = UiText.Pick(
+                    $"正在探测标准全局热键 {item.Completed}/{item.Total} · {item.Current}",
+                    $"Probing standard global hotkeys {item.Completed}/{item.Total} · {item.Current}"));
             occupancyResults = await Task.Run(async () =>
             {
                 using var registrationApi = new Win32HotkeyRegistrationApi();
@@ -101,7 +103,17 @@ public sealed partial class MainPage : Page
         }
         catch (OperationCanceledException)
         {
-            ScanStatusText.Text = "扫描已取消";
+            ScanStatusText.Text = UiText.Pick("扫描已取消", "Scan canceled");
+            ScanProgress.IsActive = false;
+            return;
+        }
+        catch (HotkeyScanSafetyException)
+        {
+            ScanStatusText.Text = UiText.Pick(
+                "检测到持续按键或桌面切换，本轮扫描已安全取消；松开按键后可重新扫描",
+                "The scan was safely canceled because a key remained pressed or the desktop changed. Release the key and scan again.");
+            DashboardStatusText.Text = ScanStatusText.Text;
+            SummaryText.Text = UiText.Pick("扫描已安全取消", "Scan safely canceled");
             ScanProgress.IsActive = false;
             return;
         }
@@ -170,10 +182,10 @@ public sealed partial class MainPage : Page
                     occupancyByGesture.TryGetValue(hotkey.Gesture, out var availability);
                     availabilityLabel = availability?.Availability switch
                     {
-                        HotkeyProbeAvailability.Occupied => " · 当前已占用",
-                        HotkeyProbeAvailability.AvailableAtScanTime => " · 扫描瞬间可注册",
-                        HotkeyProbeAvailability.SystemReserved => " · 系统保留或无法探测",
-                        _ => " · 无法探测",
+                        HotkeyProbeAvailability.Occupied => UiText.Pick(" · 当前已占用", " · currently occupied"),
+                        HotkeyProbeAvailability.AvailableAtScanTime => UiText.Pick(" · 扫描瞬间可注册", " · available at scan time"),
+                        HotkeyProbeAvailability.SystemReserved => UiText.Pick(" · 系统保留或无法探测", " · system reserved or not probeable"),
+                        _ => UiText.Pick(" · 无法探测", " · not probeable"),
                     };
 
                     if (availability?.Availability == HotkeyProbeAvailability.Occupied) occupiedGlobalHotkeyCount++;
@@ -181,33 +193,34 @@ public sealed partial class MainPage : Page
 
                 return HotkeyRowViewModel.Create(
                     hotkey.Gesture.ToString(),
-                    local?.Function ?? hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
+                    local is null ? hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name) : UiText.LocalizeExternal(local.Function),
                     local?.Scope ?? hotkey.Scope,
                     local is null ? hotkey.Confidence : OwnershipConfidence.LocalConfiguration,
                     process.Id,
                     availabilityLabel,
                     hotkey.Sources,
-                    evidenceLabel: local is null ? null : $"证据：{local.Evidence}");
+                    evidenceLabel: local is null ? null : UiText.Pick("证据：", "Evidence: ") + UiText.LocalizeExternal(local.Evidence));
             });
             var configuredOnlyRows = configured
                 .Where(local => rules.Hotkeys.All(hotkey => hotkey.Gesture != local.Gesture))
                 .Select(local => HotkeyRowViewModel.Create(
                     local.Gesture.ToString(),
-                    local.Function,
+                    UiText.LocalizeExternal(local.Function),
                     local.Scope,
                     OwnershipConfidence.LocalConfiguration,
                     process.Id,
-                    evidenceLabel: $"证据：{local.Evidence}"));
+                    evidenceLabel: UiText.Pick("证据：", "Evidence: ") + UiText.LocalizeExternal(local.Evidence)));
 
             groups.Add(new ApplicationGroupViewModel(
                 rules.ApplicationId,
                 rules.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
-                presence == ApplicationPresence.Foreground ? "● 前台" : "后台",
+                presence == ApplicationPresence.Foreground ? UiText.Pick("● 前台", "● Foreground") : UiText.Pick("后台", "Background"),
                 BuildEvidenceSummary(process),
                 presence == ApplicationPresence.Foreground ? "\uE7C4" : "\uE8A7",
                 false,
                 ruleRows.Concat(configuredOnlyRows).ToArray(),
-                process.Id));
+                process.Id,
+                isForeground: presence == ApplicationPresence.Foreground));
         }
 
         foreach (var ambiguous in matchedSnapshots.Where(item => item.Match.Kind == VariantMatchKind.Ambiguous))
@@ -218,9 +231,9 @@ public sealed partial class MainPage : Page
                 .ToArray();
             groups.Add(new ApplicationGroupViewModel(
                 $"variant-uncertain-{process.Id}",
-                "变体不确定",
-                ambiguous.Snapshot.Presence == ApplicationPresence.Foreground ? "● 前台" : "后台",
-                $"{process.ExecutableName} · 候选：{string.Join(" / ", candidates.Select(candidate => candidate.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name)))}",
+                UiText.Pick("变体不确定", "Variant uncertain"),
+                ambiguous.Snapshot.Presence == ApplicationPresence.Foreground ? UiText.Pick("● 前台", "● Foreground") : UiText.Pick("后台", "Background"),
+                $"{process.ExecutableName} · {UiText.Pick("候选：", "Candidates: ")}{string.Join(" / ", candidates.Select(candidate => candidate.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name)))}",
                 "\uE9CE",
                 true,
                 candidates.SelectMany(candidate => candidate.Hotkeys).Select(hotkey => HotkeyRowViewModel.Create(
@@ -230,7 +243,8 @@ public sealed partial class MainPage : Page
                     OwnershipConfidence.Suspected,
                     process.Id,
                     sources: hotkey.Sources)).ToArray(),
-                process.Id));
+                process.Id,
+                isForeground: ambiguous.Snapshot.Presence == ApplicationPresence.Foreground));
         }
 
         if (hardwareEnvironment.Software.Count > 0)
@@ -243,23 +257,23 @@ public sealed partial class MainPage : Page
                     software.Id == "razer-synapse" && item.VendorId == "1532" ||
                     software.Id == "corsair-icue" && item.VendorId == "1B1C");
                 var state = profile is not null
-                    ? "当前 Profile · 无法安全读取"
+                    ? UiText.Pick("当前 Profile · 无法安全读取", "Current profile · cannot be read safely")
                     : software.IsRunning
-                        ? "管理软件正在运行 · 未检测到匹配设备"
-                        : "设备已连接 · 管理软件未运行";
+                        ? UiText.Pick("管理软件正在运行 · 未检测到匹配设备", "Management software is running · no matching device detected")
+                        : UiText.Pick("设备已连接 · 管理软件未运行", "Device connected · management software is not running");
                 return new HotkeyRowViewModel(
                     device?.ModelName ?? software.DisplayName,
                     state,
-                    "硬件映射",
-                    profile?.Evidence ?? "证据：运行进程与 HID 厂商/型号",
-                    profile is not null ? "! 无法完整发现" : "○ 当前未生效",
+                    UiText.Pick("硬件映射", "Hardware mapping"),
+                    profile is null ? UiText.Pick("证据：运行进程与 HID 厂商/型号", "Evidence: running process and HID vendor/model") : UiText.LocalizeExternal(profile.Evidence),
+                    profile is not null ? UiText.Pick("! 无法完整发现", "! Not fully discoverable") : UiText.Pick("○ 当前未生效", "○ Not currently active"),
                     software.ProcessId ?? 0,
                     canDeepConfirm: false);
             }).ToArray();
             groups.Add(new ApplicationGroupViewModel(
                 "hardware-mappings",
-                "硬件映射",
-                "当前设备与 Profile",
+                UiText.Pick("硬件映射", "Hardware mappings"),
+                UiText.Pick("当前设备与 Profile", "Current devices and profiles"),
                 "G HUB · Logi Options+ · Razer Synapse · Corsair iCUE",
                 "\uE7F8",
                 hardwareEnvironment.Profiles.Count > 0,
@@ -268,7 +282,7 @@ public sealed partial class MainPage : Page
 
         var knownGlobalGestures = groups
             .SelectMany(group => group.Hotkeys)
-            .Where(hotkey => hotkey.ScopeLabel == "全局")
+            .Where(hotkey => hotkey.IsGlobal)
             .Select(hotkey => hotkey.Gesture)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var unknownOccupied = occupancyResults
@@ -279,9 +293,9 @@ public sealed partial class MainPage : Page
         {
             groups.Add(new ApplicationGroupViewModel(
                 "unknown-occupancy",
-                "归属未知",
-                "当前桌面会话",
-                "RegisterHotKey 占用探测 · 不猜测进程归属",
+                UiText.Pick("归属未知", "Owner unknown"),
+                UiText.Pick("当前桌面会话", "Current desktop session"),
+                UiText.Pick("RegisterHotKey 占用探测 · 不猜测进程归属", "RegisterHotKey occupancy probe · no guessed process ownership"),
                 "\uE9CE",
                 unknownOccupied.Any(result => result.Availability == HotkeyProbeAvailability.Occupied),
                 unknownOccupied.Select(HotkeyRowViewModel.FromProbe).ToArray()));
@@ -295,9 +309,9 @@ public sealed partial class MainPage : Page
         {
             groups.Add(new ApplicationGroupViewModel(
                 "available-at-scan-time",
-                "扫描瞬间可注册",
-                "仅代表本次扫描",
-                "不会据此承诺该组合永久无冲突 · 默认折叠",
+                UiText.Pick("扫描瞬间可注册", "Available at scan time"),
+                UiText.Pick("仅代表本次扫描", "This scan only"),
+                UiText.Pick("不会据此承诺该组合永久无冲突 · 默认折叠", "Does not guarantee permanent availability · collapsed by default"),
                 "\uE73E",
                 false,
                 availableAtScanTime.Select(HotkeyRowViewModel.FromProbe).ToArray()));
@@ -305,13 +319,13 @@ public sealed partial class MainPage : Page
 
         _allGroups = groups
             .OrderBy(group => group.Id != "windows-system")
-            .ThenByDescending(group => group.PresenceLabel.Contains("前台", StringComparison.Ordinal))
+            .ThenByDescending(group => group.IsForeground)
             .ThenBy(group => group.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
 
         var duplicateGestures = _allGroups
             .SelectMany(group => group.Hotkeys.Select(hotkey => new { Group = group, Hotkey = hotkey }))
-            .Where(item => item.Hotkey.ScopeLabel == "全局")
+            .Where(item => item.Hotkey.IsGlobal)
             .GroupBy(item => item.Hotkey.Gesture, StringComparer.OrdinalIgnoreCase)
             .Where(group => group.Select(item => item.Group.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
             .ToArray();
@@ -327,8 +341,10 @@ public sealed partial class MainPage : Page
         if (duplicateGestures.Length > 0)
         {
             ConflictInfoBar.Severity = InfoBarSeverity.Warning;
-            ConflictInfoBar.Title = "发现确定冲突";
-            ConflictInfoBar.Message = $"{duplicateGestures.Length} 个全局组合键被多个运行中应用声明。冲突应用已自动展开。";
+            ConflictInfoBar.Title = UiText.Pick("发现确定冲突", "Confirmed conflicts found");
+            ConflictInfoBar.Message = UiText.Pick(
+                $"{duplicateGestures.Length} 个全局组合键被多个运行中应用声明。冲突应用已自动展开。",
+                $"{duplicateGestures.Length} global combinations are declared by multiple running apps. Conflicting apps were expanded automatically.");
         }
 
         ApplyFilter(SearchBox.Text);
@@ -338,11 +354,17 @@ public sealed partial class MainPage : Page
         var totalOccupied = occupancyResults.Count(result => result.Availability == HotkeyProbeAvailability.Occupied);
         ConflictCountText.Text = duplicateGestures.Length.ToString(System.Globalization.CultureInfo.CurrentCulture);
         AvailableCountText.Text = occupancyResults.Count(result => result.Availability == HotkeyProbeAvailability.AvailableAtScanTime).ToString(System.Globalization.CultureInfo.CurrentCulture);
-        ForegroundCountText.Text = _allGroups.Where(group => group.PresenceLabel.Contains("前台", StringComparison.Ordinal)).Sum(group => group.Hotkeys.Count).ToString(System.Globalization.CultureInfo.CurrentCulture);
-        UnconfirmedCountText.Text = _allGroups.SelectMany(group => group.Hotkeys).Count(hotkey => hotkey.ConfidenceLabel.Contains("未知", StringComparison.Ordinal) || hotkey.ConfidenceLabel.Contains("疑似", StringComparison.Ordinal)).ToString(System.Globalization.CultureInfo.CurrentCulture);
-        SummaryText.Text = $"识别 {appCount} 个运行中的支持应用 · {hotkeyCount} 个可发现热键 · {totalOccupied} 个标准全局占用";
-        DashboardStatusText.Text = $"扫描完成：{totalOccupied} 个标准全局占用；无法安全归属的项目已保留为未知。";
-        ScanStatusText.Text = "扫描完成；KeyRadar 未发送、拦截或吞掉任何热键";
+        ForegroundCountText.Text = _allGroups.Where(group => group.IsForeground).Sum(group => group.Hotkeys.Count).ToString(System.Globalization.CultureInfo.CurrentCulture);
+        UnconfirmedCountText.Text = _allGroups.SelectMany(group => group.Hotkeys).Count(hotkey => hotkey.IsUnconfirmed).ToString(System.Globalization.CultureInfo.CurrentCulture);
+        SummaryText.Text = UiText.Pick(
+            $"识别 {appCount} 个运行中的支持应用 · {hotkeyCount} 个可发现热键 · {totalOccupied} 个标准全局占用",
+            $"{appCount} supported running apps · {hotkeyCount} discoverable hotkeys · {totalOccupied} standard global occupancies");
+        DashboardStatusText.Text = UiText.Pick(
+            $"扫描完成：{totalOccupied} 个标准全局占用；无法安全归属的项目已保留为未知。",
+            $"Scan complete: {totalOccupied} standard global occupancies; items without safe ownership evidence remain unknown.");
+        ScanStatusText.Text = UiText.Pick(
+            "扫描完成；KeyRadar 未发送、拦截或吞掉任何热键",
+            "Scan complete; KeyRadar did not send, block, or consume any hotkey");
         ScanProgress.IsActive = false;
         RuleStatusInfoBar.IsOpen = !RuntimeRuleCatalog.IsAvailable;
         RuleStatusInfoBar.Message = RuntimeRuleCatalog.StatusMessage;
@@ -363,18 +385,18 @@ public sealed partial class MainPage : Page
         {
             rows.Add(HotkeyRowViewModel.Create(
                 "PrintScreen",
-                "打开 Windows 截图工具",
+                UiText.Pick("打开 Windows 截图工具", "Open Windows Snipping Tool"),
                 HotkeyScope.WindowsSystem,
                 OwnershipConfidence.LocalConfiguration,
                 processId: 0,
-                evidenceLabel: "证据：当前用户 Windows 键盘设置"));
+                evidenceLabel: UiText.Pick("证据：当前用户 Windows 键盘设置", "Evidence: current-user Windows keyboard settings")));
         }
 
         return new ApplicationGroupViewModel(
             "windows-system",
             rules.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
-            "系统级",
-            $"{session.WindowsVersion} · {session.InputLanguage} · 默认折叠",
+            UiText.Pick("系统级", "System level"),
+            $"{session.WindowsVersion} · {session.InputLanguage} · {UiText.Pick("默认折叠", "collapsed by default")}",
             "\uE782",
             false,
             rows);
@@ -387,13 +409,13 @@ public sealed partial class MainPage : Page
             ProcessArchitecture.X86 => "x86",
             ProcessArchitecture.X64 => "x64",
             ProcessArchitecture.Arm64 => "ARM64",
-            _ => "架构未知",
+            _ => UiText.Pick("架构未知", "architecture unknown"),
         };
         var privilege = process.PrivilegeLevel switch
         {
-            ProcessPrivilegeLevel.Elevated => "管理员",
-            ProcessPrivilegeLevel.Standard => "标准权限",
-            _ => "权限未知",
+            ProcessPrivilegeLevel.Elevated => UiText.Pick("管理员", "elevated"),
+            ProcessPrivilegeLevel.Standard => UiText.Pick("标准权限", "standard privilege"),
+            _ => UiText.Pick("权限未知", "privilege unknown"),
         };
         var publisher = string.IsNullOrWhiteSpace(process.Publisher)
             ? string.IsNullOrWhiteSpace(process.CompanyName) ? null : process.CompanyName.Trim()
@@ -403,7 +425,7 @@ public sealed partial class MainPage : Page
 
         return string.Join(
             " · ",
-            new[] { process.ExecutableName, architecture, privilege, publisher, version, distribution, "官方签名规则包" }
+            new[] { process.ExecutableName, architecture, privilege, publisher, version, distribution, UiText.Pick("官方签名规则包", "signed official rule pack") }
                 .Where(value => !string.IsNullOrWhiteSpace(value)));
     }
 
@@ -422,9 +444,9 @@ public sealed partial class MainPage : Page
         SettingsPanel.Visibility = section == "settings" ? Visibility.Visible : Visibility.Collapsed;
         PageTitleText.Text = section switch
         {
-            "hotkeys" => "热键总览",
-            "settings" => "设置",
-            _ => "雷达总览",
+            "hotkeys" => UiText.Pick("热键总览", "Hotkey overview"),
+            "settings" => UiText.Pick("设置", "Settings"),
+            _ => UiText.Pick("雷达总览", "Radar overview"),
         };
     }
 
@@ -444,9 +466,9 @@ public sealed partial class MainPage : Page
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
-            Title = "显示语言已保存 / Language saved",
-            Content = "语言将在重新打开 KeyRadar 后完整应用。 / The language will be fully applied after restarting KeyRadar.",
-            CloseButtonText = "确定 / OK",
+            Title = UiText.Pick("显示语言已保存", "Display language saved"),
+            Content = UiText.Pick("语言将在重新打开 KeyRadar 后完整应用。", "The language will be fully applied after restarting KeyRadar."),
+            CloseButtonText = UiText.Pick("确定", "OK"),
         };
         await dialog.ShowAsync();
     }
@@ -469,23 +491,25 @@ public sealed partial class MainPage : Page
             .ToArray();
         if (running.Length == 0)
         {
-            await ShowUpdateMessageAsync("没有可选应用", "请先完成一次扫描，再从当前运行的应用中选择。");
+            await ShowUpdateMessageAsync(
+                UiText.Pick("没有可选应用", "No apps available"),
+                UiText.Pick("请先完成一次扫描，再从当前运行的应用中选择。", "Complete a scan first, then choose from the currently running apps."));
             return;
         }
 
-        var processBox = new ComboBox { Header = "当前运行的应用", ItemsSource = running, DisplayMemberPath = nameof(ProcessChoice.Display), SelectedIndex = 0 };
-        var gestureBox = new TextBox { Header = "热键", IsReadOnly = true, PlaceholderText = "点击“录入热键”后按下组合" };
-        var captureButton = new Button { Content = "录入热键" };
-        var functionBox = new TextBox { Header = "功能名称", PlaceholderText = "例如：截图" };
-        var scopeBox = new ComboBox { Header = "作用范围", SelectedIndex = 0 };
-        scopeBox.Items.Add(new ComboBoxItem { Content = "全局", Tag = "global" });
-        scopeBox.Items.Add(new ComboBoxItem { Content = "应用内", Tag = "foreground" });
-        var note = new TextBlock { Text = "只保存明确录入的组合键，不保存普通输入。该规则将标记为“用户声明 · 未经官方验证”。", TextWrapping = TextWrapping.Wrap };
+        var processBox = new ComboBox { Header = UiText.Pick("当前运行的应用", "Currently running app"), ItemsSource = running, DisplayMemberPath = nameof(ProcessChoice.Display), SelectedIndex = 0 };
+        var gestureBox = new TextBox { Header = UiText.Pick("热键", "Hotkey"), IsReadOnly = true, PlaceholderText = UiText.Pick("点击“录入热键”后按下组合", "Select Capture hotkey, then press the combination") };
+        var captureButton = new Button { Content = UiText.Pick("录入热键", "Capture hotkey") };
+        var functionBox = new TextBox { Header = UiText.Pick("功能名称", "Function name"), PlaceholderText = UiText.Pick("例如：截图", "For example: Screenshot") };
+        var scopeBox = new ComboBox { Header = UiText.Pick("作用范围", "Scope"), SelectedIndex = 0 };
+        scopeBox.Items.Add(new ComboBoxItem { Content = UiText.Pick("全局", "Global"), Tag = "global" });
+        scopeBox.Items.Add(new ComboBoxItem { Content = UiText.Pick("应用内", "In-app"), Tag = "foreground" });
+        var note = new TextBlock { Text = UiText.Pick("只保存明确录入的组合键，不保存普通输入。该规则将标记为“用户声明 · 未经官方验证”。", "Only the explicitly captured combination is saved; ordinary input is never saved. The rule is labeled ‘User declared · not officially verified’."), TextWrapping = TextWrapping.Wrap };
         var captureArmed = false;
         captureButton.Click += (_, _) =>
         {
             captureArmed = true;
-            captureButton.Content = "请按组合键…";
+            captureButton.Content = UiText.Pick("请按组合键…", "Press the combination…");
             gestureBox.Focus(FocusState.Programmatic);
         };
         gestureBox.KeyDown += (_, args) =>
@@ -495,7 +519,7 @@ public sealed partial class MainPage : Page
             if (gestureText is null) return;
             gestureBox.Text = gestureText;
             captureArmed = false;
-            captureButton.Content = "重新录入";
+            captureButton.Content = UiText.Pick("重新录入", "Capture again");
             args.Handled = true;
         };
 
@@ -509,10 +533,10 @@ public sealed partial class MainPage : Page
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
-            Title = "我的规则",
+            Title = UiText.Pick("我的规则", "My rules"),
             Content = content,
-            PrimaryButtonText = "保存用户规则",
-            CloseButtonText = "取消",
+            PrimaryButtonText = UiText.Pick("保存用户规则", "Save user rule"),
+            CloseButtonText = UiText.Pick("取消", "Cancel"),
             DefaultButton = ContentDialogButton.Primary,
         };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary ||
@@ -545,16 +569,16 @@ public sealed partial class MainPage : Page
             var overwrite = new ContentDialog
             {
                 XamlRoot = XamlRoot,
-                Title = "最新规则包已收录此应用",
-                Content = "保存后，用户声明规则将优先于官方规则。是否覆盖该应用的官方归属结果？",
-                PrimaryButtonText = "覆盖并保存",
-                CloseButtonText = "取消",
+                Title = UiText.Pick("最新规则包已收录此应用", "This app is already included in the latest rule pack"),
+                Content = UiText.Pick("保存后，用户声明规则将优先于官方规则。是否覆盖该应用的官方归属结果？", "After saving, the user-declared rule will take priority over the official rule. Override the official ownership result for this app?"),
+                PrimaryButtonText = UiText.Pick("覆盖并保存", "Override and save"),
+                CloseButtonText = UiText.Pick("取消", "Cancel"),
                 DefaultButton = ContentDialogButton.Close,
             };
             if (await overwrite.ShowAsync() != ContentDialogResult.Primary) return;
         }
 
-        var locale = _preferences.Language == "en-US" ? "en-US" : "zh-CN";
+        var locale = UiText.IsChinese ? "zh-CN" : "en-US";
         var variant = new ApplicationVariantRule(
             applicationId,
             "user",
@@ -593,7 +617,9 @@ public sealed partial class MainPage : Page
         LocalRulePackWriter.SaveAtomically(localPath, existing);
         RuntimeRuleCatalog.Reload();
         await ScanAsync();
-        await ShowUpdateMessageAsync("用户规则已保存", "用户声明 · 未经官方验证。可在设置中导出 local.krpack 进行备份。");
+        await ShowUpdateMessageAsync(
+            UiText.Pick("用户规则已保存", "User rule saved"),
+            UiText.Pick("用户声明 · 未经官方验证。可在设置中导出 local.krpack 进行备份。", "User declared · not officially verified. Export local.krpack from Settings to back it up."));
     }
 
     private async void ImportMyRulesButton_Click(object sender, RoutedEventArgs e)
@@ -612,21 +638,27 @@ public sealed partial class MainPage : Page
 
         if (!read.IsSuccess)
         {
-            await ShowUpdateMessageAsync("用户规则未导入", "该文件不是有效的本地未签名 KeyRadar 规则包。");
+            await ShowUpdateMessageAsync(
+                UiText.Pick("用户规则未导入", "User rules were not imported"),
+                UiText.Pick("该文件不是有效的本地未签名 KeyRadar 规则包。", "The selected file is not a valid unsigned local KeyRadar rule pack."));
             return;
         }
 
         var variants = read.Pack!.Variants;
         var hotkeyCount = variants.Sum(variant => variant.Hotkeys.Count);
         var preview = string.Join("\n", variants.Take(12).Select(variant =>
-            $"• {variant.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name)}：{variant.Hotkeys.Count} 个热键"));
+            UiText.Pick(
+                $"• {variant.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name)}：{variant.Hotkeys.Count} 个热键",
+                $"• {variant.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name)}: {variant.Hotkeys.Count} hotkeys")));
         var confirm = new ContentDialog
         {
             XamlRoot = XamlRoot,
-            Title = "导入未签名用户规则？",
-            Content = $"它将识别 {variants.Count} 个应用变体，包含 {hotkeyCount} 个热键。\n\n{preview}\n\n来源：用户分享 · 未签名 · 未经官方验证。导入后将替换当前 local.krpack。",
-            PrimaryButtonText = "导入并替换",
-            CloseButtonText = "取消",
+            Title = UiText.Pick("导入未签名用户规则？", "Import unsigned user rules?"),
+            Content = UiText.Pick(
+                $"它将识别 {variants.Count} 个应用变体，包含 {hotkeyCount} 个热键。\n\n{preview}\n\n来源：用户分享 · 未签名 · 未经官方验证。导入后将替换当前 local.krpack。",
+                $"It identifies {variants.Count} app variants and contains {hotkeyCount} hotkeys.\n\n{preview}\n\nSource: user shared · unsigned · not officially verified. Importing replaces the current local.krpack."),
+            PrimaryButtonText = UiText.Pick("导入并替换", "Import and replace"),
+            CloseButtonText = UiText.Pick("取消", "Cancel"),
             DefaultButton = ContentDialogButton.Close,
         };
         if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
@@ -642,7 +674,9 @@ public sealed partial class MainPage : Page
         var localPath = Path.Combine(RuntimeRuleCatalog.RulesDirectory, "local.krpack");
         if (!File.Exists(localPath))
         {
-            await ShowUpdateMessageAsync("没有用户规则", "请先在“我的规则”中保存至少一条用户声明。");
+            await ShowUpdateMessageAsync(
+                UiText.Pick("没有用户规则", "No user rules"),
+                UiText.Pick("请先在“我的规则”中保存至少一条用户声明。", "Save at least one user declaration in My rules first."));
             return;
         }
 
@@ -663,8 +697,10 @@ public sealed partial class MainPage : Page
 
     private void SubmitCandidateRuleButton_Click(object sender, RoutedEventArgs e)
     {
-        var title = Uri.EscapeDataString("[候选规则] 应用热键归属");
-        var body = Uri.EscapeDataString("请填写：\n- 软件名称、版本与发行渠道：\n- exe 名称与发布者：\n- 热键、功能与范围：\n- 是否修改过软件设置：\n- 官方文档链接或脱敏截图：\n- 冲突现象：\n\n请勿提交普通按键流、用户名、完整窗口标题、本地路径、账号或隐私数据。");
+        var title = Uri.EscapeDataString(UiText.Pick("[候选规则] 应用热键归属", "[Candidate rule] App hotkey ownership"));
+        var body = Uri.EscapeDataString(UiText.Pick(
+            "请填写：\n- 软件名称、版本与发行渠道：\n- exe 名称与发布者：\n- 热键、功能与范围：\n- 是否修改过软件设置：\n- 官方文档链接或脱敏截图：\n- 冲突现象：\n\n请勿提交普通按键流、用户名、完整窗口标题、本地路径、账号或隐私数据。",
+            "Please provide:\n- App name, version, and distribution channel:\n- Executable name and publisher:\n- Hotkey, function, and scope:\n- Whether app settings were changed:\n- Official documentation or a redacted settings screenshot:\n- Observed conflict:\n\nDo not submit ordinary keystrokes, user names, full window titles, local paths, account data, or private information."));
         Process.Start(new ProcessStartInfo($"https://github.com/LizzardKevin/KeyRadar/issues/new?template=candidate-rule.yml&title={title}&body={body}") { UseShellExecute = true });
     }
 
@@ -707,7 +743,7 @@ public sealed partial class MainPage : Page
     private async void CheckUpdateButton_Click(object sender, RoutedEventArgs e)
     {
         CheckUpdateButton.IsEnabled = false;
-        CheckUpdateButtonText.Text = "检查中…";
+        CheckUpdateButtonText.Text = UiText.Pick("检查中…", "Checking…");
         try
         {
             var currentVersion = typeof(MainPage).Assembly.GetName().Version ?? new Version(1, 0, 0);
@@ -717,10 +753,10 @@ public sealed partial class MainPage : Page
                 var dialog = new ContentDialog
                 {
                     XamlRoot = XamlRoot,
-                    Title = $"发现 KeyRadar {result.Manifest.Version}",
-                    Content = "签名与下载地址已验证。是否下载并安装？更新器会保留本地 data，失败时自动回滚。",
-                    PrimaryButtonText = "下载并安装",
-                    CloseButtonText = "稍后",
+                    Title = UiText.Pick($"发现 KeyRadar {result.Manifest.Version}", $"KeyRadar {result.Manifest.Version} is available"),
+                    Content = UiText.Pick("签名与下载地址已验证。是否下载并安装？更新器会保留本地 data，失败时自动回滚。", "The signature and download address were verified. Download and install? The updater preserves local data and rolls back automatically on failure."),
+                    PrimaryButtonText = UiText.Pick("下载并安装", "Download and install"),
+                    CloseButtonText = UiText.Pick("稍后", "Later"),
                     DefaultButton = ContentDialogButton.Primary,
                 };
                 if (await dialog.ShowAsync() == ContentDialogResult.Primary)
@@ -732,15 +768,15 @@ public sealed partial class MainPage : Page
             }
 
             await ShowUpdateMessageAsync(
-                result.Status == UpdateCheckStatus.UpToDate ? "已是最新版本" : "暂时无法检查更新",
+                result.Status == UpdateCheckStatus.UpToDate ? UiText.Pick("已是最新版本", "Up to date") : UiText.Pick("暂时无法检查更新", "Unable to check for updates"),
                 result.Status == UpdateCheckStatus.UpToDate
-                    ? $"当前版本 {currentVersion.ToString(3)} 已是最新版本。"
-                    : "网络、限流、404 或签名校验失败时，KeyRadar 会保留当前版本。请稍后重试。");
+                    ? UiText.Pick($"当前版本 {currentVersion.ToString(3)} 已是最新版本。", $"Version {currentVersion.ToString(3)} is up to date.")
+                    : UiText.Pick("网络、限流、404 或签名校验失败时，KeyRadar 会保留当前版本。请稍后重试。", "KeyRadar keeps the current version after network, rate-limit, 404, or signature failures. Try again later."));
         }
         finally
         {
             CheckUpdateButton.IsEnabled = true;
-            CheckUpdateButtonText.Text = "检查更新";
+            CheckUpdateButtonText.Text = UiText.Pick("检查更新", "Check updates");
         }
     }
 
@@ -755,10 +791,10 @@ public sealed partial class MainPage : Page
                 var dialog = new ContentDialog
                 {
                     XamlRoot = XamlRoot,
-                    Title = $"发现规则包 {check.Manifest.Version}",
-                    Content = "下载后会校验 SHA-256、发布签名和包内每条规则；上一版规则会保留用于回滚。",
-                    PrimaryButtonText = "下载并启用",
-                    CloseButtonText = "稍后",
+                    Title = UiText.Pick($"发现规则包 {check.Manifest.Version}", $"Rule pack {check.Manifest.Version} is available"),
+                    Content = UiText.Pick("下载后会校验 SHA-256、发布签名和包内每条规则；上一版规则会保留用于回滚。", "After download, SHA-256, release signature, and every rule are validated. The previous rule pack is retained for rollback."),
+                    PrimaryButtonText = UiText.Pick("下载并启用", "Download and activate"),
+                    CloseButtonText = UiText.Pick("稍后", "Later"),
                     DefaultButton = ContentDialogButton.Primary,
                 };
                 if (await dialog.ShowAsync() == ContentDialogResult.Primary)
@@ -770,10 +806,10 @@ public sealed partial class MainPage : Page
             }
 
             await ShowUpdateMessageAsync(
-                check.Status == RuleUpdateStatus.UpToDate ? "规则已是最新版" : "暂时无法更新规则",
+                check.Status == RuleUpdateStatus.UpToDate ? UiText.Pick("规则已是最新版", "Rules are up to date") : UiText.Pick("暂时无法更新规则", "Unable to update rules"),
                 check.Status == RuleUpdateStatus.UpToDate
-                    ? $"当前已启用官方规则包 {check.Manifest!.Version}。"
-                    : "断网、限流、404、哈希或签名失败时，KeyRadar 会继续使用当前规则。请稍后重试。");
+                    ? UiText.Pick($"当前已启用官方规则包 {check.Manifest!.Version}。", $"Official rule pack {check.Manifest!.Version} is active.")
+                    : UiText.Pick("断网、限流、404、哈希或签名失败时，KeyRadar 会继续使用当前规则。请稍后重试。", "KeyRadar continues using the current rules after network, rate-limit, 404, hash, or signature failures. Try again later."));
         }
         finally
         {
@@ -792,7 +828,7 @@ public sealed partial class MainPage : Page
             var download = await _ruleUpdateClient.DownloadAsync(manifest, candidatePath);
             if (!download.IsSuccess)
             {
-                await ShowUpdateMessageAsync("规则包验证失败", download.Message);
+                await ShowUpdateMessageAsync(UiText.Pick("规则包验证失败", "Rule pack validation failed"), download.Message);
                 return;
             }
 
@@ -802,15 +838,15 @@ public sealed partial class MainPage : Page
                 OfficialReleaseKey.GetBytes());
             if (!activation.IsSuccess)
             {
-                await ShowUpdateMessageAsync("规则包未启用", activation.Message);
+                await ShowUpdateMessageAsync(UiText.Pick("规则包未启用", "Rule pack was not activated"), activation.Message);
                 return;
             }
 
             RuntimeRuleCatalog.Reload();
             await ScanAsync();
             await ShowUpdateMessageAsync(
-                "规则库已更新",
-                $"官方签名规则包 {activation.ActiveVersion} 已启用；上一版可通过“回滚规则”恢复。");
+                UiText.Pick("规则库已更新", "Rule library updated"),
+                UiText.Pick($"官方签名规则包 {activation.ActiveVersion} 已启用；上一版可通过“回滚规则”恢复。", $"Signed official rule pack {activation.ActiveVersion} is active; use Roll back official rules to restore the previous pack."));
         }
         finally
         {
@@ -833,7 +869,7 @@ public sealed partial class MainPage : Page
             }
 
             await ShowUpdateMessageAsync(
-                rollback.IsSuccess ? "规则已回滚" : "无法回滚规则",
+                rollback.IsSuccess ? UiText.Pick("规则已回滚", "Rules rolled back") : UiText.Pick("无法回滚规则", "Unable to roll back rules"),
                 rollback.Message);
         }
         finally
@@ -847,10 +883,10 @@ public sealed partial class MainPage : Page
         var warning = new ContentDialog
         {
             XamlRoot = XamlRoot,
-            Title = "导入官方签名规则包",
-            Content = "KeyRadar 只读取你选择的 .krpack，并校验内置公钥、包身份、清单哈希和 rules/*.json。EXE、DLL、脚本、未知签名或非官方包都会被拒绝。成功后当前规则会保留为上一版，以便主动回滚。",
-            PrimaryButtonText = "选择文件",
-            CloseButtonText = "取消",
+            Title = UiText.Pick("导入官方签名规则包", "Import a signed official rule pack"),
+            Content = UiText.Pick("KeyRadar 只读取你选择的 .krpack，并校验内置公钥、包身份、清单哈希和 rules/*.json。EXE、DLL、脚本、未知签名或非官方包都会被拒绝。成功后当前规则会保留为上一版，以便主动回滚。", "KeyRadar reads only the selected .krpack and validates the built-in public key, pack identity, manifest hashes, and rules/*.json. EXE, DLL, scripts, unknown signatures, and non-official packs are rejected. The current pack is retained as the previous version for rollback."),
+            PrimaryButtonText = UiText.Pick("选择文件", "Choose file"),
+            CloseButtonText = UiText.Pick("取消", "Cancel"),
             DefaultButton = ContentDialogButton.Primary,
         };
         if (await warning.ShowAsync() != ContentDialogResult.Primary)
@@ -880,9 +916,9 @@ public sealed partial class MainPage : Page
         }
 
         await ShowUpdateMessageAsync(
-            import.IsSuccess ? "官方规则已导入" : "规则包未导入",
+            import.IsSuccess ? UiText.Pick("官方规则已导入", "Official rules imported") : UiText.Pick("规则包未导入", "Rule pack was not imported"),
             import.IsSuccess
-                ? $"官方签名规则包 {import.ActiveVersion} 已启用。"
+                ? UiText.Pick($"官方签名规则包 {import.ActiveVersion} 已启用。", $"Signed official rule pack {import.ActiveVersion} is active.")
                 : import.Message);
     }
 
@@ -900,10 +936,10 @@ public sealed partial class MainPage : Page
             var dialog = new ContentDialog
             {
                 XamlRoot = XamlRoot,
-                Title = "诊断包已导出",
-                Content = $"已生成 {fileName}。包内不含用户名、完整路径、窗口标题或普通按键流。",
-                PrimaryButtonText = "打开所在位置",
-                CloseButtonText = "完成",
+                Title = UiText.Pick("诊断包已导出", "Diagnostic bundle exported"),
+                Content = UiText.Pick($"已生成 {fileName}。包内不含用户名、完整路径、窗口标题或普通按键流。", $"Created {fileName}. It contains no user name, full path, window title, or ordinary keystroke stream."),
+                PrimaryButtonText = UiText.Pick("打开所在位置", "Open file location"),
+                CloseButtonText = UiText.Pick("完成", "Done"),
                 DefaultButton = ContentDialogButton.Primary,
             };
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
@@ -915,7 +951,9 @@ public sealed partial class MainPage : Page
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
         {
-            await ShowUpdateMessageAsync("无法导出诊断包", "KeyRadar 未写入不完整文件。请确认数据目录可写后重试。");
+            await ShowUpdateMessageAsync(
+                UiText.Pick("无法导出诊断包", "Unable to export diagnostics"),
+                UiText.Pick("KeyRadar 未写入不完整文件。请确认数据目录可写后重试。", "KeyRadar did not leave an incomplete file. Verify that the data directory is writable and try again."));
         }
         finally
         {
@@ -965,7 +1003,7 @@ public sealed partial class MainPage : Page
 
     private async Task DownloadAndInstallUpdateAsync(UpdateManifest manifest)
     {
-        CheckUpdateButtonText.Text = "正在下载…";
+        CheckUpdateButtonText.Text = UiText.Pick("正在下载…", "Downloading…");
         var updateRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "KeyRadar",
@@ -978,14 +1016,18 @@ public sealed partial class MainPage : Page
         var download = await _updateClient.DownloadAsync(manifest, archivePath);
         if (!download.IsValid)
         {
-            await ShowUpdateMessageAsync("下载验证失败", "更新包未通过完整性验证，当前版本未更改。");
+            await ShowUpdateMessageAsync(
+                UiText.Pick("下载验证失败", "Download validation failed"),
+                UiText.Pick("更新包未通过完整性验证，当前版本未更改。", "The update package failed integrity validation. The current version was not changed."));
             return;
         }
 
         var extraction = UpdateArchiveExtractor.Extract(archivePath, stagingPath);
         if (!extraction.IsValid)
         {
-            await ShowUpdateMessageAsync("更新包无法使用", "更新包结构不安全或不完整，当前版本未更改。");
+            await ShowUpdateMessageAsync(
+                UiText.Pick("更新包无法使用", "Update package cannot be used"),
+                UiText.Pick("更新包结构不安全或不完整，当前版本未更改。", "The update package structure is unsafe or incomplete. The current version was not changed."));
             return;
         }
 
@@ -1015,7 +1057,9 @@ public sealed partial class MainPage : Page
         }
         catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            await ShowUpdateMessageAsync("无法启动更新器", "当前版本未更改。请确认解压目录可写后重试。");
+            await ShowUpdateMessageAsync(
+                UiText.Pick("无法启动更新器", "Unable to start the updater"),
+                UiText.Pick("当前版本未更改。请确认解压目录可写后重试。", "The current version was not changed. Verify that the extracted directory is writable and try again."));
         }
     }
 
@@ -1026,7 +1070,7 @@ public sealed partial class MainPage : Page
             XamlRoot = XamlRoot,
             Title = title,
             Content = message,
-            CloseButtonText = "确定",
+            CloseButtonText = UiText.Pick("确定", "OK"),
         };
         await dialog.ShowAsync();
     }
@@ -1085,8 +1129,10 @@ public sealed partial class MainPage : Page
 
         ((Button)sender).IsEnabled = false;
         ConflictInfoBar.Severity = InfoBarSeverity.Informational;
-        ConflictInfoBar.Title = $"正在深度确认 {row.Gesture}";
-        ConflictInfoBar.Message = "正在立即复核占用、运行进程、规则、本机配置与硬件映射；不会模拟或触发该热键。";
+        ConflictInfoBar.Title = UiText.Pick($"正在深度确认 {row.Gesture}", $"Deep-confirming {row.Gesture}");
+        ConflictInfoBar.Message = UiText.Pick(
+            "正在立即复核占用、运行进程、规则、本机配置与硬件映射；不会模拟或触发该热键。",
+            "Immediately rechecking occupancy, running processes, rules, local configuration, and hardware mappings. The hotkey will not be simulated or triggered.");
         ConflictInfoBar.IsOpen = true;
 
         var candidates = _allGroups
@@ -1112,25 +1158,27 @@ public sealed partial class MainPage : Page
             case DeepConfirmationConclusion.ConfirmedOwner:
                 row.MarkConfirmed();
                 ConflictInfoBar.Severity = InfoBarSeverity.Success;
-                ConflictInfoBar.Title = "归属已确认";
-                ConflictInfoBar.Message = $"{row.Gesture} 已由当前本机配置或生效硬件映射精确确认。";
+                ConflictInfoBar.Title = UiText.Pick("归属已确认", "Owner confirmed");
+                ConflictInfoBar.Message = UiText.Pick($"{row.Gesture} 已由当前本机配置或生效硬件映射精确确认。", $"{row.Gesture} was confirmed by current local configuration or an active hardware mapping.");
                 break;
             case DeepConfirmationConclusion.PossibleOwner:
                 row.MarkPossible();
                 ConflictInfoBar.Severity = InfoBarSeverity.Warning;
-                ConflictInfoBar.Title = "可能归属";
-                ConflictInfoBar.Message = $"运行中的候选：{string.Join("、", result.Candidates.Select(candidate => candidate.DisplayName))}。仅有规则吻合，未读取到本机配置证据。";
+                ConflictInfoBar.Title = UiText.Pick("可能归属", "Possible owner");
+                ConflictInfoBar.Message = UiText.Pick(
+                    $"运行中的候选：{string.Join("、", result.Candidates.Select(candidate => candidate.DisplayName))}。仅有规则吻合，未读取到本机配置证据。",
+                    $"Running candidates: {string.Join(", ", result.Candidates.Select(candidate => candidate.DisplayName))}. Only rule matches are available; no local configuration evidence was read.");
                 break;
             case DeepConfirmationConclusion.OccupiedOwnerUnknown:
                 row.MarkOccupiedUnknown();
                 ConflictInfoBar.Severity = InfoBarSeverity.Warning;
-                ConflictInfoBar.Title = "已占用，归属未知";
-                ConflictInfoBar.Message = "标准全局探测复核为已占用，但 Windows 没有公开 API 可安全返回注册进程；KeyRadar 不会虚构归属。";
+                ConflictInfoBar.Title = UiText.Pick("已占用，归属未知", "Occupied, owner unknown");
+                ConflictInfoBar.Message = UiText.Pick("标准全局探测复核为已占用，但 Windows 没有公开 API 可安全返回注册进程；KeyRadar 不会虚构归属。", "The standard global probe reconfirmed occupancy, but Windows has no public API that safely returns the registering process. KeyRadar will not invent an owner.");
                 break;
             default:
                 ConflictInfoBar.Severity = InfoBarSeverity.Warning;
-                ConflictInfoBar.Title = "无法确认";
-                ConflictInfoBar.Message = "复核时未能确认占用，或可能涉及私有 Hook、Raw Input、驱动、权限或板载宏。";
+                ConflictInfoBar.Title = UiText.Pick("无法确认", "Unable to confirm");
+                ConflictInfoBar.Message = UiText.Pick("复核时未能确认占用，或可能涉及私有 Hook、Raw Input、驱动、权限或板载宏。", "The recheck could not confirm occupancy, or the hotkey may involve a private hook, Raw Input, a driver, permissions, or an onboard macro.");
                 break;
         }
 
@@ -1146,7 +1194,7 @@ public sealed partial class MainPage : Page
         var groupId = $"confirmed-owner-{ownerProcessId}";
         var confirmedRow = HotkeyRowViewModel.Create(
             candidate.Gesture,
-            $"已确认接收；与候选应用的“{candidate.Function}”冲突",
+            UiText.Pick($"已确认接收；与候选应用的“{candidate.Function}”冲突", $"Confirmed receiver; conflicts with candidate function ‘{candidate.Function}’"),
             HotkeyScope.Global,
             OwnershipConfidence.Confirmed,
             ownerProcessId);
@@ -1159,12 +1207,13 @@ public sealed partial class MainPage : Page
         var ownerGroup = new ApplicationGroupViewModel(
             groupId,
             ownerDisplayName,
-            ownerSnapshot?.Presence == ApplicationPresence.Foreground ? "● 前台" : "后台",
-            $"按需深度确认 · WM_HOTKEY · PID {ownerProcessId}",
+            ownerSnapshot?.Presence == ApplicationPresence.Foreground ? UiText.Pick("● 前台", "● Foreground") : UiText.Pick("后台", "Background"),
+            UiText.Pick("按需深度确认", "On-demand deep confirmation") + $" · WM_HOTKEY · PID {ownerProcessId}",
             "\uE8A7",
             true,
             [confirmedRow],
-            ownerProcessId);
+            ownerProcessId,
+            isForeground: ownerSnapshot?.Presence == ApplicationPresence.Foreground);
         _allGroups = _allGroups
             .Where(group => !group.Id.Equals(groupId, StringComparison.OrdinalIgnoreCase))
             .Append(ownerGroup)

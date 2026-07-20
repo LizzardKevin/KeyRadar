@@ -19,6 +19,7 @@ public sealed partial class ForegroundOverlayWindow : Window
     public ForegroundOverlayWindow()
     {
         InitializeComponent();
+        Title = UiText.Pick("KeyRadar 前台热键", "KeyRadar foreground hotkeys");
         HotkeyItems.ItemsSource = Hotkeys;
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(DragRegion);

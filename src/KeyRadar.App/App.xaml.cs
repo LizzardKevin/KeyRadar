@@ -1,3 +1,4 @@
+using System.Globalization;
 using KeyRadar.Rules;
 using KeyRadar.Windows.Foreground;
 using KeyRadar.Windows.Input;
@@ -22,6 +23,11 @@ public partial class App : Application
         if (language != "system")
         {
             global::Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = language;
+            var culture = CultureInfo.GetCultureInfo(language);
+            CultureInfo.CurrentCulture = culture;
+            CultureInfo.CurrentUICulture = culture;
+            CultureInfo.DefaultThreadCurrentCulture = culture;
+            CultureInfo.DefaultThreadCurrentUICulture = culture;
         }
         InitializeComponent();
     }
@@ -159,4 +165,5 @@ public partial class App : Application
             // The updater will time out and restore the previous version.
         }
     }
+
 }

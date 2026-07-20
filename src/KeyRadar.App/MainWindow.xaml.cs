@@ -17,6 +17,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Title = UiText.Pick("KeyRadar 键位雷达", "KeyRadar Hotkey Radar");
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);

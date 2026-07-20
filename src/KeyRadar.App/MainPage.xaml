@@ -30,7 +30,7 @@
             BorderBrush="{StaticResource RadarBorderBrush}"
             BorderThickness="0,0,1,0">
             <StackPanel Padding="12,20" Spacing="4">
-                <TextBlock Margin="12,0,0,14" Foreground="{StaticResource RadarMutedBrush}" Text="导航" />
+                <TextBlock x:Uid="NavigationLabel" Margin="12,0,0,14" Foreground="{StaticResource RadarMutedBrush}" Text="导航" />
                 <RadioButton x:Name="RadarOverviewNav" Click="RadarOverviewNav_Click" GroupName="MainNavigation" IsChecked="True">
                     <StackPanel Orientation="Horizontal" Spacing="12">
                         <FontIcon FontSize="16" Glyph="&#xE9D9;" />
@@ -63,13 +63,13 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel>
-                        <TextBlock x:Name="PageTitleText" FontSize="28" FontWeight="SemiBold" Text="雷达总览" />
-                        <TextBlock x:Name="SummaryText" Margin="0,5,0,0" Foreground="{StaticResource RadarMutedBrush}" Text="正在扫描当前前后台应用…" />
+                        <TextBlock x:Name="PageTitleText" x:Uid="RadarPageTitle" FontSize="28" FontWeight="SemiBold" Text="雷达总览" />
+                        <TextBlock x:Name="SummaryText" x:Uid="InitialSummary" Margin="0,5,0,0" Foreground="{StaticResource RadarMutedBrush}" Text="正在扫描当前前后台应用…" />
                     </StackPanel>
                     <Button Grid.Column="1" HorizontalAlignment="Right" Click="RefreshButton_Click">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon FontSize="14" Glyph="&#xE72C;" />
-                            <TextBlock Text="重新扫描" />
+                            <TextBlock x:Uid="RescanLabel" Text="重新扫描" />
                         </StackPanel>
                     </Button>
                     <Button
@@ -80,21 +80,21 @@
                         Click="CheckUpdateButton_Click">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon FontSize="14" Glyph="&#xE896;" />
-                            <TextBlock x:Name="CheckUpdateButtonText" Text="检查更新" />
+                            <TextBlock x:Name="CheckUpdateButtonText" x:Uid="CheckUpdateLabel" Text="检查更新" />
                         </StackPanel>
                     </Button>
                     <Button x:Name="RulesMenuButton" Grid.Column="3" Margin="8,0,0,0">
                         <Button.Flyout>
                             <MenuFlyout>
-                                <MenuFlyoutItem x:Name="UpdateRulesMenuItem" Click="UpdateRulesButton_Click" Icon="Download" Text="更新官方规则" />
-                                <MenuFlyoutItem x:Name="RollbackRulesMenuItem" Click="RollbackRulesButton_Click" Text="回滚官方规则" />
+                                <MenuFlyoutItem x:Name="UpdateRulesMenuItem" x:Uid="UpdateOfficialRulesMenu" Click="UpdateRulesButton_Click" Icon="Download" Text="更新官方规则" />
+                                <MenuFlyoutItem x:Name="RollbackRulesMenuItem" x:Uid="RollbackOfficialRulesMenu" Click="RollbackRulesButton_Click" Text="回滚官方规则" />
                                 <MenuFlyoutSeparator />
-                                <MenuFlyoutItem Click="ImportOfficialRulesButton_Click" Text="导入官方签名 .krpack…" />
+                                <MenuFlyoutItem x:Uid="ImportOfficialRulesMenu" Click="ImportOfficialRulesButton_Click" Text="导入官方签名 .krpack…" />
                             </MenuFlyout>
                         </Button.Flyout>
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon FontSize="14" Glyph="&#xE8F1;" />
-                            <TextBlock Text="规则库" />
+                            <TextBlock x:Uid="RulesLibraryLabel" Text="规则库" />
                         </StackPanel>
                     </Button>
                     <Button
@@ -102,6 +102,7 @@
                         Grid.Column="4"
                         Margin="8,0,0,0"
                         Click="ExportDiagnosticsButton_Click"
+                        x:Uid="ExportDiagnosticsButton"
                         Content="导出诊断" />
                 </Grid>
 
@@ -152,7 +153,7 @@
                             <FontIcon Width="56" FontSize="38" Foreground="{StaticResource RadarAccentBrush}" Glyph="&#xE9D9;" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="5">
                                 <TextBlock x:Uid="CurrentSession" FontSize="18" FontWeight="SemiBold" Text="当前桌面会话" />
-                                <TextBlock x:Name="DashboardStatusText" Foreground="{StaticResource RadarMutedBrush}" Text="正在建立当前可发现热键快照…" TextWrapping="Wrap" />
+                                <TextBlock x:Name="DashboardStatusText" x:Uid="InitialDashboardStatus" Foreground="{StaticResource RadarMutedBrush}" Text="正在建立当前可发现热键快照…" TextWrapping="Wrap" />
                             </StackPanel>
                             <Button x:Uid="RescanButton" Grid.Column="2" Click="RefreshButton_Click" Content="重新扫描" />
                         </Grid>
@@ -164,6 +165,7 @@
 
                 <AutoSuggestBox
                     x:Name="SearchBox"
+                    x:Uid="HotkeySearchBox"
                     Height="44"
                     PlaceholderText="按下组合键，或输入应用、功能名称"
                     QueryIcon="Find"
@@ -171,6 +173,7 @@
 
                 <InfoBar
                     x:Name="RuleStatusInfoBar"
+                    x:Uid="RuleUnavailableInfo"
                     IsClosable="False"
                     IsOpen="False"
                     Severity="Error"
@@ -178,6 +181,7 @@
 
                 <InfoBar
                     x:Name="ConflictInfoBar"
+                    x:Uid="ConflictInfo"
                     IsClosable="False"
                     IsOpen="False"
                     Message="同一组合键存在多个运行中的候选归属。"
@@ -197,8 +201,8 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <ProgressRing x:Name="ScanProgress" Width="18" Height="18" IsActive="True" />
-                        <TextBlock x:Name="ScanStatusText" Grid.Column="1" VerticalAlignment="Center" Text="正在安全读取窗口、进程与规则证据" />
-                        <TextBlock Grid.Column="2" VerticalAlignment="Center" Foreground="{StaticResource RadarMutedBrush}" Text="不模拟 · 不拦截" />
+                        <TextBlock x:Name="ScanStatusText" x:Uid="InitialScanStatus" Grid.Column="1" VerticalAlignment="Center" Text="正在安全读取窗口、进程与规则证据" />
+                        <TextBlock x:Uid="NonBlockingLabel" Grid.Column="2" VerticalAlignment="Center" Foreground="{StaticResource RadarMutedBrush}" Text="不模拟 · 不拦截" />
                     </Grid>
                 </Border>
 
@@ -232,6 +236,7 @@
                                         </StackPanel>
                                         <TextBlock Grid.Column="2" VerticalAlignment="Center" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind HotkeyCountLabel}" />
                                         <Button
+                                            x:Uid="JumpToApplicationButton"
                                             Grid.Column="3"
                                             Margin="12,0,0,0"
                                             VerticalAlignment="Center"
@@ -256,13 +261,14 @@
                                                     <TextBlock FontFamily="Cascadia Mono" Foreground="#FFC9FFFF" Text="{x:Bind Gesture}" />
                                                 </Border>
                                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                    <TextBlock Text="{x:Bind Function}" />
-                                                    <TextBlock FontSize="11" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind ScopeLabel}" />
-                                                    <TextBlock FontSize="11" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind EvidenceLabel}" />
+                                                    <TextBlock Text="{x:Bind Function}" TextWrapping="Wrap" />
+                                                    <TextBlock FontSize="11" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind ScopeLabel}" TextWrapping="Wrap" />
+                                                    <TextBlock FontSize="11" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind EvidenceLabel}" TextWrapping="Wrap" />
                                                 </StackPanel>
-                                                <TextBlock Grid.Column="2" VerticalAlignment="Center" Foreground="{StaticResource RadarSuccessBrush}" Text="{x:Bind ConfidenceLabel, Mode=OneWay}" />
+                                                <TextBlock Grid.Column="2" VerticalAlignment="Center" Foreground="{StaticResource RadarSuccessBrush}" Text="{x:Bind ConfidenceLabel, Mode=OneWay}" TextWrapping="WrapWholeWords" />
                                                 <StackPanel Grid.Column="3" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="6">
                                                     <Button
+                                                        x:Uid="DeepConfirmButton"
                                                         Click="DeepConfirmButton_Click"
                                                         Content="深度确认"
                                                         IsEnabled="{x:Bind CanDeepConfirm}"
@@ -279,8 +285,8 @@
 
                 <StackPanel x:Name="EmptyState" Padding="32" HorizontalAlignment="Center" Visibility="Collapsed">
                     <FontIcon HorizontalAlignment="Center" FontSize="36" Foreground="{StaticResource RadarMutedBrush}" Glyph="&#xE9D9;" />
-                    <TextBlock Margin="0,12,0,0" FontSize="18" HorizontalAlignment="Center" Text="当前筛选没有匹配项" />
-                    <TextBlock Margin="0,5,0,0" Foreground="{StaticResource RadarMutedBrush}" Text="清空搜索可查看全部已识别热键" />
+                    <TextBlock x:Uid="EmptyFilterTitle" Margin="0,12,0,0" FontSize="18" HorizontalAlignment="Center" Text="当前筛选没有匹配项" />
+                    <TextBlock x:Uid="EmptyFilterMessage" Margin="0,5,0,0" Foreground="{StaticResource RadarMutedBrush}" Text="清空搜索可查看全部已识别热键" />
                 </StackPanel>
                 </StackPanel>
 
@@ -298,31 +304,41 @@
                             </Grid.RowDefinitions>
                             <TextBlock x:Uid="LanguageLabel" VerticalAlignment="Center" Text="显示语言" />
                             <ComboBox x:Name="LanguageComboBox" Grid.Column="1" SelectionChanged="LanguageComboBox_SelectionChanged">
-                                <ComboBoxItem Content="跟随系统" Tag="system" />
-                                <ComboBoxItem Content="简体中文" Tag="zh-CN" />
+                                <ComboBoxItem x:Uid="LanguageSystem" Content="跟随系统" Tag="system" />
+                                <ComboBoxItem x:Uid="LanguageChinese" Content="简体中文" Tag="zh-CN" />
                                 <ComboBoxItem Content="English" Tag="en-US" />
                             </ComboBox>
                             <TextBlock x:Uid="ThemeLabel" Grid.Row="1" VerticalAlignment="Center" Text="应用主题" />
                             <ComboBox x:Name="ThemeComboBox" Grid.Row="1" Grid.Column="1" SelectionChanged="ThemeComboBox_SelectionChanged">
-                                <ComboBoxItem Content="跟随系统" Tag="system" />
-                                <ComboBoxItem Content="浅色" Tag="light" />
-                                <ComboBoxItem Content="深色" Tag="dark" />
+                                <ComboBoxItem x:Uid="ThemeSystem" Content="跟随系统" Tag="system" />
+                                <ComboBoxItem x:Uid="ThemeLight" Content="浅色" Tag="light" />
+                                <ComboBoxItem x:Uid="ThemeDark" Content="深色" Tag="dark" />
                             </ComboBox>
                         </Grid>
                     </Border>
                     <TextBlock x:Uid="MaintenanceTitle" FontSize="20" FontWeight="SemiBold" Text="维护与规则" />
                     <Border Padding="18" Background="{StaticResource RadarPanelBrush}" BorderBrush="{StaticResource RadarBorderBrush}" BorderThickness="1" CornerRadius="10">
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <Button Click="CheckUpdateButton_Click" Content="检查程序更新" />
-                            <Button Click="UpdateRulesButton_Click" Content="下载最新规则包" />
-                            <Button Click="OpenMyRulesButton_Click" Content="我的规则" />
-                            <Button Click="ImportMyRulesButton_Click" Content="导入用户规则" />
-                            <Button Click="ExportMyRulesButton_Click" Content="导出用户规则" />
-                            <Button Click="SubmitCandidateRuleButton_Click" Content="上传候选规则" />
-                            <Button Click="ExportDiagnosticsButton_Click" Content="导出诊断" />
-                        </StackPanel>
+                        <Grid ColumnSpacing="10" RowSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Button x:Uid="CheckProgramUpdateButton" HorizontalAlignment="Stretch" Click="CheckUpdateButton_Click" Content="检查程序更新" />
+                            <Button x:Uid="DownloadRulesButton" Grid.Column="1" HorizontalAlignment="Stretch" Click="UpdateRulesButton_Click" Content="下载最新规则包" />
+                            <Button x:Uid="MyRulesButton" Grid.Column="2" HorizontalAlignment="Stretch" Click="OpenMyRulesButton_Click" Content="我的规则" />
+                            <Button x:Uid="ImportUserRulesButton" Grid.Column="3" HorizontalAlignment="Stretch" Click="ImportMyRulesButton_Click" Content="导入用户规则" />
+                            <Button x:Uid="ExportUserRulesButton" Grid.Row="1" HorizontalAlignment="Stretch" Click="ExportMyRulesButton_Click" Content="导出用户规则" />
+                            <Button x:Uid="SubmitCandidateButton" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" Click="SubmitCandidateRuleButton_Click" Content="上传候选规则" />
+                            <Button x:Uid="SettingsExportDiagnosticsButton" Grid.Row="1" Grid.Column="2" HorizontalAlignment="Stretch" Click="ExportDiagnosticsButton_Click" Content="导出诊断" />
+                        </Grid>
                     </Border>
-                    <InfoBar IsClosable="False" IsOpen="True" Severity="Informational" Title="能力边界" Message="低级 Hook、Raw Input、驱动层拦截、私有或云端 Profile、板载宏及上下文热键可能无法完整发现；无法安全归属时始终显示未知。" />
+                    <InfoBar x:Uid="CapabilityBoundaryInfo" IsClosable="False" IsOpen="True" Severity="Informational" Title="能力边界" Message="低级 Hook、Raw Input、驱动层拦截、私有或云端 Profile、板载宏及上下文热键可能无法完整发现；无法安全归属时始终显示未知。" />
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using KeyRadar.Hotkeys;
 using KeyRadar.Windows.Applications;
 using KeyRadar.Windows.Foreground;
@@ -7,6 +8,11 @@ namespace KeyRadar.Windows.Tests.Applications;
 
 public sealed class WindowsInteropSmokeTests
 {
+    private sealed class AlwaysSafeProbeGate : IHotkeyProbeSafetyGate
+    {
+        public HotkeyProbeSafety Check() => HotkeyProbeSafety.Safe;
+    }
+
     [Fact]
     public void ProcessAndWindowSources_ResolveTheirNativeEntryPoints()
     {
@@ -30,4 +36,21 @@ public sealed class WindowsInteropSmokeTests
 
         Assert.Null(exception);
     }
+
+    [Fact]
+    public async Task StandardHotkeyProbe_CompletesAndReleasesEveryTemporaryRegistration()
+    {
+        var candidates = StandardGlobalHotkeyCandidateSource.Create();
+        using var api = new Win32HotkeyRegistrationApi();
+        var scanner = new GlobalHotkeyOccupancyScanner(
+            new GlobalHotkeyAvailabilityProbe(api),
+            new AlwaysSafeProbeGate());
+
+        var started = Stopwatch.StartNew();
+        var results = await scanner.ScanAsync(candidates, progress: null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(candidates.Count, results.Count);
+        Assert.True(started.Elapsed < TimeSpan.FromSeconds(5), $"Probe took {started.Elapsed}.");
+    }
+
 }

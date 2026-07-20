@@ -18,4 +18,44 @@
   <data name="LanguageLabel.Text" xml:space="preserve"><value>Display language</value></data>
   <data name="ThemeLabel.Text" xml:space="preserve"><value>App theme</value></data>
   <data name="MaintenanceTitle.Text" xml:space="preserve"><value>Maintenance and rules</value></data>
+  <data name="NavigationLabel.Text" xml:space="preserve"><value>Navigation</value></data>
+  <data name="RadarPageTitle.Text" xml:space="preserve"><value>Radar overview</value></data>
+  <data name="InitialSummary.Text" xml:space="preserve"><value>Scanning current foreground and background apps…</value></data>
+  <data name="RescanLabel.Text" xml:space="preserve"><value>Scan again</value></data>
+  <data name="CheckUpdateLabel.Text" xml:space="preserve"><value>Check updates</value></data>
+  <data name="UpdateOfficialRulesMenu.Text" xml:space="preserve"><value>Update official rules</value></data>
+  <data name="RollbackOfficialRulesMenu.Text" xml:space="preserve"><value>Roll back official rules</value></data>
+  <data name="ImportOfficialRulesMenu.Text" xml:space="preserve"><value>Import signed official .krpack…</value></data>
+  <data name="RulesLibraryLabel.Text" xml:space="preserve"><value>Rule library</value></data>
+  <data name="ExportDiagnosticsButton.Content" xml:space="preserve"><value>Export diagnostics</value></data>
+  <data name="InitialDashboardStatus.Text" xml:space="preserve"><value>Building the current discoverable hotkey snapshot…</value></data>
+  <data name="HotkeySearchBox.PlaceholderText" xml:space="preserve"><value>Press a combination or search by app or function</value></data>
+  <data name="RuleUnavailableInfo.Title" xml:space="preserve"><value>Rules unavailable</value></data>
+  <data name="ConflictInfo.Title" xml:space="preserve"><value>Hotkey conflict found</value></data>
+  <data name="ConflictInfo.Message" xml:space="preserve"><value>The same combination has multiple candidate owners among running apps.</value></data>
+  <data name="InitialScanStatus.Text" xml:space="preserve"><value>Safely reading window, process, and rule evidence</value></data>
+  <data name="NonBlockingLabel.Text" xml:space="preserve"><value>No simulation · no blocking</value></data>
+  <data name="JumpToApplicationButton.Content" xml:space="preserve"><value>Go to app  ↗</value></data>
+  <data name="DeepConfirmButton.Content" xml:space="preserve"><value>Deep confirm</value></data>
+  <data name="EmptyFilterTitle.Text" xml:space="preserve"><value>No matches in the current filter</value></data>
+  <data name="EmptyFilterMessage.Text" xml:space="preserve"><value>Clear search to view all discovered hotkeys</value></data>
+  <data name="LanguageSystem.Content" xml:space="preserve"><value>Follow system</value></data>
+  <data name="LanguageChinese.Content" xml:space="preserve"><value>简体中文</value></data>
+  <data name="ThemeSystem.Content" xml:space="preserve"><value>Follow system</value></data>
+  <data name="ThemeLight.Content" xml:space="preserve"><value>Light</value></data>
+  <data name="ThemeDark.Content" xml:space="preserve"><value>Dark</value></data>
+  <data name="CheckProgramUpdateButton.Content" xml:space="preserve"><value>Check program update</value></data>
+  <data name="DownloadRulesButton.Content" xml:space="preserve"><value>Download latest rules</value></data>
+  <data name="MyRulesButton.Content" xml:space="preserve"><value>My rules</value></data>
+  <data name="ImportUserRulesButton.Content" xml:space="preserve"><value>Import user rules</value></data>
+  <data name="ExportUserRulesButton.Content" xml:space="preserve"><value>Export user rules</value></data>
+  <data name="SubmitCandidateButton.Content" xml:space="preserve"><value>Submit candidate rule</value></data>
+  <data name="SettingsExportDiagnosticsButton.Content" xml:space="preserve"><value>Export diagnostics</value></data>
+  <data name="CapabilityBoundaryInfo.Title" xml:space="preserve"><value>Detection limits</value></data>
+  <data name="CapabilityBoundaryInfo.Message" xml:space="preserve"><value>Low-level hooks, Raw Input, driver interception, private or cloud profiles, onboard macros, and contextual hotkeys may not be fully discoverable. Items without safe ownership evidence remain unknown.</value></data>
+  <data name="MainTitleBar.Title" xml:space="preserve"><value>KeyRadar · Hotkey Radar</value></data>
+  <data name="MainTitleBar.Subtitle" xml:space="preserve"><value>Scan globally, reveal every occupancy</value></data>
+  <data name="CurrentApplicationLabel.Text" xml:space="preserve"><value>Current app</value></data>
+  <data name="ForegroundHotkeyOverlaySubtitle.Text" xml:space="preserve"><value>Foreground app hotkeys · no focus stealing</value></data>
+  <data name="LiveLabel.Text" xml:space="preserve"><value>Live</value></data>
 </root>

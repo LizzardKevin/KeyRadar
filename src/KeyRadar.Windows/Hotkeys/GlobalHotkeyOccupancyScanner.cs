@@ -16,11 +16,16 @@ public interface IHotkeyProbeSafetyGate
 
 public sealed record HotkeyScanProgress(int Completed, int Total, HotkeyGesture Current);
 
+public sealed class HotkeyScanSafetyException(string message) : Exception(message);
+
 public sealed class GlobalHotkeyOccupancyScanner(
     GlobalHotkeyAvailabilityProbe probe,
     IHotkeyProbeSafetyGate safetyGate,
-    int batchSize = 16)
+    int batchSize = 16,
+    TimeSpan? maximumInputPause = null)
 {
+    private readonly TimeSpan _maximumInputPause = maximumInputPause ?? TimeSpan.FromSeconds(2);
+
     public async Task<IReadOnlyList<HotkeyProbeResult>> ScanAsync(
         IReadOnlyList<HotkeyGesture> candidates,
         IProgress<HotkeyScanProgress>? progress,
@@ -39,16 +44,22 @@ public sealed class GlobalHotkeyOccupancyScanner(
             var safety = safetyGate.Check();
             if (safety == HotkeyProbeSafety.Cancel)
             {
-                break;
+                throw new HotkeyScanSafetyException("The input desktop is no longer safe for hotkey probing.");
             }
 
+            var pauseStarted = DateTimeOffset.UtcNow;
             while (safety == HotkeyProbeSafety.Pause)
             {
+                if (DateTimeOffset.UtcNow - pauseStarted >= _maximumInputPause)
+                {
+                    throw new HotkeyScanSafetyException("Physical keyboard input remained active during hotkey probing.");
+                }
+
                 await Task.Delay(50, cancellationToken).ConfigureAwait(false);
                 safety = safetyGate.Check();
                 if (safety == HotkeyProbeSafety.Cancel)
                 {
-                    return results;
+                    throw new HotkeyScanSafetyException("The input desktop is no longer safe for hotkey probing.");
                 }
             }
 

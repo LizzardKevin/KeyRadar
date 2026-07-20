@@ -18,7 +18,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TitleBar x:Name="AppTitleBar" Subtitle="扫描全局，发现每一次占用" Title="KeyRadar · 键位雷达">
+        <TitleBar x:Name="AppTitleBar" x:Uid="MainTitleBar" Subtitle="扫描全局，发现每一次占用" Title="KeyRadar · 键位雷达">
             <TitleBar.IconSource>
                 <ImageIconSource ImageSource="Assets/AppIcon.ico" />
             </TitleBar.IconSource>

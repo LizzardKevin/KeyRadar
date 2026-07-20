@@ -25,11 +25,11 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                    <TextBlock x:Name="ApplicationNameText" FontSize="15" FontWeight="SemiBold" Text="当前应用" />
-                    <TextBlock FontSize="11" Foreground="#FF8EA6B2" Text="前台应用热键 · 不抢焦点" />
+                    <TextBlock x:Name="ApplicationNameText" x:Uid="CurrentApplicationLabel" FontSize="15" FontWeight="SemiBold" Text="当前应用" />
+                    <TextBlock x:Uid="ForegroundHotkeyOverlaySubtitle" FontSize="11" Foreground="#FF8EA6B2" Text="前台应用热键 · 不抢焦点" />
                 </StackPanel>
                 <Border Grid.Column="1" Padding="8,3" VerticalAlignment="Center" BorderBrush="#5562D9D6" BorderThickness="1" CornerRadius="10">
-                    <TextBlock FontSize="10" Foreground="#FF8CEBE6" Text="实时" />
+                    <TextBlock x:Uid="LiveLabel" FontSize="10" Foreground="#FF8CEBE6" Text="实时" />
                 </Border>
             </Grid>
 

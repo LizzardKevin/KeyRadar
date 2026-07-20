@@ -18,4 +18,44 @@
   <data name="LanguageLabel.Text" xml:space="preserve"><value>显示语言</value></data>
   <data name="ThemeLabel.Text" xml:space="preserve"><value>应用主题</value></data>
   <data name="MaintenanceTitle.Text" xml:space="preserve"><value>维护与规则</value></data>
+  <data name="NavigationLabel.Text" xml:space="preserve"><value>导航</value></data>
+  <data name="RadarPageTitle.Text" xml:space="preserve"><value>雷达总览</value></data>
+  <data name="InitialSummary.Text" xml:space="preserve"><value>正在扫描当前前后台应用…</value></data>
+  <data name="RescanLabel.Text" xml:space="preserve"><value>重新扫描</value></data>
+  <data name="CheckUpdateLabel.Text" xml:space="preserve"><value>检查更新</value></data>
+  <data name="UpdateOfficialRulesMenu.Text" xml:space="preserve"><value>更新官方规则</value></data>
+  <data name="RollbackOfficialRulesMenu.Text" xml:space="preserve"><value>回滚官方规则</value></data>
+  <data name="ImportOfficialRulesMenu.Text" xml:space="preserve"><value>导入官方签名 .krpack…</value></data>
+  <data name="RulesLibraryLabel.Text" xml:space="preserve"><value>规则库</value></data>
+  <data name="ExportDiagnosticsButton.Content" xml:space="preserve"><value>导出诊断</value></data>
+  <data name="InitialDashboardStatus.Text" xml:space="preserve"><value>正在建立当前可发现热键快照…</value></data>
+  <data name="HotkeySearchBox.PlaceholderText" xml:space="preserve"><value>按下组合键，或输入应用、功能名称</value></data>
+  <data name="RuleUnavailableInfo.Title" xml:space="preserve"><value>规则不可用</value></data>
+  <data name="ConflictInfo.Title" xml:space="preserve"><value>发现热键冲突</value></data>
+  <data name="ConflictInfo.Message" xml:space="preserve"><value>同一组合键存在多个运行中的候选归属。</value></data>
+  <data name="InitialScanStatus.Text" xml:space="preserve"><value>正在安全读取窗口、进程与规则证据</value></data>
+  <data name="NonBlockingLabel.Text" xml:space="preserve"><value>不模拟 · 不拦截</value></data>
+  <data name="JumpToApplicationButton.Content" xml:space="preserve"><value>转到应用  ↗</value></data>
+  <data name="DeepConfirmButton.Content" xml:space="preserve"><value>深度确认</value></data>
+  <data name="EmptyFilterTitle.Text" xml:space="preserve"><value>当前筛选没有匹配项</value></data>
+  <data name="EmptyFilterMessage.Text" xml:space="preserve"><value>清空搜索可查看全部已识别热键</value></data>
+  <data name="LanguageSystem.Content" xml:space="preserve"><value>跟随系统</value></data>
+  <data name="LanguageChinese.Content" xml:space="preserve"><value>简体中文</value></data>
+  <data name="ThemeSystem.Content" xml:space="preserve"><value>跟随系统</value></data>
+  <data name="ThemeLight.Content" xml:space="preserve"><value>浅色</value></data>
+  <data name="ThemeDark.Content" xml:space="preserve"><value>深色</value></data>
+  <data name="CheckProgramUpdateButton.Content" xml:space="preserve"><value>检查程序更新</value></data>
+  <data name="DownloadRulesButton.Content" xml:space="preserve"><value>下载最新规则包</value></data>
+  <data name="MyRulesButton.Content" xml:space="preserve"><value>我的规则</value></data>
+  <data name="ImportUserRulesButton.Content" xml:space="preserve"><value>导入用户规则</value></data>
+  <data name="ExportUserRulesButton.Content" xml:space="preserve"><value>导出用户规则</value></data>
+  <data name="SubmitCandidateButton.Content" xml:space="preserve"><value>上传候选规则</value></data>
+  <data name="SettingsExportDiagnosticsButton.Content" xml:space="preserve"><value>导出诊断</value></data>
+  <data name="CapabilityBoundaryInfo.Title" xml:space="preserve"><value>能力边界</value></data>
+  <data name="CapabilityBoundaryInfo.Message" xml:space="preserve"><value>低级 Hook、Raw Input、驱动层拦截、私有或云端 Profile、板载宏及上下文热键可能无法完整发现；无法安全归属时始终显示未知。</value></data>
+  <data name="MainTitleBar.Title" xml:space="preserve"><value>KeyRadar · 键位雷达</value></data>
+  <data name="MainTitleBar.Subtitle" xml:space="preserve"><value>扫描全局，发现每一次占用</value></data>
+  <data name="CurrentApplicationLabel.Text" xml:space="preserve"><value>当前应用</value></data>
+  <data name="ForegroundHotkeyOverlaySubtitle.Text" xml:space="preserve"><value>前台应用热键 · 不抢焦点</value></data>
+  <data name="LiveLabel.Text" xml:space="preserve"><value>实时</value></data>
 </root>

@@ -45,13 +45,50 @@ public sealed class GlobalHotkeyOccupancyScannerTests
             new GlobalHotkeyAvailabilityProbe(api),
             new CancelGate());
 
-        var results = await scanner.ScanAsync(
+        await Assert.ThrowsAsync<HotkeyScanSafetyException>(() => scanner.ScanAsync(
             [HotkeyGesture.Parse("Alt+A")],
             progress: null,
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken));
 
-        Assert.Empty(results);
         Assert.Equal(0, api.RegisterCalls);
+    }
+
+    [Fact]
+    public async Task Scanner_cancels_instead_of_waiting_forever_for_a_held_key()
+    {
+        var api = new SequenceRegistrationApi(HotkeyRegistrationAttempt.Registered);
+        var scanner = new GlobalHotkeyOccupancyScanner(
+            new GlobalHotkeyAvailabilityProbe(api),
+            new AlwaysPauseGate(),
+            maximumInputPause: TimeSpan.FromMilliseconds(10));
+
+        await Assert.ThrowsAsync<HotkeyScanSafetyException>(() => scanner.ScanAsync(
+            [HotkeyGesture.Parse("Alt+A")],
+            progress: null,
+            TestContext.Current.CancellationToken));
+        Assert.Equal(0, api.RegisterCalls);
+    }
+
+    [Fact]
+    public void Safety_gate_pauses_for_keyboard_input_but_ignores_mouse_buttons()
+    {
+        var mouseOnly = new WindowsHotkeyProbeSafetyGate(
+            virtualKey => virtualKey == 0x01 ? unchecked((short)0x8000) : (short)0,
+            isDefaultDesktop: () => true);
+        var keyboard = new WindowsHotkeyProbeSafetyGate(
+            virtualKey => virtualKey == 0x41 ? unchecked((short)0x8000) : (short)0,
+            isDefaultDesktop: () => true);
+
+        Assert.Equal(HotkeyProbeSafety.Safe, mouseOnly.Check());
+        Assert.Equal(HotkeyProbeSafety.Pause, keyboard.Check());
+    }
+
+    [Fact]
+    public void Safety_gate_cancels_outside_the_default_desktop()
+    {
+        var gate = new WindowsHotkeyProbeSafetyGate(_ => 0, isDefaultDesktop: () => false);
+
+        Assert.Equal(HotkeyProbeSafety.Cancel, gate.Check());
     }
 
     private sealed class SequenceRegistrationApi(params HotkeyRegistrationAttempt[] attempts)
@@ -79,6 +116,11 @@ public sealed class GlobalHotkeyOccupancyScannerTests
     private sealed class CancelGate : IHotkeyProbeSafetyGate
     {
         public HotkeyProbeSafety Check() => HotkeyProbeSafety.Cancel;
+    }
+
+    private sealed class AlwaysPauseGate : IHotkeyProbeSafetyGate
+    {
+        public HotkeyProbeSafety Check() => HotkeyProbeSafety.Pause;
     }
 
     private sealed class InlineProgress<T>(Action<T> report) : IProgress<T>
