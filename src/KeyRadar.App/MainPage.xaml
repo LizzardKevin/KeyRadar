@@ -83,6 +83,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel>
                         <TextBlock FontSize="28" FontWeight="SemiBold" Text="快捷键雷达" />
@@ -121,6 +122,12 @@
                         Margin="8,0,0,0"
                         Click="RollbackRulesButton_Click"
                         Content="回滚规则" />
+                    <Button
+                        x:Name="ExportDiagnosticsButton"
+                        Grid.Column="5"
+                        Margin="8,0,0,0"
+                        Click="ExportDiagnosticsButton_Click"
+                        Content="导出诊断" />
                 </Grid>
 
                 <AutoSuggestBox

@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
+using KeyRadar.Diagnostics;
 using KeyRadar.Conflicts;
 using KeyRadar.Rules;
 using KeyRadar.Rules.Packs;
@@ -349,6 +351,72 @@ public sealed partial class MainPage : Page
         {
             RollbackRulesButton.IsEnabled = true;
         }
+    }
+
+    private async void ExportDiagnosticsButton_Click(object sender, RoutedEventArgs e)
+    {
+        ExportDiagnosticsButton.IsEnabled = false;
+        try
+        {
+            var report = BuildDiagnosticReport();
+            var diagnosticsDirectory = Path.Combine(RuntimeRuleCatalog.DataDirectory, "diagnostics");
+            var fileName = $"KeyRadar-Diagnostics-{DateTime.Now:yyyyMMdd-HHmmss-fff}.zip";
+            var outputPath = Path.Combine(diagnosticsDirectory, fileName);
+            await Task.Run(() => DiagnosticBundleWriter.Write(outputPath, report));
+
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = "诊断包已导出",
+                Content = $"已生成 {fileName}。包内不含用户名、完整路径、窗口标题或普通按键流。",
+                PrimaryButtonText = "打开所在位置",
+                CloseButtonText = "完成",
+                DefaultButton = ContentDialogButton.Primary,
+            };
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            {
+                var startInfo = new ProcessStartInfo("explorer.exe") { UseShellExecute = true };
+                startInfo.ArgumentList.Add($"/select,{outputPath}");
+                Process.Start(startInfo);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            await ShowUpdateMessageAsync("无法导出诊断包", "KeyRadar 未写入不完整文件。请确认数据目录可写后重试。");
+        }
+        finally
+        {
+            ExportDiagnosticsButton.IsEnabled = true;
+        }
+    }
+
+    private DiagnosticReport BuildDiagnosticReport()
+    {
+        var applications = _allGroups.Select(group =>
+        {
+            var snapshot = _latestSnapshots.FirstOrDefault(item => item.Process.Id == group.ProcessId);
+            return new DiagnosticApplication(
+                group.Id,
+                group.DisplayName,
+                snapshot?.Process.ExecutableName ?? (group.Id == "windows-system" ? "Windows" : "unknown"),
+                snapshot?.Process.Version,
+                snapshot?.Process.Publisher,
+                snapshot?.Process.Architecture.ToString() ?? "unknown",
+                snapshot?.Process.PrivilegeLevel.ToString() ?? "unknown",
+                snapshot?.Presence.ToString() ?? "system",
+                group.Shortcuts.Select(shortcut => new DiagnosticShortcut(
+                    shortcut.Gesture,
+                    shortcut.Function,
+                    shortcut.ScopeLabel,
+                    shortcut.ConfidenceLabel,
+                    shortcut.EvidenceLabel)).ToArray());
+        }).ToArray();
+        var version = typeof(MainPage).Assembly.GetName().Version?.ToString(3) ?? "unknown";
+        return new DiagnosticReport(
+            version,
+            RuntimeInformation.OSDescription,
+            DateTimeOffset.UtcNow,
+            applications);
     }
 
     private static void TryDeleteFile(string path)
