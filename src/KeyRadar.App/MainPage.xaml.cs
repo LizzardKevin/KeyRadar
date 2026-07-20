@@ -51,7 +51,7 @@ public sealed partial class MainPage : Page
 
         var snapshots = await Task.Run(() => _scanner.Scan(Environment.ProcessId));
         _latestSnapshots = snapshots;
-        var catalog = BuiltInRuleCatalog.Load();
+        var catalog = RuntimeRuleCatalog.Current;
         var availabilityProbe = new GlobalHotkeyAvailabilityProbe(new Win32HotkeyRegistrationApi());
         var groups = new List<ApplicationGroupViewModel> { CreateWindowsGroup() };
         var occupiedGlobalShortcutCount = 0;
@@ -408,7 +408,7 @@ public sealed partial class MainPage : Page
     {
         var ownerSnapshot = _latestSnapshots.FirstOrDefault(snapshot => snapshot.Process.Id == ownerProcessId);
         var ownerExecutable = ownerSnapshot?.Process.ExecutableName ?? $"PID {ownerProcessId}";
-        var ownerRules = ApplicationRuleMatcher.FindByExecutableName(BuiltInRuleCatalog.Load(), ownerExecutable);
+        var ownerRules = ApplicationRuleMatcher.FindByExecutableName(RuntimeRuleCatalog.Current, ownerExecutable);
         var ownerDisplayName = ownerRules?.DisplayName ?? ownerExecutable;
         var groupId = $"confirmed-owner-{ownerProcessId}";
         var confirmedRow = ShortcutRowViewModel.Create(

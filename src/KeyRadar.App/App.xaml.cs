@@ -32,6 +32,7 @@ public partial class App : Application
             return;
         }
 
+        RuntimeRuleCatalog.Reload();
         _overlayWindow = new ForegroundOverlayWindow();
         _mainWindow = new MainWindow();
         _mainWindow.Closed += MainWindow_Closed;
@@ -70,7 +71,7 @@ public partial class App : Application
         }
 
         var rules = ApplicationRuleMatcher.FindByExecutableName(
-            BuiltInRuleCatalog.Load(),
+            RuntimeRuleCatalog.Current,
             foreground.ExecutableName);
         var shouldShow = ForegroundOverlayPolicy.ShouldShow(
             Environment.ProcessId,
