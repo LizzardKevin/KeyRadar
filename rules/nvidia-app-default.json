@@ -2,37 +2,21 @@
   "schemaVersion": 2,
   "applicationId": "nvidia-app",
   "variantId": "overlay",
-  "displayName": {
-    "zh-CN": "NVIDIA App",
-    "en-US": "NVIDIA App"
-  },
-  "match": {
-    "executables": ["NVIDIA Overlay.exe"],
-    "publishers": ["NVIDIA Corporation"],
-    "versionRange": null,
-    "packageFamilyNames": [],
-    "distribution": null
-  },
+  "displayName": { "zh-CN": "NVIDIA App", "en-US": "NVIDIA App" },
+  "match": { "executables": ["NVIDIA Overlay.exe"], "publishers": ["NVIDIA Corporation"], "versionRange": null, "packageFamilyNames": [], "distribution": null },
   "hotkeys": [
+    { "commandId": "open-overlay", "gesture": "Alt+Z", "function": { "zh-CN": "打开 NVIDIA 覆盖层（默认热键，可修改）", "en-US": "Open NVIDIA Overlay (default hotkey, configurable)" }, "scope": "global", "confidence": "officialDefault", "sources": ["https://www.nvidia.com/en-us/geforce/news/nvidia-app-download-and-features/"] },
+    { "commandId": "screenshot", "gesture": "Alt+F1", "function": { "zh-CN": "保存截图", "en-US": "Save a screenshot" }, "scope": "global", "confidence": "officialDefault", "sources": ["https://www.nvidia.com/en-us/geforce/news/nvidia-app-download-and-features/"] },
+    { "commandId": "performance-overlay-toggle", "gesture": "Alt+R", "function": { "zh-CN": "性能统计叠加层", "en-US": "Performance overlay" }, "scope": "global", "confidence": "officialDefault", "sources": ["https://www.nvidia.com/en-us/geforce/news/nvidia-app-download-and-features/"] }
+  ],
+  "configurationSources": [
     {
-      "gesture": "Alt+Z",
-      "function": {
-        "zh-CN": "打开 NVIDIA 覆盖层（默认热键，可修改）",
-        "en-US": "Open NVIDIA Overlay (default hotkey, configurable)"
-      },
-      "scope": "global",
-      "confidence": "officialDefault",
-      "sources": ["https://www.nvidia.com/en-us/geforce/news/nvidia-app-download-and-features/"]
-    },
-    {
-      "gesture": "Alt+F1",
-      "function": {
-        "zh-CN": "保存截图（默认热键，可修改）",
-        "en-US": "Save a screenshot (default hotkey, configurable)"
-      },
-      "scope": "global",
-      "confidence": "officialDefault",
-      "sources": ["https://www.nvidia.com/en-us/geforce/news/nvidia-app-download-and-features/"]
+      "sourceId": "nvidia-share-shortcuts", "root": "localAppData", "relativePath": "NVIDIA Corporation/NVIDIA Overlay/ShareSettings.json", "format": "json", "maxBytes": 1048576,
+      "entries": [
+        { "commandId": "open-overlay", "gestureSelector": "settings.shortcuts.OpenIGO", "decoder": "virtualKeyArray", "function": { "zh-CN": "打开 NVIDIA 覆盖层", "en-US": "Open NVIDIA Overlay" }, "scope": "global" },
+        { "commandId": "screenshot", "gestureSelector": "settings.shortcuts.Screenshot", "decoder": "virtualKeyArray", "function": { "zh-CN": "保存截图", "en-US": "Save a screenshot" }, "scope": "global" },
+        { "commandId": "performance-overlay-toggle", "gestureSelector": "settings.shortcuts.PMOCOverlay", "decoder": "virtualKeyArray", "function": { "zh-CN": "性能统计叠加层", "en-US": "Performance overlay" }, "scope": "global" }
+      ]
     }
   ]
 }

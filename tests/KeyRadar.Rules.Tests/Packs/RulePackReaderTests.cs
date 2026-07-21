@@ -79,6 +79,55 @@ public sealed class RulePackReaderTests
         Assert.Equal(2, result.Pack!.Variants.Count);
     }
 
+    [Fact]
+    public void Signed_pack_loads_bounded_declarative_configuration_sources()
+    {
+        var package = CreatePack(("nvidia-overlay", ConfigurationRule()));
+
+        var result = RulePackReader.Read(package.Stream, package.PublicKey);
+
+        Assert.True(result.IsSuccess, result.Message);
+        var source = Assert.Single(result.Pack!.Variants[0].ConfigurationSources);
+        Assert.True(result.Pack.Variants[0].IsConfigurationReadAuthorized);
+        Assert.Equal(ConfigurationSourceRoot.LocalAppData, source.Root);
+        Assert.Equal(ConfigurationGestureDecoder.VirtualKeyArray, source.Entries[0].Decoder);
+    }
+
+    [Fact]
+    public void Unsigned_local_pack_cannot_authorize_configuration_sources()
+    {
+        using var stream = new MemoryStream();
+        LocalRulePackWriter.Write(stream, [new ApplicationVariantRule(
+            "nvidia-app", "overlay", new LocalizedText(new Dictionary<string, string> { ["en-US"] = "NVIDIA" }),
+            new ApplicationMatchRule(["NVIDIA Overlay.exe"], [], null, [], null), [])
+        {
+            ConfigurationSources = [new ConfigurationSourceRule("nvidia", ConfigurationSourceRoot.LocalAppData,
+                "NVIDIA Corporation/NVIDIA Overlay/ShareSettings.json", ConfigurationSourceFormat.Json, 4096,
+                [new ConfigurationEntryRule("performance-overlay-toggle", "settings.shortcuts.PMOCOverlay",
+                    ConfigurationGestureDecoder.VirtualKeyArray, new LocalizedText(new Dictionary<string, string> { ["en-US"] = "Overlay" }), HotkeyScope.Global)])],
+        }]);
+        stream.Position = 0;
+
+        var result = RulePackReader.ReadLocal(stream);
+
+        Assert.True(result.IsSuccess, result.Message);
+        Assert.Empty(result.Pack!.Variants[0].ConfigurationSources);
+        Assert.False(result.Pack.Variants[0].IsConfigurationReadAuthorized);
+    }
+
+    private static byte[] ConfigurationRule() => JsonSerializer.SerializeToUtf8Bytes(new
+    {
+        schemaVersion = 2, applicationId = "nvidia-app", variantId = "overlay",
+        displayName = new Dictionary<string, string> { ["en-US"] = "NVIDIA App" },
+        match = new { executables = new[] { "NVIDIA Overlay.exe" }, publishers = Array.Empty<string>(), versionRange = (string?)null, packageFamilyNames = Array.Empty<string>(), distribution = (string?)null },
+        hotkeys = Array.Empty<object>(),
+        configurationSources = new[] { new {
+            sourceId = "nvidia-shortcuts", root = "localAppData", relativePath = "NVIDIA Corporation/NVIDIA Overlay/ShareSettings.json",
+            format = "json", maxBytes = 4096,
+            entries = new[] { new { commandId = "performance-overlay-toggle", gestureSelector = "settings.shortcuts.PMOCOverlay", decoder = "virtualKeyArray", function = new Dictionary<string, string> { ["en-US"] = "Performance overlay" }, scope = "global" } },
+        } },
+    });
+
     private static byte[] ValidRule(
         string applicationId,
         string variantId,

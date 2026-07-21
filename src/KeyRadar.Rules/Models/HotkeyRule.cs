@@ -10,4 +10,5 @@ public sealed record HotkeyRule(
     OwnershipConfidence Confidence = OwnershipConfidence.SystemKnown)
 {
     public IReadOnlyList<string> Sources { get; init; } = [];
+    public string? CommandId { get; init; }
 }

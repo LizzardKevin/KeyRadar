@@ -1,40 +1,18 @@
 {
-    "schemaVersion":  2,
-    "applicationId":  "greenshot",
-    "variantId":  "default",
-    "displayName":  {
-                        "zh-CN":  "Greenshot",
-                        "en-US":  "Greenshot"
-                    },
-    "match":  {
-                  "executables":  [
-                                      "Greenshot.exe"
-                                  ],
-                  "publishers":  [
-
-                                 ],
-                  "versionRange":  null,
-                  "packageFamilyNames":  [
-
-                                         ],
-                  "distribution":  null
-              },
-    "hotkeys":  [
-                    {
-                        "gesture":  "PrintScreen",
-                        "function":  {
-                                         "zh-CN":  "捕获区域（默认键，可修改）"
-                                     },
-                        "scope":  "global",
-                        "confidence":  "suspected"
-                    },
-                    {
-                        "gesture":  "Alt+PrintScreen",
-                        "function":  {
-                                         "zh-CN":  "捕获活动窗口（默认键，可修改）"
-                                     },
-                        "scope":  "global",
-                        "confidence":  "suspected"
-                    }
-                ]
+  "schemaVersion": 2, "applicationId": "greenshot", "variantId": "default", "displayName": { "zh-CN": "Greenshot", "en-US": "Greenshot" },
+  "match": { "executables": ["Greenshot.exe"], "publishers": [], "versionRange": null, "packageFamilyNames": [], "distribution": null },
+  "hotkeys": [
+    { "commandId": "capture-region", "gesture": "PrintScreen", "function": { "zh-CN": "捕获区域" }, "scope": "global", "confidence": "suspected" },
+    { "commandId": "capture-window", "gesture": "Alt+PrintScreen", "function": { "zh-CN": "捕获活动窗口" }, "scope": "global", "confidence": "suspected" }
+  ],
+  "configurationSources": [{
+    "sourceId": "greenshot-hotkeys", "root": "roamingAppData", "relativePath": "Greenshot/greenshot.ini", "format": "ini", "maxBytes": 2097152,
+    "entries": [
+      { "commandId": "capture-region", "gestureSelector": "RegionHotkey", "decoder": "gestureString", "function": { "zh-CN": "区域截图" }, "scope": "global" },
+      { "commandId": "capture-window", "gestureSelector": "WindowHotkey", "decoder": "gestureString", "function": { "zh-CN": "窗口截图" }, "scope": "global" },
+      { "commandId": "capture-screen", "gestureSelector": "FullscreenHotkey", "decoder": "gestureString", "function": { "zh-CN": "全屏截图" }, "scope": "global" },
+      { "commandId": "capture-last-region", "gestureSelector": "LastregionHotkey", "decoder": "gestureString", "function": { "zh-CN": "上次区域截图" }, "scope": "global" },
+      { "commandId": "capture-clipboard", "gestureSelector": "ClipboardHotkey", "decoder": "gestureString", "function": { "zh-CN": "从剪贴板创建图像" }, "scope": "global" }
+    ]
+  }]
 }

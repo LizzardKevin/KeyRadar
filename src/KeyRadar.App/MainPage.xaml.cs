@@ -36,7 +36,7 @@ public sealed partial class MainPage : Page
     private readonly UpdateCheckClient _updateClient;
     private readonly RuleUpdateClient _ruleUpdateClient;
     private readonly RunningApplicationConfigurationRegistry _configurationRegistry = new(
-        [new ShareXConfigurationReader(), new GreenshotConfigurationReader()]);
+        [new DeclarativeApplicationConfigurationReader()]);
     private readonly ImportedHardwareProfileStore _hardwareProfileStore = new();
     private readonly CompletedScanStateStore _completedScanState = new();
     private readonly CompletedScanPublicationCoordinator _completedScanPublication;
@@ -223,7 +223,7 @@ public sealed partial class MainPage : Page
                 hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
                 hotkey.Scope,
                 hotkey.Confidence,
-                string.Join(" · ", hotkey.Sources)))
+                string.Join(" · ", hotkey.Sources), CommandId: hotkey.CommandId))
             .Concat(matchedSnapshots
                 .SelectMany(item => item.Match.Selected is not null
                     ? [item.Match.Selected]
@@ -234,7 +234,7 @@ public sealed partial class MainPage : Page
                     hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
                     hotkey.Scope,
                     hotkey.Confidence,
-                    string.Join(" · ", hotkey.Sources)))))
+                    string.Join(" · ", hotkey.Sources), CommandId: hotkey.CommandId))))
             .Where(item => WindowsSystemHotkeyIdentity.IsSystemApplication(item.ApplicationId))
             .ToArray();
         var variantRunningRuleHotkeys = matchedSnapshots.SelectMany(item => (item.Match.Selected is not null
@@ -251,7 +251,8 @@ public sealed partial class MainPage : Page
                     item.Snapshot.Process.Id,
                     variant.ApplicationId,
                     variant.VariantId).Value,
-                variant.VariantId)))).ToArray();
+                variant.VariantId,
+                hotkey.CommandId)))).ToArray();
         var rawRunningRuleHotkeys = legacyRawRunningRuleHotkeys
             .Where(rule => WindowsSystemHotkeyIdentity.IsSystemApplication(rule.ApplicationId))
             .Concat(variantRunningRuleHotkeys)
@@ -263,6 +264,7 @@ public sealed partial class MainPage : Page
                 rawRunningRuleHotkeys.Where(rule => !WindowsSystemHotkeyIdentity.IsSystemApplication(rule.ApplicationId)),
                 applicationPresenceByEvidenceIdentity))
             .ToArray();
+        runningRuleHotkeys = LocalConfigurationOverridePolicy.FilterOfficialDefaults(runningRuleHotkeys, localConfigurations).ToArray();
         var attribution = HotkeyAttributionCatalog.Create(
             occupancyResults,
             runningRuleHotkeys,

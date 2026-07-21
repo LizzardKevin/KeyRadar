@@ -1,48 +1,13 @@
 {
-    "schemaVersion":  2,
-    "applicationId":  "sharex",
-    "variantId":  "default",
-    "displayName":  {
-                        "zh-CN":  "ShareX",
-                        "en-US":  "ShareX"
-                    },
-    "match":  {
-                  "executables":  [
-                                      "ShareX.exe"
-                                  ],
-                  "publishers":  [
-
-                                 ],
-                  "versionRange":  null,
-                  "packageFamilyNames":  [
-
-                                         ],
-                  "distribution":  null
-              },
-    "hotkeys":  [
-                    {
-                        "gesture":  "PrintScreen",
-                        "function":  {
-                                         "zh-CN":  "捕获整个屏幕（默认键，可修改）"
-                                     },
-                        "scope":  "global",
-                        "confidence":  "suspected"
-                    },
-                    {
-                        "gesture":  "Ctrl+PrintScreen",
-                        "function":  {
-                                         "zh-CN":  "捕获区域（默认键，可修改）"
-                                     },
-                        "scope":  "global",
-                        "confidence":  "suspected"
-                    },
-                    {
-                        "gesture":  "Alt+PrintScreen",
-                        "function":  {
-                                         "zh-CN":  "捕获活动窗口（默认键，可修改）"
-                                     },
-                        "scope":  "global",
-                        "confidence":  "suspected"
-                    }
-                ]
+  "schemaVersion": 2, "applicationId": "sharex", "variantId": "default", "displayName": { "zh-CN": "ShareX", "en-US": "ShareX" },
+  "match": { "executables": ["ShareX.exe"], "publishers": [], "versionRange": null, "packageFamilyNames": [], "distribution": null },
+  "hotkeys": [
+    { "commandId": "capture-screen", "gesture": "PrintScreen", "function": { "zh-CN": "捕获整个屏幕" }, "scope": "global", "confidence": "suspected" },
+    { "commandId": "capture-region", "gesture": "Ctrl+PrintScreen", "function": { "zh-CN": "捕获区域" }, "scope": "global", "confidence": "suspected" },
+    { "commandId": "capture-active-window", "gesture": "Alt+PrintScreen", "function": { "zh-CN": "捕获活动窗口" }, "scope": "global", "confidence": "suspected" }
+  ],
+  "configurationSources": [{
+    "sourceId": "sharex-hotkeys", "root": "documents", "relativePath": "ShareX/HotkeysConfig.json", "format": "json", "maxBytes": 8388608,
+    "entries": [{ "commandId": "sharex-custom-task", "collectionSelector": "Hotkeys", "gestureSelector": "HotkeyInfo.Hotkey", "winSelector": "HotkeyInfo.Win", "decoder": "winFormsHotkey", "functionSelector": "TaskSettings.Job", "function": { "zh-CN": "ShareX 自定义任务", "en-US": "ShareX custom task" }, "functionValues": { "10": { "zh-CN": "全屏截图" }, "11": { "zh-CN": "活动窗口截图" }, "12": { "zh-CN": "自定义窗口截图" }, "13": { "zh-CN": "当前显示器截图" }, "14": { "zh-CN": "矩形区域截图" }, "18": { "zh-CN": "上次区域截图" }, "24": { "zh-CN": "屏幕录制" }, "28": { "zh-CN": "GIF 屏幕录制" } }, "commandIdValues": { "10": "capture-screen", "11": "capture-active-window", "14": "capture-region" }, "scope": "global" }]
+  }]
 }

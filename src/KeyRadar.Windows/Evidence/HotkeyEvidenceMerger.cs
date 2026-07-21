@@ -35,7 +35,25 @@ public sealed record RunningRuleHotkey(
     OwnershipConfidence Confidence,
     string Evidence,
     string? OwnerIdentity = null,
-    string? VariantId = null);
+    string? VariantId = null,
+    string? CommandId = null);
+
+public static class LocalConfigurationOverridePolicy
+{
+    /// <summary>Configuration is current evidence and supersedes an official default for the same process/variant command.</summary>
+    public static IReadOnlyList<RunningRuleHotkey> FilterOfficialDefaults(
+        IEnumerable<RunningRuleHotkey> rules,
+        IEnumerable<LocalConfigurationHotkey> localConfigurations)
+    {
+        var configured = localConfigurations
+            .Where(item => !string.IsNullOrWhiteSpace(item.CommandId))
+            .Select(item => $"{item.OwnerIdentity ?? item.ApplicationId}\n{item.CommandId}")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return rules.Where(rule => rule.Confidence != OwnershipConfidence.OfficialDefault ||
+            string.IsNullOrWhiteSpace(rule.CommandId) ||
+            !configured.Contains($"{rule.OwnerIdentity ?? rule.ApplicationId}\n{rule.CommandId}")).ToArray();
+    }
+}
 
 public sealed record DiscoveredHotkey(
     HotkeyGesture Gesture,

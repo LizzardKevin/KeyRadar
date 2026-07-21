@@ -16,7 +16,8 @@ public sealed record LocalConfigurationHotkey(
     HotkeyScope Scope,
     string Evidence,
     string? OwnerIdentity = null,
-    string? VariantId = null);
+    string? VariantId = null,
+    string? CommandId = null);
 
 public interface IApplicationConfigurationReader
 {

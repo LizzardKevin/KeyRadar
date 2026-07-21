@@ -94,6 +94,48 @@ public static class LocalRulePackWriter
             },
             confidence = "userDeclared",
             sources = hotkey.Sources,
+            commandId = hotkey.CommandId,
+        }),
+        // Preserve user input for round-trip transparency; RulePackReader deliberately
+        // discards these declarations for unsigned local packs.
+        configurationSources = variant.ConfigurationSources.Select(source => new
+        {
+            sourceId = source.SourceId,
+            root = source.Root switch
+            {
+                ConfigurationSourceRoot.LocalAppData => "localAppData",
+                ConfigurationSourceRoot.RoamingAppData => "roamingAppData",
+                ConfigurationSourceRoot.Documents => "documents",
+                ConfigurationSourceRoot.ProgramData => "programData",
+                _ => throw new InvalidDataException("Unknown configuration root."),
+            },
+            relativePath = source.RelativePath,
+            format = source.Format == ConfigurationSourceFormat.Json ? "json" : "ini",
+            maxBytes = source.MaxBytes,
+            entries = source.Entries.Select(entry => new
+            {
+                commandId = entry.CommandId,
+                gestureSelector = entry.GestureSelector,
+                collectionSelector = entry.CollectionSelector,
+                winSelector = entry.WinSelector,
+                functionSelector = entry.FunctionSelector,
+                decoder = entry.Decoder switch
+                {
+                    ConfigurationGestureDecoder.GestureString => "gestureString",
+                    ConfigurationGestureDecoder.VirtualKeyArray => "virtualKeyArray",
+                    ConfigurationGestureDecoder.WinFormsHotkey => "winFormsHotkey",
+                    _ => throw new InvalidDataException("Unknown configuration decoder."),
+                },
+                function = entry.Function.Values,
+                functionValues = entry.FunctionValues.ToDictionary(pair => pair.Key, pair => pair.Value.Values),
+                commandIdValues = entry.CommandIdValues,
+                scope = entry.Scope switch
+                {
+                    HotkeyScope.Foreground => "foreground", HotkeyScope.Background => "background",
+                    HotkeyScope.Global => "global", HotkeyScope.WindowsSystem => "windowsSystem",
+                    _ => throw new InvalidDataException("Unknown hotkey scope."),
+                },
+            }),
         }),
     };
 

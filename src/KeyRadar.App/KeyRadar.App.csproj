@@ -52,8 +52,7 @@
   </Target>
 
   <Target Name="BuildDevelopmentRulePack"
-          AfterTargets="Build"
-          Condition="'$(Configuration)' == 'Debug'">
+          AfterTargets="Build">
     <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\eng\Build-DebugRulePack.ps1&quot; -RulesDirectory &quot;$(MSBuildProjectDirectory)\..\..\rules&quot; -OutputPath &quot;$(TargetDir)KeyRadar-Development-Rules.krpack&quot; -Version &quot;$(Version)&quot;" />
   </Target>
 </Project>

@@ -60,7 +60,7 @@ public sealed class DevelopmentRulePackTests
     }
 
     [Fact]
-    public void Development_rule_pack_is_copied_only_to_Debug_app_output()
+    public void Development_rule_pack_is_copied_to_Debug_and_Release_app_output()
     {
         var repositoryRoot = FindRepositoryRoot();
         var appProject = Path.Combine(repositoryRoot, "src", "KeyRadar.App", "KeyRadar.App.csproj");
@@ -90,7 +90,7 @@ public sealed class DevelopmentRulePackTests
         Assert.True(File.Exists(debugPack), "Debug output must contain the unsigned development rule pack.");
 
         RunDotNet(repositoryRoot, "build", appProject, "-c", "Release", "--no-restore", "--nologo", "-v:minimal");
-        Assert.False(File.Exists(releasePack), "Release output must not contain a development rule pack.");
+        Assert.True(File.Exists(releasePack), "Release output must contain the development rule pack for controlled diagnostics.");
     }
 
     [Fact]
