@@ -123,6 +123,16 @@ public sealed class DevelopmentRulePackTests
                 Path.Combine(repositoryRoot, "rules"),
                 outputPath);
 
+            var firstFingerprint = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(outputPath)));
+            var firstWriteTime = File.GetLastWriteTimeUtc(outputPath);
+            Thread.Sleep(20);
+            RunPowerShell(
+                scriptPath,
+                Path.Combine(repositoryRoot, "rules"),
+                outputPath);
+            Assert.Equal(firstFingerprint, Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(outputPath))));
+            Assert.Equal(firstWriteTime, File.GetLastWriteTimeUtc(outputPath));
+
             using var package = File.OpenRead(outputPath);
             var result = RulePackReader.ReadLocal(package);
 

@@ -23,9 +23,22 @@
     <PublishTrimmed>false</PublishTrimmed>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <DevelopmentRulePackDirectory>$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\</DevelopmentRulePackDirectory>
+    <DevelopmentRulePackPath>$(DevelopmentRulePackDirectory)KeyRadar-Development-Rules.krpack</DevelopmentRulePackPath>
+    <DevelopmentRulePackFingerprintSource>$(DevelopmentRulePackDirectory)DevelopmentRulePackFingerprint.g.cs</DevelopmentRulePackFingerprintSource>
+  </PropertyGroup>
+
   <ItemGroup>
     <Content Include="Assets\AppIcon.ico" />
     <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <DevelopmentRulePackInputs Include="$(MSBuildProjectDirectory)\..\..\eng\Build-DebugRulePack.ps1" />
+    <DevelopmentRulePackInputs Include="$(MSBuildProjectDirectory)\..\..\rules\*.json" />
+    <DevelopmentRulePackInputs Include="$(MSBuildProjectFullPath)" />
+    <Compile Include="$(DevelopmentRulePackFingerprintSource)" Visible="false" />
   </ItemGroup>
 
   <ItemGroup>
@@ -52,15 +65,10 @@
   </Target>
 
   <Target Name="BuildDevelopmentRulePack"
-          BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <DevelopmentRulePackPath>$(IntermediateOutputPath)KeyRadar-Development-Rules.krpack</DevelopmentRulePackPath>
-      <DevelopmentRulePackFingerprintSource>$(IntermediateOutputPath)DevelopmentRulePackFingerprint.g.cs</DevelopmentRulePackFingerprintSource>
-    </PropertyGroup>
+          BeforeTargets="PrepareForBuild"
+          Inputs="@(DevelopmentRulePackInputs)"
+          Outputs="$(DevelopmentRulePackPath);$(DevelopmentRulePackFingerprintSource)">
     <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\eng\Build-DebugRulePack.ps1&quot; -RulesDirectory &quot;$(MSBuildProjectDirectory)\..\..\rules&quot; -OutputPath &quot;$(DevelopmentRulePackPath)&quot; -Version &quot;$(Version)&quot; -FingerprintSourcePath &quot;$(DevelopmentRulePackFingerprintSource)&quot;" />
-    <ItemGroup>
-      <Compile Include="$(DevelopmentRulePackFingerprintSource)" Visible="false" />
-    </ItemGroup>
   </Target>
 
   <Target Name="CopyDevelopmentRulePack" AfterTargets="Build">

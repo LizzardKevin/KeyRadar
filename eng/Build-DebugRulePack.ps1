@@ -58,10 +58,47 @@ $manifest = [pscustomobject][ordered]@{
 }
 $utf8 = [System.Text.UTF8Encoding]::new($false)
 $manifestBytes = $utf8.GetBytes(($manifest | ConvertTo-Json -Depth 4 -Compress))
+$zipTimestamp = [System.DateTimeOffset]::new(1980, 1, 1, 0, 0, 0, [System.TimeSpan]::Zero)
+
+function Test-ByteEqual([string]$firstPath, [string]$secondPath) {
+    if (-not (Test-Path -LiteralPath $firstPath -PathType Leaf) -or -not (Test-Path -LiteralPath $secondPath -PathType Leaf)) {
+        return $false
+    }
+    $first = [System.IO.FileInfo]::new($firstPath)
+    $second = [System.IO.FileInfo]::new($secondPath)
+    if ($first.Length -ne $second.Length) { return $false }
+
+    $firstStream = [System.IO.File]::OpenRead($firstPath)
+    $secondStream = [System.IO.File]::OpenRead($secondPath)
+    $firstBuffer = [byte[]]::new(81920)
+    $secondBuffer = [byte[]]::new(81920)
+    try {
+        while (($count = $firstStream.Read($firstBuffer, 0, $firstBuffer.Length)) -gt 0) {
+            $otherCount = $secondStream.Read($secondBuffer, 0, $secondBuffer.Length)
+            if ($count -ne $otherCount) { return $false }
+            for ($index = 0; $index -lt $count; $index++) {
+                if ($firstBuffer[$index] -ne $secondBuffer[$index]) { return $false }
+            }
+        }
+        return $secondStream.ReadByte() -eq -1
+    }
+    finally {
+        $firstStream.Dispose()
+        $secondStream.Dispose()
+    }
+}
+
+function Write-TextIfChanged([string]$path, [string]$content) {
+    if ((Test-Path -LiteralPath $path -PathType Leaf) -and [System.IO.File]::ReadAllText($path, $utf8) -ceq $content) {
+        return
+    }
+    [System.IO.File]::WriteAllText($path, $content, $utf8)
+}
 
 $outputDirectory = Split-Path -Parent $resolvedOutputPath
 [System.IO.Directory]::CreateDirectory($outputDirectory) | Out-Null
 $temporaryOutputPath = "$resolvedOutputPath.$([Guid]::NewGuid().ToString('N')).tmp"
+$temporaryBackupPath = "$temporaryOutputPath.bak"
 
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -71,6 +108,7 @@ try {
         [System.IO.Compression.ZipArchiveMode]::Create)
     try {
         $manifestEntry = $archive.CreateEntry("manifest.json", [System.IO.Compression.CompressionLevel]::NoCompression)
+        $manifestEntry.LastWriteTime = $zipTimestamp
         $manifestStream = $manifestEntry.Open()
         try {
             $manifestStream.Write($manifestBytes, 0, $manifestBytes.Length)
@@ -81,6 +119,7 @@ try {
 
         foreach ($ruleFile in $ruleFiles) {
             $entry = $archive.CreateEntry("rules/$($ruleFile.Name)", [System.IO.Compression.CompressionLevel]::NoCompression)
+            $entry.LastWriteTime = $zipTimestamp
             $entryStream = $entry.Open()
             try {
                 $content = [System.IO.File]::ReadAllBytes($ruleFile.FullName)
@@ -95,10 +134,15 @@ try {
         $archive.Dispose()
     }
 
-    if (Test-Path -LiteralPath $resolvedOutputPath) {
-        Remove-Item -LiteralPath $resolvedOutputPath -Force
+    if (Test-ByteEqual $temporaryOutputPath $resolvedOutputPath) {
+        Remove-Item -LiteralPath $temporaryOutputPath -Force
     }
-    [System.IO.File]::Move($temporaryOutputPath, $resolvedOutputPath)
+    elseif (Test-Path -LiteralPath $resolvedOutputPath) {
+        [System.IO.File]::Replace($temporaryOutputPath, $resolvedOutputPath, $temporaryBackupPath, $true)
+    }
+    else {
+        [System.IO.File]::Move($temporaryOutputPath, $resolvedOutputPath)
+    }
 
     if (-not [string]::IsNullOrWhiteSpace($FingerprintSourcePath)) {
         $resolvedFingerprintPath = [System.IO.Path]::GetFullPath($FingerprintSourcePath)
@@ -121,12 +165,15 @@ internal static class DevelopmentRulePackFingerprint
     internal const string Sha256 = "$packFingerprint";
 }
 "@
-        [System.IO.File]::WriteAllText($resolvedFingerprintPath, $source, $utf8)
+        Write-TextIfChanged $resolvedFingerprintPath $source
     }
 }
 finally {
     if (Test-Path -LiteralPath $temporaryOutputPath) {
         Remove-Item -LiteralPath $temporaryOutputPath -Force
+    }
+    if (Test-Path -LiteralPath $temporaryBackupPath) {
+        Remove-Item -LiteralPath $temporaryBackupPath -Force
     }
 }
 

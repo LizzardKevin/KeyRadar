@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Buffers;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.Win32.SafeHandles;
@@ -39,12 +40,15 @@ public sealed class DeclarativeApplicationConfigurationReader(
                 var root = Path.GetFullPath(_rootResolver(source.Root));
                 var path = ResolveSafePath(root, source);
                 if (path is null || HasReparsePoint(path, root)) continue;
-                await using var stream = OpenValidatedSource(root, path, source.MaxBytes);
+                await using var stream = OpenValidatedSource(root, path);
                 if (stream is null) continue;
+                await using var snapshot = await ReadBoundedSnapshotAsync(stream, source.MaxBytes, cancellationToken)
+                    .ConfigureAwait(false);
+                if (snapshot is null) continue;
                 var discovered = source.Format switch
                 {
-                    ConfigurationSourceFormat.Json => await ReadJsonAsync(stream, variant, source, cancellationToken).ConfigureAwait(false),
-                    ConfigurationSourceFormat.Ini => await ReadIniAsync(stream, variant, source, cancellationToken).ConfigureAwait(false),
+                    ConfigurationSourceFormat.Json => await ReadJsonAsync(snapshot, variant, source, cancellationToken).ConfigureAwait(false),
+                    ConfigurationSourceFormat.Ini => await ReadIniAsync(snapshot, variant, source, cancellationToken).ConfigureAwait(false),
                     _ => [],
                 };
                 results.AddRange(discovered);
@@ -143,14 +147,58 @@ public sealed class DeclarativeApplicationConfigurationReader(
         return candidate.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? candidate : null;
     }
 
-    private Stream? OpenValidatedSource(string root, string path, int maxBytes)
+    /// <summary>
+    /// Reads at most <paramref name="maxBytes"/> bytes from the already validated handle and
+    /// probes one additional byte. Parsers must never observe the mutable source stream directly.
+    /// </summary>
+    private static async Task<MemoryStream?> ReadBoundedSnapshotAsync(Stream stream, int maxBytes, CancellationToken cancellationToken)
+    {
+        if (maxBytes <= 0) return null;
+
+        var buffer = ArrayPool<byte>.Shared.Rent(maxBytes < 81920 ? maxBytes + 1 : 81920);
+        try
+        {
+            var snapshot = new MemoryStream(Math.Min(maxBytes, 81920));
+            var total = 0;
+            while (total <= maxBytes)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var remaining = maxBytes - total;
+                var requested = remaining == 0 ? 1 : Math.Min(buffer.Length, remaining);
+                var read = await stream.ReadAsync(buffer.AsMemory(0, requested), cancellationToken).ConfigureAwait(false);
+                if (read == 0)
+                {
+                    snapshot.Position = 0;
+                    return snapshot;
+                }
+
+                if (read > maxBytes - total)
+                {
+                    snapshot.Dispose();
+                    return null;
+                }
+
+                await snapshot.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+                total += read;
+            }
+
+            snapshot.Dispose();
+            return null;
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    private Stream? OpenValidatedSource(string root, string path)
     {
         Stream? stream = null;
         try
         {
             stream = _fileAccessor.OpenRead(path);
             var finalPath = _fileAccessor.GetFinalPath(stream);
-            if (!stream.CanRead || stream.Length == 0 || stream.Length > maxBytes ||
+            if (!stream.CanRead ||
                 !IsPathWithinRoot(finalPath, root) || !IsSameNormalizedPath(finalPath, path))
             {
                 stream.Dispose();
@@ -274,14 +322,44 @@ internal static class GestureDecoders
     {
         gesture = default;
         var text = value.ValueKind == JsonValueKind.Number ? value.GetRawText() : value.GetString();
-        if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var encoded) ||
-            !VirtualKeyNames.TryGet(encoded & 0xffff, out var key)) return false;
+        if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var encoded))
+        {
+            return TryDecodeWinFormsKeysString(text, win, out gesture);
+        }
+        if (!VirtualKeyNames.TryGet(encoded & 0xffff, out var key)) return false;
         var modifiers = HotkeyModifiers.None;
         if ((encoded & 0x20000) != 0) modifiers |= HotkeyModifiers.Control;
         if ((encoded & 0x10000) != 0) modifiers |= HotkeyModifiers.Shift;
         if ((encoded & 0x40000) != 0) modifiers |= HotkeyModifiers.Alt;
         if (win) modifiers |= HotkeyModifiers.Windows;
         gesture = new HotkeyGesture(modifiers, key);
+        return true;
+    }
+
+    // System.Windows.Forms.KeysConverter serializes combinations as "R, Shift".
+    // Keeping this in the generic WinForms decoder means configuration rules remain declarative.
+    private static bool TryDecodeWinFormsKeysString(string? value, bool win, out HotkeyGesture gesture)
+    {
+        gesture = default;
+        if (string.IsNullOrWhiteSpace(value) || value.Equals("None", StringComparison.OrdinalIgnoreCase)) return false;
+
+        var parts = value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0 || parts.Length > 5) return false;
+        for (var index = 0; index < parts.Length; index++)
+        {
+            parts[index] = parts[index] switch
+            {
+                "ControlKey" or "LControlKey" or "RControlKey" => "Control",
+                "Menu" or "LMenu" or "RMenu" => "Alt",
+                "ShiftKey" or "LShiftKey" or "RShiftKey" => "Shift",
+                "LWin" or "RWin" => "Win",
+                "Snapshot" => "PrintScreen",
+                _ => parts[index],
+            };
+        }
+
+        if (!HotkeyGesture.TryParse(string.Join('+', parts), out gesture)) return false;
+        if (win) gesture = gesture with { Modifiers = gesture.Modifiers | HotkeyModifiers.Windows };
         return true;
     }
 
