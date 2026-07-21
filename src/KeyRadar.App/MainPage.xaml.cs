@@ -28,6 +28,10 @@ public sealed partial class MainPage : Page
 {
     private readonly RunningApplicationScanner _scanner =
         new(new SystemProcessSource(), new Win32WindowSource());
+    private readonly ElevatedScanCoordinator _elevatedScanCoordinator = new(
+        ProcessElevatedScanLauncher.FromApplicationDirectory(),
+        new NamedPipeElevatedScanTransport(),
+        TimeSpan.FromSeconds(12));
     private readonly HttpClient _updateHttpClient = new() { Timeout = TimeSpan.FromSeconds(30) };
     private readonly UpdateCheckClient _updateClient;
     private readonly RuleUpdateClient _ruleUpdateClient;
@@ -84,9 +88,15 @@ public sealed partial class MainPage : Page
         IReadOnlyList<ApplicationSnapshot> snapshots;
         IReadOnlyList<HotkeyProbeResult> occupancyResults;
         HardwareEnvironmentSnapshot hardwareEnvironment;
+        var elevatedScanStatus = ElevatedScanStatus.Unavailable;
         try
         {
             snapshots = await Task.Run(() => _scanner.Scan(Environment.ProcessId), cancellationToken);
+            ApplyIfCurrent(scanGeneration, () =>
+                ScanStatusText.Text = UiText.Pick("正在请求管理员扫描", "Requesting administrator scan"));
+            var elevatedScan = await _elevatedScanCoordinator.ScanAndMergeAsync(snapshots, cancellationToken);
+            snapshots = elevatedScan.Snapshots;
+            elevatedScanStatus = elevatedScan.Status;
             var hidDevices = await Task.Run(
                 () => new RawInputHidDeviceSource().ReadConnected(),
                 cancellationToken);
@@ -570,9 +580,7 @@ public sealed partial class MainPage : Page
                     DashboardStatusText.Text = UiText.Pick(
                         $"扫描完成：{totalOccupied} 个标准全局占用；无法安全归属的项目已保留为未知。",
                         $"Scan complete: {totalOccupied} standard global occupancies; items without safe ownership evidence remain unknown.");
-                    ScanStatusText.Text = UiText.Pick(
-                        "扫描完成",
-                        "Scan complete");
+                    ScanStatusText.Text = ElevatedScanStatusText(elevatedScanStatus);
                     ScanProgress.IsActive = false;
                     RuleStatusInfoBar.IsOpen = !RuntimeRuleCatalog.IsAvailable || RuntimeRuleCatalog.IsUsingDevelopmentFallback;
                     RuleStatusInfoBar.Severity = RuntimeRuleCatalog.IsUsingDevelopmentFallback
@@ -600,6 +608,13 @@ public sealed partial class MainPage : Page
         ConflictInfoBar.Title = state.Title;
         ConflictInfoBar.Message = state.Message;
     }
+
+    private static string ElevatedScanStatusText(ElevatedScanStatus status) => status switch
+    {
+        ElevatedScanStatus.Succeeded => UiText.Pick("扫描完成", "Scan complete"),
+        ElevatedScanStatus.UserDeclined => UiText.Pick("管理员扫描未授权，已完成有限扫描", "Administrator scan not authorized; limited scan completed"),
+        _ => UiText.Pick("管理员扫描不可用，已完成有限扫描", "Administrator scan unavailable; limited scan completed"),
+    };
 
     private sealed record ConflictInfoBarState(
         bool IsOpen,

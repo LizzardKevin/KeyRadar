@@ -55,7 +55,7 @@ try {
     & $DotNetPath build src/KeyRadar.App/KeyRadar.App.csproj -c Release -p:Platform=x64 -t:Rebuild --no-restore --nologo -v:minimal
     if ($LASTEXITCODE -ne 0) { throw "KeyRadar.App x64 self-contained build failed." }
 
-    foreach ($requiredAppFile in @("KeyRadar.exe", "KeyRadar.pri", "App.xbf", "MainPage.xbf", "MainWindow.xbf")) {
+    foreach ($requiredAppFile in @("KeyRadar.exe", "KeyRadar.pri", "App.xbf", "MainPage.xbf", "MainWindow.xbf", "KeyRadar.ElevatedScanner.exe")) {
         if (-not (Test-Path -LiteralPath (Join-Path $appBuildPath $requiredAppFile))) {
             throw "KeyRadar.App deployable output is missing $requiredAppFile."
         }
@@ -65,6 +65,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "KeyRadar.Updater publish failed." }
 
     Copy-Item -Path (Join-Path $appBuildPath "*") -Destination $stagingPath -Recurse -Force
+    if (-not (Test-Path -LiteralPath (Join-Path $stagingPath "KeyRadar.ElevatedScanner.exe"))) {
+        throw "KeyRadar staging output is missing KeyRadar.ElevatedScanner.exe."
+    }
     Copy-Item -Path (Join-Path $updaterPublishPath "KeyRadar.Updater*") -Destination $stagingPath -Force
     Copy-Item -LiteralPath `
         "artifacts\native\x64\Release\KeyRadar.Native.x64.dll", `

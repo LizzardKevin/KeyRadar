@@ -38,7 +38,18 @@
     <ProjectReference Include="..\KeyRadar.Rules\KeyRadar.Rules.csproj" />
     <ProjectReference Include="..\KeyRadar.Update\KeyRadar.Update.csproj" />
     <ProjectReference Include="..\KeyRadar.Windows\KeyRadar.Windows.csproj" />
+    <ProjectReference Include="..\KeyRadar.ElevatedScanner\KeyRadar.ElevatedScanner.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
+
+  <Target Name="CopyElevatedScanner" AfterTargets="Build">
+    <MSBuild Projects="..\KeyRadar.ElevatedScanner\KeyRadar.ElevatedScanner.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration);Platform=x64;RestoreLockedMode=true" />
+    <ItemGroup>
+      <ElevatedScannerFiles Include="..\KeyRadar.ElevatedScanner\bin\x64\$(Configuration)\net10.0-windows10.0.19041.0\win-x64\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ElevatedScannerFiles)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
+  </Target>
 
   <Target Name="BuildDevelopmentRulePack"
           AfterTargets="Build"
