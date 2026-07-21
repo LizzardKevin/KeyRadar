@@ -3,6 +3,7 @@ namespace KeyRadar.Rules.Packs;
 public enum RulePackTrust
 {
     SignedOfficial,
+    TrustedDevelopment,
     UnsignedLocal,
 }
 

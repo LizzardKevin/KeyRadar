@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using KeyRadar.Conflicts;
 using KeyRadar.Hotkeys;
 using KeyRadar.Rules.Packs;
@@ -82,15 +84,28 @@ public sealed class DevelopmentRulePackTests
             "net10.0-windows10.0.19041.0",
             "win-x64",
             "KeyRadar-Development-Rules.krpack");
+        var debugFingerprintSource = Path.Combine(
+            repositoryRoot,
+            "src",
+            "KeyRadar.App",
+            "obj",
+            "Debug",
+            "net10.0-windows10.0.19041.0",
+            "win-x64",
+            "DevelopmentRulePackFingerprint.g.cs");
 
         DeleteFileIfExists(debugPack);
         DeleteFileIfExists(releasePack);
 
         RunDotNet(repositoryRoot, "build", appProject, "-c", "Debug", "--no-restore", "--nologo", "-v:minimal");
         Assert.True(File.Exists(debugPack), "Debug output must contain the unsigned development rule pack.");
+        Assert.True(File.Exists(debugFingerprintSource), "Debug build must generate the assembly fingerprint source.");
+        var compiledFingerprint = Regex.Match(File.ReadAllText(debugFingerprintSource), "Sha256 = \"([0-9a-f]{64})\"").Groups[1].Value;
+        Assert.Equal(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(debugPack))).ToLowerInvariant(), compiledFingerprint);
 
         RunDotNet(repositoryRoot, "build", appProject, "-c", "Release", "--no-restore", "--nologo", "-v:minimal");
         Assert.True(File.Exists(releasePack), "Release output must contain the development rule pack for controlled diagnostics.");
+        Assert.Contains("#if DEBUG", File.ReadAllText(Path.Combine(repositoryRoot, "src", "KeyRadar.App", "RuntimeRuleCatalog.cs")));
     }
 
     [Fact]

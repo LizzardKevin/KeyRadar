@@ -115,6 +115,47 @@ public sealed class RulePackReaderTests
         Assert.False(result.Pack.Variants[0].IsConfigurationReadAuthorized);
     }
 
+    [Fact]
+    public void Development_pack_authorizes_configuration_only_when_its_compiled_fingerprint_matches()
+    {
+        var bytes = CreateLocalConfigurationPack();
+        var expected = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+
+        using var approved = new MemoryStream(bytes);
+        var approvedResult = RulePackReader.ReadDevelopment(approved, expected);
+
+        Assert.True(approvedResult.IsSuccess, approvedResult.Message);
+        Assert.Equal(RulePackTrust.TrustedDevelopment, approvedResult.Pack!.Trust);
+        Assert.True(approvedResult.Pack!.Variants[0].IsConfigurationReadAuthorized);
+
+        var replacement = bytes.ToArray();
+        replacement[^1] ^= 0x01;
+        using var replaced = new MemoryStream(replacement);
+        var replacedResult = RulePackReader.ReadDevelopment(replaced, expected);
+        Assert.False(replacedResult.IsSuccess);
+        Assert.False(replacedResult.Pack?.Variants[0].IsConfigurationReadAuthorized ?? false);
+
+        using var selfDescribedLocal = new MemoryStream(bytes);
+        var wrongFingerprintResult = RulePackReader.ReadDevelopment(selfDescribedLocal, new string('0', 64));
+        Assert.False(wrongFingerprintResult.IsSuccess);
+        Assert.False(wrongFingerprintResult.Pack?.Variants[0].IsConfigurationReadAuthorized ?? false);
+    }
+
+    private static byte[] CreateLocalConfigurationPack()
+    {
+        using var stream = new MemoryStream();
+        LocalRulePackWriter.Write(stream, [new ApplicationVariantRule(
+            "nvidia-app", "overlay", new LocalizedText(new Dictionary<string, string> { ["en-US"] = "NVIDIA" }),
+            new ApplicationMatchRule(["NVIDIA Overlay.exe"], [], null, [], null), [])
+        {
+            ConfigurationSources = [new ConfigurationSourceRule("nvidia", ConfigurationSourceRoot.LocalAppData,
+                "NVIDIA Corporation/NVIDIA Overlay/ShareSettings.json", ConfigurationSourceFormat.Json, 4096,
+                [new ConfigurationEntryRule("performance-overlay-toggle", "settings.shortcuts.PMOCOverlay",
+                    ConfigurationGestureDecoder.VirtualKeyArray, new LocalizedText(new Dictionary<string, string> { ["en-US"] = "Overlay" }), HotkeyScope.Global)])],
+        }]);
+        return stream.ToArray();
+    }
+
     private static byte[] ConfigurationRule() => JsonSerializer.SerializeToUtf8Bytes(new
     {
         schemaVersion = 2, applicationId = "nvidia-app", variantId = "overlay",

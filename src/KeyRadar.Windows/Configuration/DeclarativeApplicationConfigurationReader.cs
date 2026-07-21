@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text.Json;
+using Microsoft.Win32.SafeHandles;
 using KeyRadar.Hotkeys;
 using KeyRadar.Rules;
 using KeyRadar.Windows.Applications;
@@ -11,10 +13,12 @@ namespace KeyRadar.Windows.Configuration;
 /// path, field name, or function mapping is baked into this reader.
 /// </summary>
 public sealed class DeclarativeApplicationConfigurationReader(
-    Func<ConfigurationSourceRoot, string>? rootResolver = null) : IApplicationConfigurationReader
+    Func<ConfigurationSourceRoot, string>? rootResolver = null,
+    IConfigurationSourceFileAccessor? fileAccessor = null) : IApplicationConfigurationReader
 {
     private const int MaximumEntriesPerSource = 128;
     private readonly Func<ConfigurationSourceRoot, string> _rootResolver = rootResolver ?? ResolveRoot;
+    private readonly IConfigurationSourceFileAccessor _fileAccessor = fileAccessor ?? new ConfigurationSourceFileAccessor();
 
     public bool Supports(ApplicationVariantRule variant) =>
         variant.IsConfigurationReadAuthorized && variant.ConfigurationSources.Count > 0;
@@ -32,12 +36,15 @@ public sealed class DeclarativeApplicationConfigurationReader(
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                var path = ResolveSafePath(source);
-                if (path is null || !IsSafeRegularFile(path, source.MaxBytes)) continue;
+                var root = Path.GetFullPath(_rootResolver(source.Root));
+                var path = ResolveSafePath(root, source);
+                if (path is null || HasReparsePoint(path, root)) continue;
+                await using var stream = OpenValidatedSource(root, path, source.MaxBytes);
+                if (stream is null) continue;
                 var discovered = source.Format switch
                 {
-                    ConfigurationSourceFormat.Json => await ReadJsonAsync(path, variant, source, cancellationToken).ConfigureAwait(false),
-                    ConfigurationSourceFormat.Ini => await ReadIniAsync(path, variant, source, cancellationToken).ConfigureAwait(false),
+                    ConfigurationSourceFormat.Json => await ReadJsonAsync(stream, variant, source, cancellationToken).ConfigureAwait(false),
+                    ConfigurationSourceFormat.Ini => await ReadIniAsync(stream, variant, source, cancellationToken).ConfigureAwait(false),
                     _ => [],
                 };
                 results.AddRange(discovered);
@@ -52,24 +59,24 @@ public sealed class DeclarativeApplicationConfigurationReader(
     }
 
     private async Task<IReadOnlyList<LocalConfigurationHotkey>> ReadJsonAsync(
-        string path,
+        Stream stream,
         ApplicationVariantRule variant,
         ConfigurationSourceRule source,
         CancellationToken cancellationToken)
     {
-        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
-            FileShare.ReadWrite | FileShare.Delete, 81920, FileOptions.SequentialScan);
         using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
         var results = new List<LocalConfigurationHotkey>();
+        var remaining = MaximumEntriesPerSource;
         foreach (var entry in source.Entries)
         {
-            var candidates = entry.CollectionSelector is null
-                ? [document.RootElement]
-                : Select(document.RootElement, entry.CollectionSelector).ValueKind == JsonValueKind.Array
-                    ? Select(document.RootElement, entry.CollectionSelector).EnumerateArray().Take(MaximumEntriesPerSource).ToArray()
-                    : [];
+            if (remaining == 0) break;
+            var collection = entry.CollectionSelector is null ? default : Select(document.RootElement, entry.CollectionSelector);
+            IEnumerable<JsonElement> candidates = entry.CollectionSelector is null
+                ? new[] { document.RootElement }
+                : collection.ValueKind == JsonValueKind.Array ? collection.EnumerateArray() : [];
             foreach (var candidate in candidates)
             {
+                if (remaining-- == 0) return results;
                 cancellationToken.ThrowIfCancellationRequested();
                 if (!TryGet(candidate, entry.GestureSelector, out var encoded) ||
                     !GestureDecoders.TryDecode(entry.Decoder, encoded,
@@ -82,14 +89,12 @@ public sealed class DeclarativeApplicationConfigurationReader(
     }
 
     private async Task<IReadOnlyList<LocalConfigurationHotkey>> ReadIniAsync(
-        string path,
+        Stream stream,
         ApplicationVariantRule variant,
         ConfigurationSourceRule source,
         CancellationToken cancellationToken)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
-            FileShare.ReadWrite | FileShare.Delete, 81920, FileOptions.SequentialScan);
         using var reader = new StreamReader(stream);
         while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
         {
@@ -103,8 +108,10 @@ public sealed class DeclarativeApplicationConfigurationReader(
         }
 
         var results = new List<LocalConfigurationHotkey>();
+        var remaining = MaximumEntriesPerSource;
         foreach (var entry in source.Entries)
         {
+            if (remaining-- == 0) break;
             cancellationToken.ThrowIfCancellationRequested();
             if (entry.CollectionSelector is not null || !values.TryGetValue(entry.GestureSelector, out var value) ||
                 !GestureDecoders.TryDecode(entry.Decoder, value, default, out var gesture)) continue;
@@ -129,23 +136,60 @@ public sealed class DeclarativeApplicationConfigurationReader(
             $"{source.Format} configuration source {source.SourceId}", CommandId: commandId);
     }
 
-    private string? ResolveSafePath(ConfigurationSourceRule source)
+    private string? ResolveSafePath(string root, ConfigurationSourceRule source)
     {
-        var root = Path.GetFullPath(_rootResolver(source.Root));
         var candidate = Path.GetFullPath(Path.Combine(root, source.RelativePath));
         var prefix = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
         return candidate.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? candidate : null;
     }
 
-    private static bool IsSafeRegularFile(string path, int maxBytes)
+    private Stream? OpenValidatedSource(string root, string path, int maxBytes)
     {
-        var info = new FileInfo(path);
-        if (!info.Exists || info.Length is 0 || info.Length > maxBytes) return false;
-        for (var directory = info.Directory; directory is not null; directory = directory.Parent)
+        Stream? stream = null;
+        try
         {
-            if ((directory.Attributes & FileAttributes.ReparsePoint) != 0) return false;
+            stream = _fileAccessor.OpenRead(path);
+            var finalPath = _fileAccessor.GetFinalPath(stream);
+            if (!stream.CanRead || stream.Length == 0 || stream.Length > maxBytes ||
+                !IsPathWithinRoot(finalPath, root) || !IsSameNormalizedPath(finalPath, path))
+            {
+                stream.Dispose();
+                return null;
+            }
+            return stream;
         }
-        return (info.Attributes & FileAttributes.ReparsePoint) == 0;
+        catch
+        {
+            stream?.Dispose();
+            throw;
+        }
+    }
+
+    private static bool HasReparsePoint(string path, string root)
+    {
+        var current = new FileInfo(path);
+        var rootPath = NormalizePath(root);
+        for (var directory = current.Directory; directory is not null; directory = directory.Parent)
+        {
+            if ((directory.Attributes & FileAttributes.ReparsePoint) != 0) return true;
+            if (string.Equals(NormalizePath(directory.FullName), rootPath, StringComparison.OrdinalIgnoreCase)) break;
+        }
+        return (current.Attributes & FileAttributes.ReparsePoint) != 0;
+    }
+
+    internal static bool IsPathWithinRoot(string? finalPath, string root) =>
+        finalPath is not null &&
+        NormalizePath(finalPath).StartsWith(NormalizePath(root) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsSameNormalizedPath(string? first, string second) =>
+        first is not null && string.Equals(NormalizePath(first), NormalizePath(second), StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizePath(string path)
+    {
+        var normalized = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+        if (normalized.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase)) normalized = @"\\" + normalized[8..];
+        else if (normalized.StartsWith(@"\\?\", StringComparison.OrdinalIgnoreCase)) normalized = normalized[4..];
+        return Path.GetFullPath(normalized).TrimEnd(Path.DirectorySeparatorChar);
     }
 
     private static JsonElement Select(JsonElement element, string selector) =>
@@ -256,8 +300,47 @@ internal static class VirtualKeyNames
             0x08 => "Backspace", 0x09 => "Tab", 0x0D => "Enter", 0x1B => "Esc", 0x20 => "Space",
             0x21 => "PageUp", 0x22 => "PageDown", 0x23 => "End", 0x24 => "Home", 0x25 => "Left",
             0x26 => "Up", 0x27 => "Right", 0x28 => "Down", 0x2C => "PrintScreen", 0x2D => "Insert", 0x2E => "Delete",
-            0xAD => "VolumeMute", 0xAE => "VolumeDown", 0xAF => "VolumeUp", _ => string.Empty,
+            0xAD => "VolumeMute", 0xAE => "VolumeDown", 0xAF => "VolumeUp",
+            0xB0 => "MediaNextTrack", 0xB1 => "MediaPreviousTrack", 0xB2 => "MediaStop", 0xB3 => "MediaPlayPause",
+            _ => string.Empty,
         };
         return key.Length > 0;
     }
+}
+
+/// <summary>Opens one configuration file and identifies the exact object that was opened.</summary>
+public interface IConfigurationSourceFileAccessor
+{
+    Stream OpenRead(string path);
+    string? GetFinalPath(Stream stream);
+}
+
+public sealed class ConfigurationSourceFileAccessor : IConfigurationSourceFileAccessor
+{
+    public Stream OpenRead(string path) => new FileStream(path, FileMode.Open, FileAccess.Read,
+        FileShare.ReadWrite | FileShare.Delete, 81920, FileOptions.SequentialScan);
+
+    public string? GetFinalPath(Stream stream)
+    {
+        if (stream is not FileStream fileStream) return null;
+        if (!OperatingSystem.IsWindows()) return fileStream.Name;
+
+        var capacity = 512;
+        while (capacity <= 32768)
+        {
+            var buffer = new System.Text.StringBuilder(capacity);
+            var length = GetFinalPathNameByHandle(fileStream.SafeFileHandle, buffer, buffer.Capacity, 0);
+            if (length == 0) return null;
+            if (length < buffer.Capacity) return buffer.ToString();
+            capacity = checked((int)length + 1);
+        }
+        return null;
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern uint GetFinalPathNameByHandle(
+        SafeFileHandle file,
+        [Out] System.Text.StringBuilder path,
+        int pathLength,
+        uint flags);
 }

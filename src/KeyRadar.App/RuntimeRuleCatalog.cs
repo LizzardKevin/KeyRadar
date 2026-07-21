@@ -108,7 +108,9 @@ internal static class RuntimeRuleCatalog
             if (File.Exists(developmentPackPath))
             {
                 using var developmentStream = File.OpenRead(developmentPackPath);
-                developmentResult = RulePackReader.ReadDevelopment(developmentStream);
+                developmentResult = RulePackReader.ReadDevelopment(
+                    developmentStream,
+                    DevelopmentRulePackFingerprint.Sha256);
             }
         }
 #endif

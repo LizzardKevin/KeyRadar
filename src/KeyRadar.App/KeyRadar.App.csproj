@@ -52,7 +52,18 @@
   </Target>
 
   <Target Name="BuildDevelopmentRulePack"
-          AfterTargets="Build">
-    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\eng\Build-DebugRulePack.ps1&quot; -RulesDirectory &quot;$(MSBuildProjectDirectory)\..\..\rules&quot; -OutputPath &quot;$(TargetDir)KeyRadar-Development-Rules.krpack&quot; -Version &quot;$(Version)&quot;" />
+          BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <DevelopmentRulePackPath>$(IntermediateOutputPath)KeyRadar-Development-Rules.krpack</DevelopmentRulePackPath>
+      <DevelopmentRulePackFingerprintSource>$(IntermediateOutputPath)DevelopmentRulePackFingerprint.g.cs</DevelopmentRulePackFingerprintSource>
+    </PropertyGroup>
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\eng\Build-DebugRulePack.ps1&quot; -RulesDirectory &quot;$(MSBuildProjectDirectory)\..\..\rules&quot; -OutputPath &quot;$(DevelopmentRulePackPath)&quot; -Version &quot;$(Version)&quot; -FingerprintSourcePath &quot;$(DevelopmentRulePackFingerprintSource)&quot;" />
+    <ItemGroup>
+      <Compile Include="$(DevelopmentRulePackFingerprintSource)" Visible="false" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="CopyDevelopmentRulePack" AfterTargets="Build">
+    <Copy SourceFiles="$(DevelopmentRulePackPath)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
   </Target>
 </Project>

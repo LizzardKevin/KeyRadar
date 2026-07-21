@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using KeyRadar.Conflicts;
@@ -23,15 +24,39 @@ public static class RulePackReader
     public static RulePackReadResult ReadLocal(Stream packageStream) =>
         ReadInternal(packageStream, [], isLocal: true);
 
-    /// <summary>Used only by the Debug-only pack built from this repository.</summary>
-    public static RulePackReadResult ReadDevelopment(Stream packageStream) =>
-        ReadInternal(packageStream, [], isLocal: true, authorizeConfigurationSources: true);
+    /// <summary>
+    /// Used only by the Debug-only pack built alongside the application. The pack's complete
+    /// bytes must match the SHA-256 fingerprint compiled into that application assembly.
+    /// </summary>
+    public static RulePackReadResult ReadDevelopment(Stream packageStream, string expectedSha256)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(expectedSha256);
+        if (expectedSha256.Length != 64 || !expectedSha256.All(Uri.IsHexDigit))
+        {
+            return RulePackReadResult.Failure(RulePackReadError.ValidationFailed,
+                "The development rule-pack fingerprint is invalid.");
+        }
+
+        using var package = Buffer(packageStream);
+        var actualSha256 = Convert.ToHexString(SHA256.HashData(package.ToArray()));
+        if (!CryptographicOperations.FixedTimeEquals(
+                Convert.FromHexString(expectedSha256), Convert.FromHexString(actualSha256)))
+        {
+            return RulePackReadResult.Failure(RulePackReadError.ValidationFailed,
+                "The development rule-pack does not match this application's compiled fingerprint.");
+        }
+
+        package.Position = 0;
+        return ReadInternal(package, [], isLocal: true, authorizeConfigurationSources: true,
+            trust: RulePackTrust.TrustedDevelopment);
+    }
 
     private static RulePackReadResult ReadInternal(
         Stream packageStream,
         ReadOnlySpan<byte> publicKeyBytes,
         bool isLocal,
-        bool authorizeConfigurationSources = false)
+        bool authorizeConfigurationSources = false,
+        RulePackTrust? trust = null)
     {
         ArgumentNullException.ThrowIfNull(packageStream);
 
@@ -85,7 +110,7 @@ public static class RulePackReader
                 manifest.PackId,
                 manifest.Version,
                 variants,
-                isLocal ? RulePackTrust.UnsignedLocal : RulePackTrust.SignedOfficial));
+                trust ?? (isLocal ? RulePackTrust.UnsignedLocal : RulePackTrust.SignedOfficial)));
         }
         catch (Exception exception) when (
             exception is InvalidDataException or

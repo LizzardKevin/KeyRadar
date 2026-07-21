@@ -40,8 +40,12 @@ public sealed record RunningRuleHotkey(
 
 public static class LocalConfigurationOverridePolicy
 {
-    /// <summary>Configuration is current evidence and supersedes an official default for the same process/variant command.</summary>
-    public static IReadOnlyList<RunningRuleHotkey> FilterOfficialDefaults(
+    /// <summary>
+    /// Current local configuration supersedes static defaults (official and suspected) only for
+    /// the same running owner/variant command. User declarations, hardware mappings and
+    /// RegisterHotKey diagnostics are separate evidence streams and are never filtered here.
+    /// </summary>
+    public static IReadOnlyList<RunningRuleHotkey> FilterStaticDefaults(
         IEnumerable<RunningRuleHotkey> rules,
         IEnumerable<LocalConfigurationHotkey> localConfigurations)
     {
@@ -49,10 +53,13 @@ public static class LocalConfigurationOverridePolicy
             .Where(item => !string.IsNullOrWhiteSpace(item.CommandId))
             .Select(item => $"{item.OwnerIdentity ?? item.ApplicationId}\n{item.CommandId}")
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return rules.Where(rule => rule.Confidence != OwnershipConfidence.OfficialDefault ||
+        return rules.Where(rule => !IsStaticDefault(rule.Confidence) ||
             string.IsNullOrWhiteSpace(rule.CommandId) ||
             !configured.Contains($"{rule.OwnerIdentity ?? rule.ApplicationId}\n{rule.CommandId}")).ToArray();
     }
+
+    private static bool IsStaticDefault(OwnershipConfidence confidence) =>
+        confidence is OwnershipConfidence.OfficialDefault or OwnershipConfidence.Suspected;
 }
 
 public sealed record DiscoveredHotkey(

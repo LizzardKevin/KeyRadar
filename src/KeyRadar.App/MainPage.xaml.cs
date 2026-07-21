@@ -264,7 +264,7 @@ public sealed partial class MainPage : Page
                 rawRunningRuleHotkeys.Where(rule => !WindowsSystemHotkeyIdentity.IsSystemApplication(rule.ApplicationId)),
                 applicationPresenceByEvidenceIdentity))
             .ToArray();
-        runningRuleHotkeys = LocalConfigurationOverridePolicy.FilterOfficialDefaults(runningRuleHotkeys, localConfigurations).ToArray();
+        runningRuleHotkeys = LocalConfigurationOverridePolicy.FilterStaticDefaults(runningRuleHotkeys, localConfigurations).ToArray();
         var attribution = HotkeyAttributionCatalog.Create(
             occupancyResults,
             runningRuleHotkeys,
