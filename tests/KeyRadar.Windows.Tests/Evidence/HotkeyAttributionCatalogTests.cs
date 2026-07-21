@@ -51,7 +51,6 @@ public sealed class HotkeyAttributionCatalogTests
         Assert.True(catalog.TryGet(target, out var discovered));
         Assert.Equal(HotkeyOwnershipStatus.OfficialDefault, discovered.Ownership);
         Assert.DoesNotContain(target, catalog.UnknownProbeGestures);
-        Assert.False(catalog.CanDeepConfirm(target));
     }
 
     [Fact]
@@ -79,7 +78,6 @@ public sealed class HotkeyAttributionCatalogTests
         Assert.Empty(catalog.Items);
         Assert.Empty(catalog.UnknownProbeGestures);
         Assert.Empty(catalog.ActionableUnknownProbes);
-        Assert.False(catalog.CanDeepConfirm(target));
     }
 
     [Theory]
@@ -93,7 +91,6 @@ public sealed class HotkeyAttributionCatalogTests
 
         Assert.Equal(target, Assert.Single(catalog.Items).Gesture);
         Assert.Equal(target, Assert.Single(catalog.ActionableUnknownProbes).Gesture);
-        Assert.True(catalog.CanDeepConfirm(target));
     }
 
     [Fact]
@@ -116,8 +113,6 @@ public sealed class HotkeyAttributionCatalogTests
         Assert.Equal(2, catalog.Items.Count);
         Assert.Contains(catalog.Items, item => item.Gesture == foregroundF6 && item.Ownership == HotkeyOwnershipStatus.OfficialDefault);
         Assert.Contains(catalog.Items, item => item.Gesture == mappedF12 && item.Ownership == HotkeyOwnershipStatus.HardwareMappingFound);
-        Assert.False(catalog.CanDeepConfirm(foregroundF6));
-        Assert.False(catalog.CanDeepConfirm(mappedF12));
     }
 
     [Theory]
@@ -132,7 +127,6 @@ public sealed class HotkeyAttributionCatalogTests
         Assert.Single(catalog.DiagnosticItems);
         Assert.Empty(catalog.Items);
         Assert.DoesNotContain(target, catalog.UnknownProbeGestures);
-        Assert.False(catalog.CanDeepConfirm(target));
     }
 
     [Fact]
@@ -150,8 +144,6 @@ public sealed class HotkeyAttributionCatalogTests
         Assert.Equal(occupied, item.Gesture);
         Assert.Equal(HotkeyOwnershipStatus.OccupiedOwnerUnknown, item.Ownership);
         Assert.Equal(occupied, Assert.Single(catalog.ActionableUnknownProbes).Gesture);
-        Assert.True(catalog.CanDeepConfirm(occupied));
-        Assert.False(catalog.CanDeepConfirm(available));
     }
 
     [Fact]
@@ -174,7 +166,6 @@ public sealed class HotkeyAttributionCatalogTests
         Assert.Equal(HotkeyOwnershipStatus.WindowsKnown, item.Ownership);
         Assert.Equal("windows-system", Assert.Single(item.Owners));
         Assert.Empty(catalog.ActionableUnknownProbes);
-        Assert.False(catalog.CanDeepConfirm(target));
     }
 
     [Fact]
@@ -192,7 +183,6 @@ public sealed class HotkeyAttributionCatalogTests
 
         Assert.Empty(catalog.Items);
         Assert.Empty(catalog.ActionableUnknownProbes);
-        Assert.False(catalog.CanDeepConfirm(target));
     }
 
     [Fact]
@@ -250,7 +240,6 @@ public sealed class HotkeyAttributionCatalogTests
         Assert.Equal(HotkeyOwnershipStatus.PossibleOwner, item.Ownership);
         Assert.Equal("sharex", Assert.Single(item.Owners));
         Assert.Contains("ShareX rule candidate", item.Evidence);
-        Assert.True(catalog.CanDeepConfirm(target));
     }
 
     [Theory]
@@ -274,7 +263,6 @@ public sealed class HotkeyAttributionCatalogTests
 
         var item = Assert.Single(catalog.Items);
         Assert.Equal(HotkeyOwnershipStatus.PossibleOwner, item.Ownership);
-        Assert.False(catalog.CanDeepConfirm(target));
     }
 
     [Fact]
@@ -359,23 +347,28 @@ public sealed class HotkeyAttributionCatalogTests
     }
 
     [Fact]
-    public void Search_matches_sanitized_owner_and_evidence_text()
+    public void Search_matches_hotkey_function_and_owner_text_without_evidence()
     {
+        Assert.True(HotkeyInventorySearch.Matches(
+            "Alt+A",
+            "Alt+A",
+            "Capture region",
+            "Logitech G HUB logitech-g-hub"));
         Assert.True(HotkeyInventorySearch.Matches(
             "Logitech",
             "Alt+A",
             "Capture region",
-            "logitech-g-hub G HUB active profile"));
+            "Logitech G HUB logitech-g-hub"));
         Assert.True(HotkeyInventorySearch.Matches(
-            "profile",
+            "capture",
             "Alt+A",
             "Capture region",
-            "logitech-g-hub G HUB active profile"));
+            "Logitech G HUB logitech-g-hub"));
         Assert.False(HotkeyInventorySearch.Matches(
-            "C:\\Users",
+            "active profile",
             "Alt+A",
             "Capture region",
-            "logitech-g-hub G HUB active profile"));
+            "Logitech G HUB logitech-g-hub"));
     }
 
     [Fact]

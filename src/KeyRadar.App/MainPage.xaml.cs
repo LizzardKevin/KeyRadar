@@ -281,6 +281,7 @@ public sealed partial class MainPage : Page
                 item.Rules.ApplicationId.Equals(representative.ApplicationId, StringComparison.Ordinal));
             var rules = selected.Rules!;
             var process = selected.Snapshot.Process;
+            var ownerLabel = rules.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name);
             var presence = applicationProcesses.Any(item => item.Snapshot.Presence == ApplicationPresence.Foreground)
                 ? ApplicationPresence.Foreground
                 : ApplicationPresence.Background;
@@ -297,22 +298,20 @@ public sealed partial class MainPage : Page
             {
                 var local = configured.FirstOrDefault(item => item.Gesture == hotkey.Gesture);
                 string? availabilityLabel = null;
-                var canDeepConfirm = false;
                 if (hotkey.Scope == HotkeyScope.Global)
                 {
                     availabilityLabel = AvailabilityLabel(attribution, hotkey.Gesture);
-                    canDeepConfirm = attribution.CanDeepConfirm(hotkey.Gesture);
                 }
 
                 return HotkeyRowViewModel.Create(
                     hotkey.Gesture.ToString(),
                     local is null ? hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name) : UiText.LocalizeExternal(local.Function),
+                    ownerLabel,
                     local?.Scope ?? hotkey.Scope,
                     local is null ? hotkey.Confidence : OwnershipConfidence.LocalConfiguration,
                     process.Id,
                     availabilityLabel,
                     hotkey.Sources,
-                    canDeepConfirm: canDeepConfirm,
                     evidenceLabel: local is null ? null : UiText.Pick("证据：", "Evidence: ") + UiText.LocalizeExternal(local.Evidence));
             });
             var configuredOnlyRows = configured
@@ -320,6 +319,7 @@ public sealed partial class MainPage : Page
                 .Select(local => HotkeyRowViewModel.Create(
                     local.Gesture.ToString(),
                     UiText.LocalizeExternal(local.Function),
+                    ownerLabel,
                     local.Scope,
                     OwnershipConfidence.LocalConfiguration,
                     process.Id,
@@ -343,6 +343,8 @@ public sealed partial class MainPage : Page
             var candidates = ambiguous.Match.Candidates
                 .Select(candidate => candidate.Variant)
                 .ToArray();
+            var ownerLabel = string.Join(" / ", candidates
+                .Select(candidate => candidate.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name)));
             groups.Add(new ApplicationGroupViewModel(
                 $"variant-uncertain-{process.Id}",
                 UiText.Pick("变体不确定", "Variant uncertain"),
@@ -355,10 +357,10 @@ public sealed partial class MainPage : Page
                     .Select(hotkey => HotkeyRowViewModel.Create(
                     hotkey.Gesture.ToString(),
                     hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
+                    ownerLabel,
                     hotkey.Scope,
                     OwnershipConfidence.Suspected,
                     process.Id,
-                    canDeepConfirm: hotkey.Scope == HotkeyScope.Global && attribution.CanDeepConfirm(hotkey.Gesture),
                     sources: hotkey.Sources)).ToArray(),
                 process.Id,
                 isForeground: ambiguous.Snapshot.Presence == ApplicationPresence.Foreground));
@@ -569,8 +571,8 @@ public sealed partial class MainPage : Page
                         $"扫描完成：{totalOccupied} 个标准全局占用；无法安全归属的项目已保留为未知。",
                         $"Scan complete: {totalOccupied} standard global occupancies; items without safe ownership evidence remain unknown.");
                     ScanStatusText.Text = UiText.Pick(
-                        "扫描完成；KeyRadar 未发送、拦截或吞掉任何热键",
-                        "Scan complete; KeyRadar did not send, block, or consume any hotkey");
+                        "扫描完成",
+                        "Scan complete");
                     ScanProgress.IsActive = false;
                     RuleStatusInfoBar.IsOpen = !RuntimeRuleCatalog.IsAvailable || RuntimeRuleCatalog.IsUsingDevelopmentFallback;
                     RuleStatusInfoBar.Severity = RuntimeRuleCatalog.IsUsingDevelopmentFallback
@@ -615,6 +617,7 @@ public sealed partial class MainPage : Page
             .Select(hotkey => HotkeyRowViewModel.Create(
             hotkey.Gesture.ToString(),
             hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
+            rules?.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name) ?? UiText.Pick("Windows 系统", "Windows system"),
             hotkey.Scope,
             hotkey.Confidence,
             processId: 0,
@@ -625,6 +628,7 @@ public sealed partial class MainPage : Page
             rows.Add(HotkeyRowViewModel.Create(
                 "PrintScreen",
                 UiText.Pick("打开 Windows 截图工具", "Open Windows Snipping Tool"),
+                UiText.Pick("Windows 系统", "Windows system"),
                 HotkeyScope.WindowsSystem,
                 OwnershipConfidence.LocalConfiguration,
                 processId: 0,
@@ -661,6 +665,11 @@ public sealed partial class MainPage : Page
         HotkeyAttributionCatalog attribution)
     {
         var item = projected.Item;
+        var ownerLabel = projected.DeepConfirmationCandidates.Count == 0
+            ? UiText.Pick("归属未知", "Owner unknown")
+            : string.Join(", ", projected.DeepConfirmationCandidates
+                .Select(candidate => candidate.DisplayName)
+                .Distinct(StringComparer.CurrentCultureIgnoreCase));
         var ownerEvidence = item.Owners.Count == 0
             ? string.Empty
             : UiText.Pick(" · 归属：", " · Owners: ") + string.Join(", ", projected.DeepConfirmationCandidates
@@ -672,18 +681,16 @@ public sealed partial class MainPage : Page
         return HotkeyRowViewModel.Create(
             item.Gesture.ToString(),
             UiText.LocalizeExternal(item.Function),
+            ownerLabel,
             item.Scope,
             ConfidenceFor(item.Ownership),
             processId: 0,
             availabilityLabel: AvailabilityLabel(attribution, item.Gesture),
-            canDeepConfirm: attribution.CanDeepConfirm(item.Gesture),
             evidenceLabel: UiText.Pick("证据：", "Evidence: ") +
                 string.Join(" · ", item.Evidence.Select(UiText.LocalizeExternal)) + ownerEvidence + conflictEvidence,
             isHardware: projected.HasActiveHardwareEvidence,
             searchText: string.Join(" ", projected.DeepConfirmationCandidates
-                .Select(candidate => candidate.OwnerId)
-                .Concat(item.Evidence)),
-            deepConfirmationCandidates: projected.DeepConfirmationCandidates);
+                .Select(candidate => $"{candidate.DisplayName} {candidate.OwnerId}")));
     }
 
     private static OwnershipConfidence ConfidenceFor(HotkeyOwnershipStatus ownership) => ownership switch
@@ -739,13 +746,13 @@ public sealed partial class MainPage : Page
                     rows.Add(new HotkeyRowViewModel(
                         mapping.TargetGesture?.ToString() ?? mapping.PhysicalTrigger,
                         $"{mapping.PhysicalTrigger} → {mapping.DisplayTarget}",
+                        software.DisplayName,
                         UiText.Pick("硬件映射", "Hardware mapping"),
                         $"{profile.ProfileName} · {profileState}{onboard} · {declaration} · {UiText.LocalizeExternal(profile.Evidence)}",
                         profile.IsUserDeclared
                             ? UiText.Pick("● 用户声明 · 未经官方验证", "● User declared · not officially verified")
                             : UiText.Pick("● 硬件映射已发现", "● Hardware mapping found"),
                         software.ProcessId ?? 0,
-                        canDeepConfirm: false,
                         isGlobal: mapping.ParticipatesInConflict,
                         isUnconfirmed: profile.IsUserDeclared,
                         confidence: profile.IsUserDeclared ? OwnershipConfidence.UserDeclared : OwnershipConfidence.HardwareMapping,
@@ -764,11 +771,11 @@ public sealed partial class MainPage : Page
                 rows.Add(new HotkeyRowViewModel(
                     device?.ModelName ?? software.DisplayName,
                     state,
+                    software.DisplayName,
                     UiText.Pick("硬件映射", "Hardware mapping"),
                     profile is null ? UiText.Pick("证据：运行进程与 HID 厂商/型号", "Evidence: running process and HID vendor/model") : UiText.LocalizeExternal(profile.Evidence),
                     profile is not null ? UiText.Pick("! 无法完整发现", "! Not fully discoverable") : UiText.Pick("○ 当前未生效", "○ Not currently active"),
                     software.ProcessId ?? 0,
-                    canDeepConfirm: false,
                     isHardware: true));
             }
         }
@@ -1658,128 +1665,6 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private async Task<IReadOnlyList<DeepConfirmationCandidate>> RefreshDeepConfirmationCandidatesAsync(
-        HotkeyGesture target,
-        CancellationToken cancellationToken)
-    {
-        var snapshots = await Task.Run(
-            () => _scanner.Scan(Environment.ProcessId),
-            cancellationToken).ConfigureAwait(false);
-        var catalog = RuntimeRuleCatalog.Current;
-        var windowsSession = WindowsSessionStateReader.Read();
-        var currentWindowsRules = catalog
-            .Where(rule => WindowsSystemHotkeyIdentity.IsSystemApplication(rule.ApplicationId))
-            .SelectMany(variant => variant.Hotkeys.Select(hotkey => new RunningRuleHotkey(
-                WindowsSystemHotkeyIdentity.ApplicationId,
-                hotkey.Gesture,
-                hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
-                hotkey.Scope,
-                hotkey.Confidence,
-                string.Join(" ", hotkey.Sources))))
-            .ToArray();
-        var matcher = new ApplicationVariantMatcher();
-        var runningVariants = snapshots
-            .Select(snapshot => new
-            {
-                Snapshot = snapshot,
-                Match = matcher.Match(
-                    new ApplicationIdentity(
-                        snapshot.Process.ExecutableName,
-                        snapshot.Process.Version,
-                        snapshot.Process.Publisher,
-                        snapshot.Process.CompanyName,
-                        snapshot.Process.PackageFamilyName,
-                        snapshot.Process.Distribution),
-                    catalog),
-            })
-            .SelectMany(item => (item.Match.Selected is not null
-                    ? [item.Match.Selected]
-                    : item.Match.Candidates.Select(candidate => candidate.Variant))
-                .Select(variant => new RunningApplicationVariant(item.Snapshot.Process, variant)))
-            .DistinctBy(item => new RunningApplicationEvidenceIdentity(
-                item.Process.Id,
-                item.Variant.ApplicationId,
-                item.Variant.VariantId).Value, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        var presenceByProcessId = snapshots.ToDictionary(snapshot => snapshot.Process.Id, snapshot => snapshot.Presence);
-        var applicationPresenceByEvidenceIdentity = runningVariants.ToDictionary(
-            item => new RunningApplicationEvidenceIdentity(
-                item.Process.Id,
-                item.Variant.ApplicationId,
-                item.Variant.VariantId).Value,
-            item => presenceByProcessId[item.Process.Id],
-            StringComparer.OrdinalIgnoreCase);
-
-        var localConfigurations = CurrentStateHotkeyEligibilityPolicy.FilterLocalConfigurationsByOwnerIdentity(
-            await _configurationRegistry
-                .ReadAsync(runningVariants, cancellationToken)
-                .ConfigureAwait(false),
-            applicationPresenceByEvidenceIdentity);
-        var candidates = localConfigurations
-            .Where(item => item.Gesture == target)
-            .Select(item =>
-            {
-                var variant = runningVariants.First(candidate => (item.OwnerIdentity ?? item.ApplicationId).Equals(
-                    new RunningApplicationEvidenceIdentity(
-                        candidate.Process.Id,
-                        candidate.Variant.ApplicationId,
-                        candidate.Variant.VariantId).Value,
-                    StringComparison.OrdinalIgnoreCase)).Variant;
-                return new DeepConfirmationCandidate(
-                    item.ApplicationId,
-                    variant.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
-                    DeepConfirmationEvidenceKind.LocalConfiguration,
-                    item.OwnerIdentity);
-            })
-            .ToList();
-
-        var devices = await Task.Run(
-            () => new RawInputHidDeviceSource().ReadConnected(),
-            cancellationToken).ConfigureAwait(false);
-        var hardware = HardwareEnvironmentScanner.Match(
-            snapshots.Select(snapshot => snapshot.Process).DistinctBy(process => process.Id).ToArray(),
-            devices);
-        hardware = AddImportedHardwareProfile(hardware);
-        candidates.AddRange(hardware.Profiles
-            .Where(profile => profile.Status == HardwareProfileReadStatus.Active && !profile.IsUserDeclared)
-            .Where(profile => profile.Mappings.Any(mapping => mapping.ParticipatesInConflict && mapping.TargetGesture == target))
-            .Select(profile => new DeepConfirmationCandidate(
-                profile.SoftwareId,
-                profile.DeviceName,
-                DeepConfirmationEvidenceKind.ActiveHardwareProfile)));
-        candidates.AddRange(hardware.Profiles
-            .Where(profile => profile.Status == HardwareProfileReadStatus.Active && profile.IsUserDeclared)
-            .Where(profile => profile.Mappings.Any(mapping => mapping.ParticipatesInConflict && mapping.TargetGesture == target))
-            .Select(profile => new DeepConfirmationCandidate(
-                profile.SoftwareId,
-                profile.DeviceName,
-                DeepConfirmationEvidenceKind.UserDeclaredHardwareProfile)));
-        candidates.AddRange(runningVariants
-            .Where(item => item.Variant.Hotkeys.Any(hotkey =>
-                hotkey.Gesture == target &&
-                CurrentStateHotkeyEligibilityPolicy.IsEligible(
-                    new RunningApplicationEvidenceIdentity(
-                        item.Process.Id,
-                        item.Variant.ApplicationId,
-                        item.Variant.VariantId).Value,
-                    hotkey.Scope,
-                    applicationPresenceByEvidenceIdentity)))
-            .Select(item => new DeepConfirmationCandidate(
-                item.Variant.ApplicationId,
-                item.Variant.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
-                DeepConfirmationEvidenceKind.OfficialRule,
-                new RunningApplicationEvidenceIdentity(
-                    item.Process.Id,
-                    item.Variant.ApplicationId,
-                    item.Variant.VariantId).Value)));
-
-        return WindowsSystemDeepConfirmationCandidateBuilder.Build(
-            target,
-            currentWindowsRules,
-            windowsSession,
-            candidates);
-    }
-
     private HardwareEnvironmentSnapshot AddImportedHardwareProfile(HardwareEnvironmentSnapshot snapshot)
     {
         var imported = _hardwareProfileStore.Load();
@@ -1798,108 +1683,6 @@ public sealed partial class MainPage : Page
                 .Append(imported)
                 .ToArray(),
         };
-    }
-
-    private async void DeepConfirmButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { Tag: HotkeyRowViewModel row } ||
-            !HotkeyGesture.TryParse(row.Gesture, out var gesture))
-        {
-            return;
-        }
-
-        ((Button)sender).IsEnabled = false;
-        ConflictInfoBar.Severity = InfoBarSeverity.Informational;
-        ConflictInfoBar.Title = UiText.Pick($"正在深度确认 {row.Gesture}", $"Deep-confirming {row.Gesture}");
-        ConflictInfoBar.Message = UiText.Pick(
-            "正在立即复核占用、运行进程、规则、本机配置与硬件映射；不会模拟或触发该热键。",
-            "Immediately rechecking occupancy, running processes, rules, local configuration, and hardware mappings. The hotkey will not be simulated or triggered.");
-        ConflictInfoBar.IsOpen = true;
-
-        var candidates = row.DeepConfirmationCandidates;
-        ImmediateDeepConfirmationResult result;
-        using var confirmationTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        try
-        {
-            result = await Task.Run(async () =>
-            {
-                using var registrationApi = new Win32HotkeyRegistrationApi();
-                var service = new ImmediateDeepConfirmationService(
-                    target => new GlobalHotkeyAvailabilityProbe(registrationApi).Probe(target),
-                    RefreshDeepConfirmationCandidatesAsync,
-                    new NativeHotkeyReprobeService().ProbeAsync);
-                return await service.ConfirmAsync(
-                    new ImmediateDeepConfirmationRequest(gesture, candidates),
-                    confirmationTimeout.Token);
-            }, confirmationTimeout.Token);
-        }
-        catch (Exception exception) when (exception is OperationCanceledException or IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
-        {
-            ConflictInfoBar.Severity = InfoBarSeverity.Warning;
-            ConflictInfoBar.Title = UiText.Pick("无法确认", "Unable to confirm");
-            ConflictInfoBar.Message = UiText.Pick(
-                "即时复核已取消或辅助组件无法安全启动；没有模拟、触发或拦截该热键。",
-                "The immediate recheck was canceled or its helper could not start safely. The hotkey was not simulated, triggered, or blocked.");
-            ((Button)sender).IsEnabled = row.CanDeepConfirm;
-            return;
-        }
-
-        switch (result.Conclusion)
-        {
-            case DeepConfirmationConclusion.ConfirmedOwner:
-                row.MarkConfirmed();
-                ConflictInfoBar.Severity = InfoBarSeverity.Success;
-                ConflictInfoBar.Title = UiText.Pick("归属已确认", "Owner confirmed");
-                ConflictInfoBar.Message = UiText.Pick($"{row.Gesture} 已由当前本机配置或生效硬件映射精确确认。", $"{row.Gesture} was confirmed by current local configuration or an active hardware mapping.");
-                break;
-            case DeepConfirmationConclusion.PossibleOwner:
-                row.MarkPossible();
-                ConflictInfoBar.Severity = InfoBarSeverity.Warning;
-                ConflictInfoBar.Title = UiText.Pick("可能归属", "Possible owner");
-                ConflictInfoBar.Message = UiText.Pick(
-                    $"运行中的候选：{string.Join("、", result.Candidates.Select(candidate => candidate.DisplayName))}。仅有规则吻合，未读取到本机配置证据。",
-                    $"Running candidates: {string.Join(", ", result.Candidates.Select(candidate => candidate.DisplayName))}. Only rule matches are available; no local configuration evidence was read.");
-                break;
-            case DeepConfirmationConclusion.OccupiedOwnerUnknown:
-                row.MarkOccupiedUnknown();
-                ConflictInfoBar.Severity = InfoBarSeverity.Warning;
-                ConflictInfoBar.Title = UiText.Pick("已占用，归属未知", "Occupied, owner unknown");
-                ConflictInfoBar.Message = UiText.Pick("标准全局探测复核为已占用，但 Windows 没有公开 API 可安全返回注册进程；KeyRadar 不会虚构归属。", "The standard global probe reconfirmed occupancy, but Windows has no public API that safely returns the registering process. KeyRadar will not invent an owner.");
-                break;
-            default:
-                ConflictInfoBar.Severity = InfoBarSeverity.Warning;
-                ConflictInfoBar.Title = UiText.Pick("无法确认", "Unable to confirm");
-                ConflictInfoBar.Message = UiText.Pick("复核时未能确认占用，或可能涉及私有 Hook、Raw Input、驱动、权限或板载宏。", "The recheck could not confirm occupancy, or the hotkey may involve a private hook, Raw Input, a driver, permissions, or an onboard macro.");
-                break;
-        }
-
-        ConflictInfoBar.Message += BuildNativeProbeEvidence(result.NativeProbes);
-
-        ((Button)sender).IsEnabled = row.CanDeepConfirm;
-    }
-
-    private static string BuildNativeProbeEvidence(IReadOnlyList<NativeHotkeyProbeResult> probes)
-    {
-        if (probes.Count == 0)
-        {
-            return UiText.Pick(
-                "\n原生 x86/x64 辅助组件不可用；本次仅使用托管复核。",
-                "\nNative x86/x64 helpers were unavailable; this result used the managed recheck only.");
-        }
-
-        var details = probes.Select(probe =>
-        {
-            var architecture = probe.Architecture == NativeProbeArchitecture.X64 ? "x64" : "x86";
-            var availability = probe.Availability switch
-            {
-                HotkeyProbeAvailability.Occupied => UiText.Pick("已占用", "occupied"),
-                HotkeyProbeAvailability.AvailableAtScanTime => UiText.Pick("复核瞬间可注册", "available at recheck time"),
-                HotkeyProbeAvailability.SystemReserved => UiText.Pick("系统保留", "system reserved"),
-                _ => UiText.Pick("探测错误", "probe error"),
-            };
-            return $"{architecture}: {availability}";
-        });
-        return UiText.Pick("\n原生复核：", "\nNative recheck: ") + string.Join(" · ", details);
     }
 
 }

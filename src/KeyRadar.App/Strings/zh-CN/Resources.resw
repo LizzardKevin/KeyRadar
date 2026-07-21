@@ -34,9 +34,7 @@
   <data name="ConflictInfo.Title" xml:space="preserve"><value>发现热键冲突</value></data>
   <data name="ConflictInfo.Message" xml:space="preserve"><value>同一组合键存在多个运行中的候选归属。</value></data>
   <data name="InitialScanStatus.Text" xml:space="preserve"><value>正在安全读取窗口、进程与规则证据</value></data>
-  <data name="NonBlockingLabel.Text" xml:space="preserve"><value>不模拟 · 不拦截</value></data>
   <data name="JumpToApplicationButton.Content" xml:space="preserve"><value>转到应用  ↗</value></data>
-  <data name="DeepConfirmButton.Content" xml:space="preserve"><value>深度确认</value></data>
   <data name="EmptyFilterTitle.Text" xml:space="preserve"><value>当前筛选没有匹配项</value></data>
   <data name="EmptyFilterMessage.Text" xml:space="preserve"><value>清空搜索可查看全部已识别热键</value></data>
   <data name="LanguageSystem.Content" xml:space="preserve"><value>跟随系统</value></data>

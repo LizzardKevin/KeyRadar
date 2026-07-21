@@ -239,11 +239,9 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <ProgressRing x:Name="ScanProgress" Width="18" Height="18" IsActive="True" />
                         <TextBlock x:Name="ScanStatusText" x:Uid="InitialScanStatus" Grid.Column="1" VerticalAlignment="Center" Text="正在安全读取窗口、进程与规则证据" />
-                        <TextBlock x:Uid="NonBlockingLabel" Grid.Column="2" VerticalAlignment="Center" Foreground="{StaticResource RadarMutedBrush}" Text="不模拟 · 不拦截" />
                     </Grid>
                 </Border>
 
@@ -296,25 +294,15 @@
                                                     <ColumnDefinition Width="160" />
                                                     <ColumnDefinition Width="*" MinWidth="150" />
                                                     <ColumnDefinition Width="126" />
-                                                    <ColumnDefinition Width="104" />
                                                 </Grid.ColumnDefinitions>
                                                 <Border HorizontalAlignment="Left" Padding="9,5" Background="#FF132F3E" BorderBrush="#516AD9DB" BorderThickness="1" CornerRadius="6">
                                                     <TextBlock FontFamily="Cascadia Mono" Foreground="#FFC9FFFF" Text="{x:Bind Gesture}" />
                                                 </Border>
                                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                     <TextBlock Text="{x:Bind Function}" TextWrapping="Wrap" />
-                                                    <TextBlock FontSize="11" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind ScopeLabel}" TextWrapping="Wrap" />
-                                                    <TextBlock FontSize="11" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind EvidenceLabel}" TextWrapping="Wrap" />
+                                                    <TextBlock FontSize="11" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind OwnerLabel}" TextWrapping="Wrap" />
                                                 </StackPanel>
                                                 <TextBlock Grid.Column="2" VerticalAlignment="Center" Foreground="{StaticResource RadarSuccessBrush}" Text="{x:Bind ConfidenceLabel, Mode=OneWay}" TextWrapping="WrapWholeWords" />
-                                                <StackPanel Grid.Column="3" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="6">
-                                                    <Button
-                                                        x:Uid="DeepConfirmButton"
-                                                        Click="DeepConfirmButton_Click"
-                                                        Content="深度确认"
-                                                        IsEnabled="{x:Bind CanDeepConfirm}"
-                                                        Tag="{x:Bind}" />
-                                                </StackPanel>
                                             </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>

@@ -52,12 +52,6 @@ public sealed class HotkeyAttributionCatalog
     public bool TryGet(HotkeyGesture gesture, out DiscoveredHotkey item) =>
         _byGesture.TryGetValue(gesture, out item!);
 
-    public bool CanDeepConfirm(HotkeyGesture gesture) =>
-        Items.Any(item =>
-            item.Gesture == gesture &&
-            item.Availability == HotkeyProbeAvailability.Occupied &&
-            item.Ownership is HotkeyOwnershipStatus.OccupiedOwnerUnknown or HotkeyOwnershipStatus.PossibleOwner);
-
     public static HotkeyAttributionCatalog Create(
         IReadOnlyList<HotkeyProbeResult> probes,
         IReadOnlyList<RunningRuleHotkey> runningRules,

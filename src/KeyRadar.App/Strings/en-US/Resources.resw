@@ -34,9 +34,7 @@
   <data name="ConflictInfo.Title" xml:space="preserve"><value>Hotkey conflict found</value></data>
   <data name="ConflictInfo.Message" xml:space="preserve"><value>The same combination has multiple candidate owners among running apps.</value></data>
   <data name="InitialScanStatus.Text" xml:space="preserve"><value>Safely reading window, process, and rule evidence</value></data>
-  <data name="NonBlockingLabel.Text" xml:space="preserve"><value>No simulation · no blocking</value></data>
   <data name="JumpToApplicationButton.Content" xml:space="preserve"><value>Go to app  ↗</value></data>
-  <data name="DeepConfirmButton.Content" xml:space="preserve"><value>Deep confirm</value></data>
   <data name="EmptyFilterTitle.Text" xml:space="preserve"><value>No matches in the current filter</value></data>
   <data name="EmptyFilterMessage.Text" xml:space="preserve"><value>Clear search to view all discovered hotkeys</value></data>
   <data name="LanguageSystem.Content" xml:space="preserve"><value>Follow system</value></data>

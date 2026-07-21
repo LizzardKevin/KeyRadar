@@ -67,6 +67,7 @@ public sealed class DiagnosticBundleWriterTests
             Assert.DoesNotContain(@"C:\Users", json, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain(Environment.UserName, json, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain(@"\\server\private", json, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Imported from [path]", json, StringComparison.Ordinal);
 
             Assert.Contains("\"schemaVersion\": 2", json, StringComparison.Ordinal);
             Assert.Contains("\"probeTelemetry\": [", json, StringComparison.Ordinal);

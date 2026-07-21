@@ -47,6 +47,7 @@ public sealed partial class ForegroundOverlayWindow : Window
             Hotkeys.Add(HotkeyRowViewModel.Create(
                 hotkey.Gesture.ToString(),
                 hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
+                rules.DisplayName.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name),
                 hotkey.Scope,
                 hotkey.Confidence,
                 processId));

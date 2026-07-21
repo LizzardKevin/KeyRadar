@@ -40,25 +40,6 @@
     <ProjectReference Include="..\KeyRadar.Windows\KeyRadar.Windows.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Include="..\..\artifacts\native\x64\Release\KeyRadar.Native.Host.x64.exe"
-          Link="KeyRadar.Native.Host.x64.exe"
-          CopyToOutputDirectory="PreserveNewest"
-          Condition="Exists('..\..\artifacts\native\x64\Release\KeyRadar.Native.Host.x64.exe')" />
-    <None Include="..\..\artifacts\native\x64\Release\KeyRadar.Native.x64.dll"
-          Link="KeyRadar.Native.x64.dll"
-          CopyToOutputDirectory="PreserveNewest"
-          Condition="Exists('..\..\artifacts\native\x64\Release\KeyRadar.Native.x64.dll')" />
-    <None Include="..\..\artifacts\native\Win32\Release\KeyRadar.Native.Host.x86.exe"
-          Link="KeyRadar.Native.Host.x86.exe"
-          CopyToOutputDirectory="PreserveNewest"
-          Condition="Exists('..\..\artifacts\native\Win32\Release\KeyRadar.Native.Host.x86.exe')" />
-    <None Include="..\..\artifacts\native\Win32\Release\KeyRadar.Native.x86.dll"
-          Link="KeyRadar.Native.x86.dll"
-          CopyToOutputDirectory="PreserveNewest"
-          Condition="Exists('..\..\artifacts\native\Win32\Release\KeyRadar.Native.x86.dll')" />
-  </ItemGroup>
-
   <Target Name="BuildDevelopmentRulePack"
           AfterTargets="Build"
           Condition="'$(Configuration)' == 'Debug'">
