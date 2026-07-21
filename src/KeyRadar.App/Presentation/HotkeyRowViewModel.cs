@@ -8,6 +8,8 @@ namespace KeyRadar;
 public sealed class HotkeyRowViewModel : INotifyPropertyChanged
 {
     private string _confidenceLabel;
+    private string _ownerLabel;
+    private string _evidenceLabel;
 
     public HotkeyRowViewModel(
         string gesture,
@@ -27,9 +29,9 @@ public sealed class HotkeyRowViewModel : INotifyPropertyChanged
     {
         Gesture = gesture;
         Function = function;
-        OwnerLabel = ownerLabel;
+        _ownerLabel = ownerLabel;
         ScopeLabel = scopeLabel;
-        EvidenceLabel = evidenceLabel;
+        _evidenceLabel = evidenceLabel;
         _confidenceLabel = confidenceLabel;
         ProcessId = processId;
         ProbeAvailability = probeAvailability;
@@ -45,11 +47,29 @@ public sealed class HotkeyRowViewModel : INotifyPropertyChanged
 
     public string Function { get; set; }
 
-    public string OwnerLabel { get; set; }
+    public string OwnerLabel
+    {
+        get => _ownerLabel;
+        set
+        {
+            if (_ownerLabel == value) return;
+            _ownerLabel = value;
+            OnPropertyChanged();
+        }
+    }
 
     public string ScopeLabel { get; set; }
 
-    public string EvidenceLabel { get; set; }
+    public string EvidenceLabel
+    {
+        get => _evidenceLabel;
+        set
+        {
+            if (_evidenceLabel == value) return;
+            _evidenceLabel = value;
+            OnPropertyChanged();
+        }
+    }
 
     public string ConfidenceLabel
     {

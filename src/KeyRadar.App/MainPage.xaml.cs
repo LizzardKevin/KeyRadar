@@ -41,9 +41,11 @@ public sealed partial class MainPage : Page
     private readonly CompletedScanStateStore _completedScanState = new();
     private readonly CompletedScanPublicationCoordinator _completedScanPublication;
     private readonly ScanGenerationCoordinator _scanGenerations = new();
+    private readonly NativeHotkeyOwnerTracer _ownerTracer = new();
     private IReadOnlyList<ApplicationGroupViewModel> _allGroups = [];
     private IReadOnlyList<ApplicationSnapshot> _latestSnapshots = [];
     private CancellationTokenSource? _scanCancellation;
+    private CancellationTokenSource? _ownerTraceCancellation;
     private AppPreferences _preferences = new();
     private bool _preferencesReady;
     private bool _filtersReady;
@@ -75,6 +77,8 @@ public sealed partial class MainPage : Page
     private async Task ScanAsync()
     {
         var scanGeneration = _scanGenerations.Begin();
+        _ownerTraceCancellation?.Cancel();
+        _ownerTraceCancellation = null;
         _scanCancellation?.Cancel();
         _scanCancellation?.Dispose();
         _scanCancellation = new CancellationTokenSource();
@@ -562,7 +566,7 @@ public sealed partial class MainPage : Page
                     $"{definiteConflictCount} confirmed · {possibleConflictCount} possible interceptions. Related apps were expanded automatically."))
             : new ConflictInfoBarState(false, InfoBarSeverity.Informational, string.Empty, string.Empty);
 
-        ApplyIfCurrent(scanGeneration, () =>
+        if (ApplyIfCurrent(scanGeneration, () =>
             _completedScanPublication.CreateAndPublish(
                 () => CompletedScanExportSnapshot.Create(
                     BuildDiagnosticApplications(completedGroups, snapshots),
@@ -601,7 +605,10 @@ public sealed partial class MainPage : Page
                         ? UiText.Pick("开发规则包", "Development rule pack")
                         : UiText.Pick("规则不可用", "Rules unavailable");
                     RuleStatusInfoBar.Message = RuntimeRuleCatalog.StatusMessage;
-                }));
+                })))
+        {
+            _ = TraceUnknownOwnersAsync(attribution, scanGeneration, scanCancellationToken);
+        }
         }, cancellationToken))
         {
             ApplyIfCurrent(scanGeneration, () =>
@@ -836,6 +843,74 @@ public sealed partial class MainPage : Page
     }
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e) => await ScanAsync();
+
+    private async Task TraceUnknownOwnersAsync(
+        HotkeyAttributionCatalog attribution,
+        ScanGeneration scanGeneration,
+        CancellationToken scanCancellationToken)
+    {
+        var targets = HotkeyOwnerTracePolicy.CreateTargets(attribution)
+            .Take(12)
+            .ToArray();
+        if (targets.Length == 0)
+        {
+            return;
+        }
+        var traceCancellation = CancellationTokenSource.CreateLinkedTokenSource(scanCancellationToken);
+        _ownerTraceCancellation = traceCancellation;
+        try
+        {
+            var results = await new HotkeyOwnerTraceCoordinator(
+                _ownerTracer,
+                totalBudget: TimeSpan.FromSeconds(15),
+                perTargetBudget: TimeSpan.FromSeconds(3),
+                maximumTargets: 12)
+                .TraceEligibleAsync(attribution, traceCancellation.Token);
+            if (traceCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+            ApplyIfCurrent(scanGeneration, () =>
+            {
+                foreach (var result in results)
+                {
+                    if (result.Value is
+                        { Status: OwnerTraceStatus.Detected, ProcessId: not null, ThreadId: not null })
+                    {
+                        UpdateTracedOwnerRow(result.Key, result.Value);
+                    }
+                }
+            });
+        }
+        catch (OperationCanceledException) when (traceCancellation.IsCancellationRequested)
+        {
+            // A refresh or page close leaves the visible ownership state unchanged.
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"Unknown hotkey owner tracing failed: {exception}");
+        }
+        finally
+        {
+            if (ReferenceEquals(_ownerTraceCancellation, traceCancellation))
+            {
+                _ownerTraceCancellation = null;
+            }
+            traceCancellation.Dispose();
+        }
+    }
+
+    private void UpdateTracedOwnerRow(HotkeyGesture gesture, OwnerTraceResult result)
+    {
+        var row = _allGroups.FirstOrDefault(group => group.Id == "unknown-occupancy")?.Hotkeys
+            .FirstOrDefault(item => string.Equals(item.Gesture, gesture.ToString(), StringComparison.Ordinal));
+        if (row is null) return;
+        var owner = string.IsNullOrWhiteSpace(result.ProcessName) ? $"PID {result.ProcessId}" : result.ProcessName;
+        row.OwnerLabel = UiText.Pick($"运行时观测：{owner} · PID {result.ProcessId} · TID {result.ThreadId}",
+            $"Runtime observation: {owner} · PID {result.ProcessId} · TID {result.ThreadId}");
+        row.EvidenceLabel = UiText.Pick("证据：实验性 WH_GETMESSAGE · 仅本次扫描 · 非规则证据", "Evidence: experimental WH_GETMESSAGE · this scan only · not rule evidence");
+        row.ConfidenceLabel = UiText.Pick("● 实验性运行时观测", "● Experimental runtime observation");
+    }
 
     private async void ImportHardwareProfileButton_Click(object sender, RoutedEventArgs e)
     {
@@ -1544,6 +1619,8 @@ public sealed partial class MainPage : Page
         Unloaded -= MainPage_Unloaded;
         _scanCancellation?.Cancel();
         _scanCancellation?.Dispose();
+        _ownerTraceCancellation?.Cancel();
+        _ownerTraceCancellation = null;
         _updateHttpClient.Dispose();
     }
 

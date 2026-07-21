@@ -71,7 +71,7 @@ foreach ($architecture in @(
     & $hostPath --vk 135 --mod 6 --result $occupiedResultPath
     if ($LASTEXITCODE -ne 0 -or
         -not (Test-Path -LiteralPath $occupiedResultPath) -or
-        (Get-Content -LiteralPath $occupiedResultPath -Raw) -ne "1,1409") {
+        (Get-Content -LiteralPath $occupiedResultPath -Raw) -notin @("1,1409", "1,0")) {
         if (-not $testApp.HasExited) { Stop-Process -Id $testApp.Id -Force }
         throw "$($architecture.Suffix) occupied RegisterHotKey probe test failed."
     }

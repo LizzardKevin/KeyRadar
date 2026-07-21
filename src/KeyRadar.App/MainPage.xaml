@@ -300,7 +300,7 @@
                                                 </Border>
                                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                     <TextBlock Text="{x:Bind Function}" TextWrapping="Wrap" />
-                                                    <TextBlock FontSize="11" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind OwnerLabel}" TextWrapping="Wrap" />
+                                                    <TextBlock FontSize="11" Foreground="{StaticResource RadarMutedBrush}" Text="{x:Bind OwnerLabel, Mode=OneWay}" TextWrapping="Wrap" />
                                                 </StackPanel>
                                                 <TextBlock Grid.Column="2" VerticalAlignment="Center" Foreground="{StaticResource RadarSuccessBrush}" Text="{x:Bind ConfidenceLabel, Mode=OneWay}" TextWrapping="WrapWholeWords" />
                                             </Grid>
