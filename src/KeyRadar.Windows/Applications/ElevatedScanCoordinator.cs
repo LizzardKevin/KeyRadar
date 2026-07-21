@@ -16,7 +16,7 @@ public sealed record ElevatedScanResult(
     IReadOnlyList<ApplicationSnapshot> Snapshots,
     ElevatedScanStatus Status);
 
-public sealed record ElevatedScanRequest(string PipeName, string Nonce, DateTimeOffset DeadlineUtc)
+public sealed record ElevatedScanRequest(string PipeName, string Nonce, int OperationTimeoutMilliseconds)
 {
     public static ElevatedScanRequest Create(TimeSpan timeout)
     {
@@ -28,8 +28,95 @@ public sealed record ElevatedScanRequest(string PipeName, string Nonce, DateTime
         return new ElevatedScanRequest(
             $"KeyRadar.ElevatedScan.{Guid.NewGuid():N}",
             Convert.ToHexString(RandomNumberGenerator.GetBytes(32)),
-            DateTimeOffset.UtcNow.Add(timeout));
+            checked((int)Math.Ceiling(timeout.TotalMilliseconds)));
     }
+}
+
+public sealed record ElevatedProcessTarget(int Id, long? StartTimeUtcTicks);
+
+public sealed record ElevatedScanCommand(
+    int Version,
+    string Nonce,
+    int OperationTimeoutMilliseconds,
+    IReadOnlyList<ElevatedProcessTarget> Processes);
+
+public sealed record ElevatedScanControl(int Version, string Command);
+
+public static class ElevatedScanProtocol
+{
+    public const int Version = 1;
+    public const int MaximumProcesses = 16384;
+    public const int MaximumOperationTimeoutMilliseconds = 12000;
+    public const string CancelCommand = "cancel";
+
+    public static IReadOnlyList<ElevatedProcessTarget> CreateAllowlist(IReadOnlyList<ApplicationSnapshot> snapshots)
+    {
+        ArgumentNullException.ThrowIfNull(snapshots);
+        var targets = new List<ElevatedProcessTarget>();
+        var seen = new HashSet<int>();
+        foreach (var snapshot in snapshots)
+        {
+            var process = snapshot.Process;
+            if (process.Id <= 0 || process.Id == Environment.ProcessId || !seen.Add(process.Id) || IsKeyRadarInfrastructure(process.Name))
+            {
+                continue;
+            }
+
+            targets.Add(new ElevatedProcessTarget(process.Id, TryReadStartTimeUtcTicks(process.Id)));
+        }
+
+        return targets;
+    }
+
+    public static bool TryValidateCommand(
+        ElevatedScanCommand? command,
+        string expectedNonce,
+        out IReadOnlyList<ElevatedProcessTarget> processes)
+    {
+        processes = [];
+        if (command is null || command.Version != Version ||
+            !FixedTimeEquals(command.Nonce, expectedNonce) ||
+            command.OperationTimeoutMilliseconds is <= 0 or > MaximumOperationTimeoutMilliseconds ||
+            command.Processes is null || command.Processes.Count > MaximumProcesses ||
+            command.Processes.Any(target => target is null || target.Id <= 0 || !IsValidStartTime(target.StartTimeUtcTicks)) ||
+            command.Processes.Select(target => target.Id).Distinct().Count() != command.Processes.Count)
+        {
+            return false;
+        }
+
+        processes = command.Processes.ToArray();
+        return true;
+    }
+
+    public static bool IsCancel(ElevatedScanControl? control) =>
+        control is { Version: Version, Command: CancelCommand };
+
+    private static bool IsKeyRadarInfrastructure(string? processName) =>
+        string.Equals(processName, "KeyRadar", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(processName, "KeyRadar.ElevatedScanner", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(processName, "KeyRadar.Updater", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(processName, "KeyRadar.NativeHost", StringComparison.OrdinalIgnoreCase) ||
+        processName?.StartsWith("KeyRadar.NativeHost.", StringComparison.OrdinalIgnoreCase) == true;
+
+    private static long? TryReadStartTimeUtcTicks(int processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            return process.StartTime.ToUniversalTime().Ticks;
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or Win32Exception)
+        {
+            return null;
+        }
+    }
+
+    private static bool IsValidStartTime(long? value) =>
+        value is null || (value.Value > DateTime.MinValue.Ticks && value.Value <= DateTime.MaxValue.Ticks);
+
+    private static bool FixedTimeEquals(string? left, string? right) => CryptographicOperations.FixedTimeEquals(
+        System.Text.Encoding.UTF8.GetBytes(left ?? string.Empty),
+        System.Text.Encoding.UTF8.GetBytes(right ?? string.Empty));
 }
 
 public interface IElevatedScanProcess
@@ -51,7 +138,8 @@ public interface IElevatedScanTransport
 
 public interface IElevatedScanReception : IAsyncDisposable
 {
-    Task<ElevatedProcessSnapshot> ReceiveAsync(CancellationToken cancellationToken);
+    Task<ElevatedProcessSnapshot> ReceiveAsync(IReadOnlyList<ElevatedProcessTarget> allowlist, CancellationToken cancellationToken);
+    Task CancelAsync(CancellationToken cancellationToken);
 }
 
 public sealed class ElevatedScanCoordinator(
@@ -68,6 +156,7 @@ public sealed class ElevatedScanCoordinator(
         ArgumentNullException.ThrowIfNull(normalSnapshots);
         cancellationToken.ThrowIfCancellationRequested();
         var request = ElevatedScanRequest.Create(timeout);
+        var allowlist = ElevatedScanProtocol.CreateAllowlist(normalSnapshots);
         IElevatedScanReception? reception = null;
         IElevatedScanProcess? process = null;
 
@@ -106,7 +195,7 @@ public sealed class ElevatedScanCoordinator(
             ElevatedProcessSnapshot snapshot;
             try
             {
-                snapshot = await reception.ReceiveAsync(linkedCancellation.Token).ConfigureAwait(false);
+                snapshot = await reception.ReceiveAsync(allowlist, linkedCancellation.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (timeoutCancellation.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
@@ -119,7 +208,7 @@ public sealed class ElevatedScanCoordinator(
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            if (!ElevatedProcessSnapshotValidator.TryValidate(snapshot, request.Nonce, out var elevatedProcesses))
+            if (!ElevatedProcessSnapshotValidator.TryValidate(snapshot, request.Nonce, allowlist, out var elevatedProcesses))
             {
                 return new ElevatedScanResult(normalSnapshots, ElevatedScanStatus.Unavailable);
             }
@@ -130,11 +219,19 @@ public sealed class ElevatedScanCoordinator(
         }
         finally
         {
+            using var cleanupCancellation = new CancellationTokenSource(CleanupTimeout);
             if (reception is not null)
             {
                 try
                 {
-                    using var cleanupCancellation = new CancellationTokenSource(CleanupTimeout);
+                    await reception.CancelAsync(cleanupCancellation.Token).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                }
+
+                try
+                {
                     await reception.DisposeAsync().AsTask().WaitAsync(cleanupCancellation.Token).ConfigureAwait(false);
                 }
                 catch (Exception)
@@ -157,7 +254,6 @@ public sealed class ElevatedScanCoordinator(
 
                 try
                 {
-                    using var cleanupCancellation = new CancellationTokenSource(CleanupTimeout);
                     await process.WaitForExitAsync(cleanupCancellation.Token).ConfigureAwait(false);
                 }
                 catch (Exception)
@@ -222,8 +318,6 @@ public sealed record ElevatedProcessSnapshot(string Nonce, IReadOnlyList<Process
 
 public static class ElevatedProcessSnapshotValidator
 {
-    private const int MaximumProcesses = 16384;
-
     public static bool TryValidate(
         ElevatedProcessSnapshot? snapshot,
         string expectedNonce,
@@ -233,18 +327,39 @@ public static class ElevatedProcessSnapshotValidator
         if (snapshot is null || !CryptographicOperations.FixedTimeEquals(
                 System.Text.Encoding.UTF8.GetBytes(snapshot.Nonce ?? string.Empty),
                 System.Text.Encoding.UTF8.GetBytes(expectedNonce)) ||
-            snapshot.Processes is null || snapshot.Processes.Count > MaximumProcesses)
+            snapshot.Processes is null || snapshot.Processes.Count > ElevatedScanProtocol.MaximumProcesses)
         {
             return false;
         }
 
-        if (snapshot.Processes.Any(process => !IsSafe(process)) ||
+        if (snapshot.Processes.Any(process => process is null || !IsSafe(process)) ||
             snapshot.Processes.Select(process => process.Id).Distinct().Count() != snapshot.Processes.Count)
         {
             return false;
         }
 
         processes = snapshot.Processes.ToArray();
+        return true;
+    }
+
+    public static bool TryValidate(
+        ElevatedProcessSnapshot? snapshot,
+        string expectedNonce,
+        IReadOnlyList<ElevatedProcessTarget> allowlist,
+        out IReadOnlyList<ProcessDescriptor> processes)
+    {
+        if (!TryValidate(snapshot, expectedNonce, out processes))
+        {
+            return false;
+        }
+
+        var allowedById = allowlist.ToDictionary(target => target.Id);
+        if (processes.Any(process => !allowedById.ContainsKey(process.Id)))
+        {
+            processes = [];
+            return false;
+        }
+
         return true;
     }
 

@@ -13,10 +13,15 @@ if (!ElevatedHelperPrivilege.IsCurrentProcessHighIntegrity())
 
 try
 {
-    var remaining = request.DeadlineUtc - DateTimeOffset.UtcNow;
-    using var deadline = new CancellationTokenSource(remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero);
-    var processes = SystemProcessSource.ReadCurrentSessionProcesses(Environment.ProcessId, deadline.Token);
-    await NamedPipeElevatedScanTransport.SendAsync(request, processes, deadline.Token).ConfigureAwait(false);
+    await using var session = await NamedPipeElevatedScanTransport.ReceiveCommandAsync(request, CancellationToken.None).ConfigureAwait(false);
+    var processes = SystemProcessSource.ReadAllowedProcesses(
+        Environment.ProcessId,
+        session.Command.Processes,
+        session.CancellationToken);
+    await NamedPipeElevatedScanTransport.SendSnapshotAsync(
+        session.Stream,
+        ElevatedProcessSnapshot.Success(request.Nonce, processes),
+        session.CancellationToken).ConfigureAwait(false);
     return 0;
 }
 catch (OperationCanceledException)
@@ -30,22 +35,16 @@ catch (Exception)
 
 static ElevatedScanRequest? ParseArguments(string[] arguments)
 {
-    if (arguments.Length != 6 || arguments[0] != "--pipe" || arguments[2] != "--nonce" || arguments[4] != "--deadline" ||
+    if (arguments.Length != 6 || arguments[0] != "--pipe" || arguments[2] != "--nonce" || arguments[4] != "--timeout-ms" ||
         string.IsNullOrWhiteSpace(arguments[1]) || string.IsNullOrWhiteSpace(arguments[3]) ||
         !arguments[1].StartsWith("KeyRadar.ElevatedScan.", StringComparison.Ordinal) ||
         arguments[1].Any(character => !(char.IsAsciiLetterOrDigit(character) || character == '.')) ||
         arguments[3].Length != 64 || arguments[3].Any(character => !Uri.IsHexDigit(character)) ||
-        !long.TryParse(arguments[5], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var deadlineTicks))
+        !int.TryParse(arguments[5], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var timeoutMilliseconds) ||
+        timeoutMilliseconds is <= 0 or > ElevatedScanProtocol.MaximumOperationTimeoutMilliseconds)
     {
         return null;
     }
 
-    try
-    {
-        return new ElevatedScanRequest(arguments[1], arguments[3], new DateTimeOffset(new DateTime(deadlineTicks, DateTimeKind.Utc)));
-    }
-    catch (ArgumentOutOfRangeException)
-    {
-        return null;
-    }
+    return new ElevatedScanRequest(arguments[1], arguments[3], timeoutMilliseconds);
 }

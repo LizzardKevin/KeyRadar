@@ -19,12 +19,12 @@ public sealed class ProcessElevatedScanLauncher(string helperPath) : IElevatedSc
 
         var process = Process.Start(new ProcessStartInfo
         {
-            // Windows owns the UAC prompt. Once it approves and starts this helper,
-            // the per-request deadline bounds the helper's independent lifetime.
+            // Windows owns the UAC prompt. The operation clock starts only after
+            // the helper connects and receives its parent-authorized allowlist.
             FileName = helperPath,
             UseShellExecute = true,
             Verb = "runas",
-            Arguments = $"--pipe {request.PipeName} --nonce {request.Nonce} --deadline {request.DeadlineUtc.UtcDateTime.Ticks.ToString(CultureInfo.InvariantCulture)}",
+            Arguments = $"--pipe {request.PipeName} --nonce {request.Nonce} --timeout-ms {request.OperationTimeoutMilliseconds.ToString(CultureInfo.InvariantCulture)}",
             WindowStyle = ProcessWindowStyle.Hidden,
         }) ?? throw new InvalidOperationException("Windows did not start the elevated scan helper.");
         return new StartedProcess(process);

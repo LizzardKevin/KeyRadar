@@ -5,72 +5,154 @@ namespace KeyRadar.Windows.Applications;
 
 public sealed class NamedPipeElevatedScanTransport : IElevatedScanTransport
 {
-    public IElevatedScanReception Begin(ElevatedScanRequest request) => new Reception(request.PipeName);
+    public IElevatedScanReception Begin(ElevatedScanRequest request) => new Reception(request);
 
-    public static async Task SendAsync(ElevatedScanRequest request, IReadOnlyList<ProcessDescriptor> processes, CancellationToken cancellationToken)
+    public static async Task<ElevatedScanHelperSession> ReceiveCommandAsync(
+        ElevatedScanRequest request,
+        CancellationToken cancellationToken)
     {
-        await using var client = new NamedPipeClientStream(
-            ".", request.PipeName, PipeDirection.Out, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
-        await client.ConnectAsync(cancellationToken).ConfigureAwait(false);
-        var payload = JsonSerializer.SerializeToUtf8Bytes(ElevatedProcessSnapshot.Success(request.Nonce, processes));
-        if (payload.Length > MaximumPayloadBytes)
+        using var connectionTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        using var connectionCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, connectionTimeout.Token);
+        var client = new NamedPipeClientStream(
+            ".", request.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+        await client.ConnectAsync(connectionCancellation.Token).ConfigureAwait(false);
+        var command = await ReadAsync<ElevatedScanCommand>(client, cancellationToken).ConfigureAwait(false);
+        if (!ElevatedScanProtocol.TryValidateCommand(command, request.Nonce, out _))
+        {
+            await client.DisposeAsync().ConfigureAwait(false);
+            throw new InvalidDataException("Elevated scan command is invalid.");
+        }
+
+        var helperCancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(command.OperationTimeoutMilliseconds));
+        _ = WatchForCancellationAsync(client, helperCancellation);
+        return new ElevatedScanHelperSession(client, command, helperCancellation);
+    }
+
+    public static Task SendSnapshotAsync(
+        Stream stream,
+        ElevatedProcessSnapshot snapshot,
+        CancellationToken cancellationToken) => WriteAsync(stream, snapshot, cancellationToken);
+
+    private const int MaximumPayloadBytes = 4 * 1024 * 1024;
+
+    private sealed class Reception(ElevatedScanRequest request) : IElevatedScanReception
+    {
+        private readonly NamedPipeServerStream _server = new(
+            request.PipeName,
+            PipeDirection.InOut,
+            1,
+            PipeTransmissionMode.Byte,
+            PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+        private bool _commandSent;
+
+        public async Task<ElevatedProcessSnapshot> ReceiveAsync(
+            IReadOnlyList<ElevatedProcessTarget> allowlist,
+            CancellationToken cancellationToken)
+        {
+            await _server.WaitForConnectionAsync(cancellationToken).ConfigureAwait(false);
+            if (!_commandSent)
+            {
+                var command = new ElevatedScanCommand(
+                    ElevatedScanProtocol.Version,
+                    request.Nonce,
+                    request.OperationTimeoutMilliseconds,
+                    allowlist);
+                await WriteAsync(_server, command, cancellationToken).ConfigureAwait(false);
+                _commandSent = true;
+            }
+
+            return await ReadAsync<ElevatedProcessSnapshot>(_server, cancellationToken).ConfigureAwait(false);
+        }
+
+        public async Task CancelAsync(CancellationToken cancellationToken)
+        {
+            if (_server.IsConnected && _commandSent)
+            {
+                await WriteAsync(
+                    _server,
+                    new ElevatedScanControl(ElevatedScanProtocol.Version, ElevatedScanProtocol.CancelCommand),
+                    cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        public ValueTask DisposeAsync() => _server.DisposeAsync();
+    }
+
+    private static async Task WatchForCancellationAsync(Stream stream, CancellationTokenSource cancellation)
+    {
+        try
+        {
+            var control = await ReadAsync<ElevatedScanControl>(stream, CancellationToken.None).ConfigureAwait(false);
+            if (ElevatedScanProtocol.IsCancel(control))
+            {
+                cancellation.Cancel();
+            }
+        }
+        catch (Exception)
+        {
+            cancellation.Cancel();
+        }
+    }
+
+    private static async Task WriteAsync<T>(Stream stream, T payload, CancellationToken cancellationToken)
+    {
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(payload);
+        if (bytes.Length is 0 or > MaximumPayloadBytes)
         {
             throw new InvalidDataException("Elevated scan payload exceeds the protocol limit.");
         }
 
-        await client.WriteAsync(BitConverter.GetBytes(payload.Length), cancellationToken).ConfigureAwait(false);
-        await client.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
-        await client.FlushAsync(cancellationToken).ConfigureAwait(false);
+        await stream.WriteAsync(BitConverter.GetBytes(bytes.Length), cancellationToken).ConfigureAwait(false);
+        await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    private const int MaximumPayloadBytes = 4 * 1024 * 1024;
-
-    private sealed class Reception : IElevatedScanReception
+    private static async Task<T> ReadAsync<T>(Stream stream, CancellationToken cancellationToken)
     {
-        private readonly NamedPipeServerStream _server;
-
-        public Reception(string pipeName)
+        var lengthBuffer = new byte[sizeof(int)];
+        await ReadExactlyAsync(stream, lengthBuffer, cancellationToken).ConfigureAwait(false);
+        var length = BitConverter.ToInt32(lengthBuffer);
+        if (length is <= 0 or > MaximumPayloadBytes)
         {
-            _server = new NamedPipeServerStream(
-                pipeName,
-                PipeDirection.In,
-                1,
-                PipeTransmissionMode.Byte,
-                PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+            throw new InvalidDataException("Elevated scan payload length is invalid.");
         }
 
-        public async Task<ElevatedProcessSnapshot> ReceiveAsync(CancellationToken cancellationToken)
+        var payload = new byte[length];
+        await ReadExactlyAsync(stream, payload, cancellationToken).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<T>(payload)
+            ?? throw new InvalidDataException("Elevated scan payload is empty.");
+    }
+
+    private static async Task ReadExactlyAsync(Stream stream, Memory<byte> buffer, CancellationToken cancellationToken)
+    {
+        var offset = 0;
+        while (offset < buffer.Length)
         {
-            await _server.WaitForConnectionAsync(cancellationToken).ConfigureAwait(false);
-            var lengthBuffer = new byte[sizeof(int)];
-            await ReadExactlyAsync(_server, lengthBuffer, cancellationToken).ConfigureAwait(false);
-            var length = BitConverter.ToInt32(lengthBuffer);
-            if (length is <= 0 or > MaximumPayloadBytes)
+            var read = await stream.ReadAsync(buffer[offset..], cancellationToken).ConfigureAwait(false);
+            if (read == 0)
             {
-                throw new InvalidDataException("Elevated scan payload length is invalid.");
+                throw new EndOfStreamException("Elevated scan pipe closed before the payload was complete.");
             }
 
-            var payload = new byte[length];
-            await ReadExactlyAsync(_server, payload, cancellationToken).ConfigureAwait(false);
-            return JsonSerializer.Deserialize<ElevatedProcessSnapshot>(payload)
-                ?? throw new InvalidDataException("Elevated scan payload is empty.");
+            offset += read;
         }
+    }
+}
 
-        public ValueTask DisposeAsync() => _server.DisposeAsync();
+public sealed class ElevatedScanHelperSession(
+    NamedPipeClientStream stream,
+    ElevatedScanCommand command,
+    CancellationTokenSource cancellation) : IAsyncDisposable
+{
+    public Stream Stream => stream;
+    public ElevatedScanCommand Command => command;
+    public CancellationToken CancellationToken => cancellation.Token;
 
-        private static async Task ReadExactlyAsync(Stream stream, Memory<byte> buffer, CancellationToken cancellationToken)
-        {
-            var offset = 0;
-            while (offset < buffer.Length)
-            {
-                var read = await stream.ReadAsync(buffer[offset..], cancellationToken).ConfigureAwait(false);
-                if (read == 0)
-                {
-                    throw new EndOfStreamException("Elevated scan pipe closed before the payload was complete.");
-                }
-
-                offset += read;
-            }
-        }
+    public async ValueTask DisposeAsync()
+    {
+        cancellation.Cancel();
+        cancellation.Dispose();
+        await stream.DisposeAsync().ConfigureAwait(false);
     }
 }

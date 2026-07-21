@@ -26,34 +26,52 @@ public sealed class SystemProcessSource : IProcessSource
         return descriptors;
     }
 
-    public static IReadOnlyList<ProcessDescriptor> ReadCurrentSessionProcesses(
+    public static IReadOnlyList<ProcessDescriptor> ReadAllowedProcesses(
         int currentProcessId,
+        IReadOnlyList<ElevatedProcessTarget> allowlist,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(allowlist);
         cancellationToken.ThrowIfCancellationRequested();
         using var current = Process.GetCurrentProcess();
         var sessionId = current.SessionId;
         var descriptors = new List<ProcessDescriptor>();
-        foreach (var process in Process.GetProcesses())
+        foreach (var target in allowlist)
         {
-            using (process)
+            cancellationToken.ThrowIfCancellationRequested();
+            if (target.Id <= 0 || target.Id == currentProcessId)
             {
-                try
+                continue;
+            }
+
+            try
+            {
+                using var process = Process.GetProcessById(target.Id);
+                if (process.SessionId != sessionId || !HasExpectedStartTime(process, target.StartTimeUtcTicks) ||
+                    IsKeyRadarInfrastructure(process.ProcessName))
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    if (process.Id != currentProcessId && process.SessionId == sessionId)
-                    {
-                        descriptors.Add(ProcessMetadataReader.Read(process));
-                    }
+                    continue;
                 }
-                catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
-                {
-                    // The process exited while the elevated snapshot was being collected.
-                }
+
+                descriptors.Add(ProcessMetadataReader.Read(process));
+            }
+            catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+            {
+                // The allowlisted process exited or changed identity before it could be read.
             }
         }
 
         return descriptors;
     }
+
+    private static bool HasExpectedStartTime(Process process, long? expectedStartTimeUtcTicks) =>
+        expectedStartTimeUtcTicks is null || process.StartTime.ToUniversalTime().Ticks == expectedStartTimeUtcTicks;
+
+    private static bool IsKeyRadarInfrastructure(string processName) =>
+        string.Equals(processName, "KeyRadar", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(processName, "KeyRadar.ElevatedScanner", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(processName, "KeyRadar.Updater", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(processName, "KeyRadar.NativeHost", StringComparison.OrdinalIgnoreCase) ||
+        processName.StartsWith("KeyRadar.NativeHost.", StringComparison.OrdinalIgnoreCase);
 
 }
