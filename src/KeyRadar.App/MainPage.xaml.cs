@@ -609,12 +609,11 @@ public sealed partial class MainPage : Page
         ConflictInfoBar.Message = state.Message;
     }
 
-    private static string ElevatedScanStatusText(ElevatedScanStatus status) => status switch
+    private static string ElevatedScanStatusText(ElevatedScanStatus status)
     {
-        ElevatedScanStatus.Succeeded => UiText.Pick("扫描完成", "Scan complete"),
-        ElevatedScanStatus.UserDeclined => UiText.Pick("管理员扫描未授权，已完成有限扫描", "Administrator scan not authorized; limited scan completed"),
-        _ => UiText.Pick("管理员扫描不可用，已完成有限扫描", "Administrator scan unavailable; limited scan completed"),
-    };
+        var text = ElevatedScanStatusMessages.For(status);
+        return UiText.Pick(text.Chinese, text.English);
+    }
 
     private sealed record ConflictInfoBarState(
         bool IsOpen,

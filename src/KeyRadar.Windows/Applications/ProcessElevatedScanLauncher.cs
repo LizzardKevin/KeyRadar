@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 
 namespace KeyRadar.Windows.Applications;
 
@@ -18,10 +19,12 @@ public sealed class ProcessElevatedScanLauncher(string helperPath) : IElevatedSc
 
         var process = Process.Start(new ProcessStartInfo
         {
+            // Windows owns the UAC prompt. Once it approves and starts this helper,
+            // the per-request deadline bounds the helper's independent lifetime.
             FileName = helperPath,
             UseShellExecute = true,
             Verb = "runas",
-            Arguments = $"--pipe {request.PipeName} --nonce {request.Nonce}",
+            Arguments = $"--pipe {request.PipeName} --nonce {request.Nonce} --deadline {request.DeadlineUtc.UtcDateTime.Ticks.ToString(CultureInfo.InvariantCulture)}",
             WindowStyle = ProcessWindowStyle.Hidden,
         }) ?? throw new InvalidOperationException("Windows did not start the elevated scan helper.");
         return new StartedProcess(process);
@@ -37,10 +40,10 @@ public sealed class ProcessElevatedScanLauncher(string helperPath) : IElevatedSc
             {
                 if (!process.HasExited)
                 {
-                    process.Kill(entireProcessTree: true);
+                    process.Kill();
                 }
             }
-            catch (InvalidOperationException)
+            catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
             {
             }
         }

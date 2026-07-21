@@ -27,6 +27,23 @@ public sealed class ElevatedScanCoordinatorTests
     }
 
     [Fact]
+    public void Elevated_snapshot_never_reintroduces_a_process_missing_from_the_limited_scan()
+    {
+        var normal = new[] { new ApplicationSnapshot(new ProcessDescriptor(42, "ShareX", "ShareX.exe"), ApplicationPresence.Foreground) };
+        var elevated = new[]
+        {
+            new ProcessDescriptor(42, "ShareX", "ShareX.exe", PrivilegeLevel: ProcessPrivilegeLevel.Elevated),
+            new ProcessDescriptor(99, "KeyRadar", "KeyRadar.exe", PrivilegeLevel: ProcessPrivilegeLevel.Elevated),
+        };
+
+        var merged = ApplicationSnapshotMerger.Merge(normal, elevated);
+
+        var snapshot = Assert.Single(merged);
+        Assert.Equal(42, snapshot.Process.Id);
+        Assert.Equal(ProcessPrivilegeLevel.Elevated, snapshot.Process.PrivilegeLevel);
+    }
+
+    [Fact]
     public async Task Uac_cancellation_keeps_the_normal_snapshot_and_reports_limited_scan()
     {
         var coordinator = new ElevatedScanCoordinator(
@@ -53,6 +70,68 @@ public sealed class ElevatedScanCoordinatorTests
     }
 
     [Fact]
+    public async Task Transport_initialization_failure_keeps_normal_results_and_reports_unavailable()
+    {
+        var launcher = new CountingLauncher();
+        var coordinator = new ElevatedScanCoordinator(
+            launcher, new ThrowingTransport(new IOException("pipe unavailable")), TimeSpan.FromSeconds(1));
+        var normal = new[] { new ApplicationSnapshot(new ProcessDescriptor(42, "ShareX", "ShareX.exe"), ApplicationPresence.Background) };
+
+        var result = await coordinator.ScanAndMergeAsync(normal, CancellationToken.None);
+
+        Assert.Equal(ElevatedScanStatus.Unavailable, result.Status);
+        Assert.Same(normal, result.Snapshots);
+        Assert.Equal(0, launcher.StartCount);
+    }
+
+    [Fact]
+    public async Task Pre_cancelled_scan_does_not_create_a_pipe_or_start_the_helper()
+    {
+        var launcher = new CountingLauncher();
+        var transport = new CountingTransport();
+        var coordinator = new ElevatedScanCoordinator(launcher, transport, TimeSpan.FromSeconds(1));
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => coordinator.ScanAndMergeAsync([], cancellation.Token));
+
+        Assert.Equal(0, transport.BeginCount);
+        Assert.Equal(0, launcher.StartCount);
+    }
+
+    [Fact]
+    public async Task Cancellation_after_pipe_setup_does_not_start_the_helper()
+    {
+        var launcher = new CountingLauncher();
+        using var cancellation = new CancellationTokenSource();
+        var coordinator = new ElevatedScanCoordinator(launcher, new CancellingBeginTransport(cancellation), TimeSpan.FromSeconds(1));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => coordinator.ScanAndMergeAsync([], cancellation.Token));
+
+        Assert.Equal(0, launcher.StartCount);
+    }
+
+    [Fact]
+    public void Elevated_helper_request_has_a_bounded_deadline()
+    {
+        var before = DateTimeOffset.UtcNow;
+
+        var request = ElevatedScanRequest.Create(TimeSpan.FromSeconds(1));
+
+        Assert.InRange(request.DeadlineUtc, before, before.AddSeconds(2));
+    }
+
+    [Fact]
+    public void Cancelled_helper_enumeration_exits_before_reading_processes()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        Assert.Throws<OperationCanceledException>(() =>
+            SystemProcessSource.ReadCurrentSessionProcesses(Environment.ProcessId, cancellation.Token));
+    }
+
+    [Fact]
     public async Task Timeout_keeps_normal_results_and_terminates_only_the_started_helper()
     {
         var launcher = new StubLauncher();
@@ -69,13 +148,41 @@ public sealed class ElevatedScanCoordinatorTests
     public async Task Cancellation_terminates_the_started_helper()
     {
         var launcher = new StubLauncher();
-        var coordinator = new ElevatedScanCoordinator(launcher, new NeverCompletingTransport(), TimeSpan.FromSeconds(5));
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        var coordinator = new ElevatedScanCoordinator(launcher, new CancellingTransport(cancellation), TimeSpan.FromSeconds(5));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => coordinator.ScanAndMergeAsync([], cancellation.Token));
 
         Assert.True(launcher.Process.Terminated);
+    }
+
+    [Fact]
+    public async Task Cleanup_swallows_access_denied_when_terminating_the_started_helper()
+    {
+        var launcher = new StubLauncher(new StubProcess(new Win32Exception(5)));
+        var coordinator = new ElevatedScanCoordinator(launcher, new StubTransport(), TimeSpan.FromSeconds(1));
+
+        var result = await coordinator.ScanAndMergeAsync([], CancellationToken.None);
+
+        Assert.Equal(ElevatedScanStatus.Succeeded, result.Status);
+        Assert.True(launcher.Process.Terminated);
+    }
+
+    [Theory]
+    [InlineData(0x1000u)]
+    [InlineData(0x2000u)]
+    public void Non_elevated_helper_integrity_levels_cannot_send_a_scan_payload(uint integrityRid)
+    {
+        Assert.False(ElevatedHelperPrivilege.IsHighIntegrity(integrityRid));
+    }
+
+    [Fact]
+    public void Timeout_has_a_distinct_localized_limited_scan_status()
+    {
+        var text = ElevatedScanStatusMessages.For(ElevatedScanStatus.TimedOut);
+
+        Assert.Equal("管理员扫描超时，已完成有限扫描", text.Chinese);
+        Assert.Equal("Administrator scan timed out; limited scan completed", text.English);
     }
 
     [Theory]
@@ -116,9 +223,9 @@ public sealed class ElevatedScanCoordinatorTests
         }
     }
 
-    private sealed class StubLauncher : IElevatedScanLauncher
+    private sealed class StubLauncher(StubProcess? process = null) : IElevatedScanLauncher
     {
-        public StubProcess Process { get; } = new();
+        public StubProcess Process { get; } = process ?? new();
         public IElevatedScanProcess Start(ElevatedScanRequest request) => Process;
     }
 
@@ -127,12 +234,55 @@ public sealed class ElevatedScanCoordinatorTests
         public IElevatedScanProcess Start(ElevatedScanRequest request) => throw exception;
     }
 
-    private sealed class StubProcess : IElevatedScanProcess
+    private sealed class StubProcess(Exception? terminateException = null) : IElevatedScanProcess
     {
         public bool HasExited => false;
         public bool Terminated { get; private set; }
-        public void Terminate() => Terminated = true;
+        public void Terminate()
+        {
+            Terminated = true;
+            if (terminateException is not null)
+            {
+                throw terminateException;
+            }
+        }
         public Task WaitForExitAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class CountingLauncher : IElevatedScanLauncher
+    {
+        public int StartCount { get; private set; }
+
+        public IElevatedScanProcess Start(ElevatedScanRequest request)
+        {
+            StartCount++;
+            return new StubProcess();
+        }
+    }
+
+    private sealed class CountingTransport : IElevatedScanTransport
+    {
+        public int BeginCount { get; private set; }
+
+        public IElevatedScanReception Begin(ElevatedScanRequest request)
+        {
+            BeginCount++;
+            return new StubTransport().Begin(request);
+        }
+    }
+
+    private sealed class ThrowingTransport(Exception exception) : IElevatedScanTransport
+    {
+        public IElevatedScanReception Begin(ElevatedScanRequest request) => throw exception;
+    }
+
+    private sealed class CancellingBeginTransport(CancellationTokenSource cancellation) : IElevatedScanTransport
+    {
+        public IElevatedScanReception Begin(ElevatedScanRequest request)
+        {
+            cancellation.Cancel();
+            return new StubTransport().Begin(request);
+        }
     }
 
     private sealed class StubTransport(ElevatedProcessSnapshot? response = null) : IElevatedScanTransport
@@ -158,6 +308,23 @@ public sealed class ElevatedScanCoordinatorTests
             public ValueTask DisposeAsync() => ValueTask.CompletedTask;
             public async Task<ElevatedProcessSnapshot> ReceiveAsync(CancellationToken cancellationToken)
             {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return ElevatedProcessSnapshot.Success(string.Empty, []);
+            }
+        }
+    }
+
+    private sealed class CancellingTransport(CancellationTokenSource cancellation) : IElevatedScanTransport
+    {
+        public IElevatedScanReception Begin(ElevatedScanRequest request) => new Reception(cancellation);
+
+        private sealed class Reception(CancellationTokenSource cancellation) : IElevatedScanReception
+        {
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+            public async Task<ElevatedProcessSnapshot> ReceiveAsync(CancellationToken cancellationToken)
+            {
+                cancellation.Cancel();
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
                 return ElevatedProcessSnapshot.Success(string.Empty, []);
             }

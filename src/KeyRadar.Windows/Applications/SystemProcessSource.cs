@@ -26,8 +26,11 @@ public sealed class SystemProcessSource : IProcessSource
         return descriptors;
     }
 
-    public static IReadOnlyList<ProcessDescriptor> ReadCurrentSessionProcesses(int currentProcessId)
+    public static IReadOnlyList<ProcessDescriptor> ReadCurrentSessionProcesses(
+        int currentProcessId,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         using var current = Process.GetCurrentProcess();
         var sessionId = current.SessionId;
         var descriptors = new List<ProcessDescriptor>();
@@ -37,6 +40,7 @@ public sealed class SystemProcessSource : IProcessSource
             {
                 try
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (process.Id != currentProcessId && process.SessionId == sessionId)
                     {
                         descriptors.Add(ProcessMetadataReader.Read(process));

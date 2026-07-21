@@ -16,11 +16,20 @@ public sealed record ElevatedScanResult(
     IReadOnlyList<ApplicationSnapshot> Snapshots,
     ElevatedScanStatus Status);
 
-public sealed record ElevatedScanRequest(string PipeName, string Nonce)
+public sealed record ElevatedScanRequest(string PipeName, string Nonce, DateTimeOffset DeadlineUtc)
 {
-    public static ElevatedScanRequest Create() => new(
-        $"KeyRadar.ElevatedScan.{Guid.NewGuid():N}",
-        Convert.ToHexString(RandomNumberGenerator.GetBytes(32)));
+    public static ElevatedScanRequest Create(TimeSpan timeout)
+    {
+        if (timeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(timeout));
+        }
+
+        return new ElevatedScanRequest(
+            $"KeyRadar.ElevatedScan.{Guid.NewGuid():N}",
+            Convert.ToHexString(RandomNumberGenerator.GetBytes(32)),
+            DateTimeOffset.UtcNow.Add(timeout));
+    }
 }
 
 public interface IElevatedScanProcess
@@ -57,22 +66,37 @@ public sealed class ElevatedScanCoordinator(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(normalSnapshots);
-        var request = ElevatedScanRequest.Create();
-        await using var reception = transport.Begin(request);
+        cancellationToken.ThrowIfCancellationRequested();
+        var request = ElevatedScanRequest.Create(timeout);
+        IElevatedScanReception? reception = null;
         IElevatedScanProcess? process = null;
 
         try
         {
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                reception = transport.Begin(request);
+            }
+            catch (Exception)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return new ElevatedScanResult(normalSnapshots, ElevatedScanStatus.Unavailable);
+            }
+
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
                 process = launcher.Start(request);
+                cancellationToken.ThrowIfCancellationRequested();
             }
             catch (Win32Exception exception) when (exception.NativeErrorCode == 1223)
             {
                 return new ElevatedScanResult(normalSnapshots, ElevatedScanStatus.UserDeclined);
             }
-            catch (Exception exception) when (exception is Win32Exception or InvalidOperationException or FileNotFoundException)
+            catch (Exception)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return new ElevatedScanResult(normalSnapshots, ElevatedScanStatus.Unavailable);
             }
 
@@ -88,8 +112,9 @@ public sealed class ElevatedScanCoordinator(
             {
                 return new ElevatedScanResult(normalSnapshots, ElevatedScanStatus.TimedOut);
             }
-            catch (Exception exception) when (exception is IOException or InvalidDataException or System.Text.Json.JsonException)
+            catch (Exception)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return new ElevatedScanResult(normalSnapshots, ElevatedScanStatus.Unavailable);
             }
 
@@ -105,15 +130,37 @@ public sealed class ElevatedScanCoordinator(
         }
         finally
         {
-            if (process is not null && !process.HasExited)
+            if (reception is not null)
             {
-                process.Terminate();
-                using var cleanupCancellation = new CancellationTokenSource(CleanupTimeout);
                 try
                 {
+                    using var cleanupCancellation = new CancellationTokenSource(CleanupTimeout);
+                    await reception.DisposeAsync().AsTask().WaitAsync(cleanupCancellation.Token).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                }
+            }
+
+            if (process is not null)
+            {
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        process.Terminate();
+                    }
+                }
+                catch (Exception)
+                {
+                }
+
+                try
+                {
+                    using var cleanupCancellation = new CancellationTokenSource(CleanupTimeout);
                     await process.WaitForExitAsync(cleanupCancellation.Token).ConfigureAwait(false);
                 }
-                catch (OperationCanceledException) when (cleanupCancellation.IsCancellationRequested)
+                catch (Exception)
                 {
                 }
             }
@@ -137,10 +184,6 @@ public static class ApplicationSnapshotMerger
                 ? snapshot with { Process = Merge(snapshot.Process, elevated) }
                 : snapshot)
             .ToList();
-        var knownIds = normalSnapshots.Select(snapshot => snapshot.Process.Id).ToHashSet();
-        merged.AddRange(elevatedProcesses
-            .Where(process => !knownIds.Contains(process.Id))
-            .Select(process => new ApplicationSnapshot(process, ApplicationPresence.Background)));
         return merged;
     }
 
@@ -157,6 +200,19 @@ public static class ApplicationSnapshotMerger
 
     private static string? Prefer(string? current, string? elevated) =>
         string.IsNullOrWhiteSpace(current) ? elevated : current;
+}
+
+public sealed record ElevatedScanStatusMessage(string Chinese, string English);
+
+public static class ElevatedScanStatusMessages
+{
+    public static ElevatedScanStatusMessage For(ElevatedScanStatus status) => status switch
+    {
+        ElevatedScanStatus.Succeeded => new("扫描完成", "Scan complete"),
+        ElevatedScanStatus.UserDeclined => new("管理员扫描未授权，已完成有限扫描", "Administrator scan not authorized; limited scan completed"),
+        ElevatedScanStatus.TimedOut => new("管理员扫描超时，已完成有限扫描", "Administrator scan timed out; limited scan completed"),
+        _ => new("管理员扫描不可用，已完成有限扫描", "Administrator scan unavailable; limited scan completed"),
+    };
 }
 
 public sealed record ElevatedProcessSnapshot(string Nonce, IReadOnlyList<ProcessDescriptor> Processes)
