@@ -63,7 +63,11 @@ public static class ElevatedScanProtocol
                 continue;
             }
 
-            targets.Add(new ElevatedProcessTarget(process.Id, TryReadStartTimeUtcTicks(process.Id)));
+            var startTimeUtcTicks = TryReadStartTimeUtcTicks(process.Id);
+            if (IsValidStartTime(startTimeUtcTicks))
+            {
+                targets.Add(new ElevatedProcessTarget(process.Id, startTimeUtcTicks));
+            }
         }
 
         return targets;
@@ -125,15 +129,15 @@ public static class ElevatedScanProtocol
         }
     }
 
-    private static bool IsValidStartTime(long? value) =>
-        value is null || (value.Value > DateTime.MinValue.Ticks && value.Value <= DateTime.MaxValue.Ticks);
+    internal static bool IsValidStartTime(long? value) =>
+        value is not null && value.Value > DateTime.MinValue.Ticks && value.Value <= DateTime.MaxValue.Ticks;
 
     private static bool FixedTimeEquals(string? left, string? right) => CryptographicOperations.FixedTimeEquals(
         System.Text.Encoding.UTF8.GetBytes(left ?? string.Empty),
         System.Text.Encoding.UTF8.GetBytes(right ?? string.Empty));
 }
 
-public interface IElevatedScanProcess
+public interface IElevatedScanProcess : IDisposable
 {
     int ProcessId { get; }
     bool HasExited { get; }
@@ -281,6 +285,15 @@ public sealed class ElevatedScanCoordinator(
                 catch (Exception)
                 {
                 }
+
+                try
+                {
+                    process.Dispose();
+                }
+                catch (Exception)
+                {
+                }
+
             }
         }
     }
@@ -373,6 +386,14 @@ public static class ElevatedProcessSnapshotValidator
     {
         if (!TryValidate(snapshot, expectedNonce, out processes))
         {
+            return false;
+        }
+
+        if (allowlist is null ||
+            allowlist.Any(target => target is null || target.Id <= 0 || !ElevatedScanProtocol.IsValidStartTime(target.StartTimeUtcTicks)) ||
+            allowlist.Select(target => target.Id).Distinct().Count() != allowlist.Count)
+        {
+            processes = [];
             return false;
         }
 

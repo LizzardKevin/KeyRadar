@@ -50,5 +50,7 @@ public sealed class ProcessElevatedScanLauncher(string helperPath) : IElevatedSc
         }
 
         public Task WaitForExitAsync(CancellationToken cancellationToken) => process.WaitForExitAsync(cancellationToken);
+
+        public void Dispose() => process.Dispose();
     }
 }

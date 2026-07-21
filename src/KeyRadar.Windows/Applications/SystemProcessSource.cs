@@ -39,7 +39,8 @@ public sealed class SystemProcessSource : IProcessSource
         foreach (var target in allowlist)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (target.Id <= 0 || target.Id == currentProcessId)
+            if (target is null || target.Id <= 0 || target.Id == currentProcessId ||
+                !ElevatedScanProtocol.IsValidStartTime(target.StartTimeUtcTicks))
             {
                 continue;
             }
@@ -65,7 +66,8 @@ public sealed class SystemProcessSource : IProcessSource
     }
 
     private static bool HasExpectedStartTime(Process process, long? expectedStartTimeUtcTicks) =>
-        expectedStartTimeUtcTicks is null || process.StartTime.ToUniversalTime().Ticks == expectedStartTimeUtcTicks;
+        ElevatedScanProtocol.IsValidStartTime(expectedStartTimeUtcTicks) &&
+        process.StartTime.ToUniversalTime().Ticks == expectedStartTimeUtcTicks;
 
     private static bool IsKeyRadarInfrastructure(string processName) =>
         string.Equals(processName, "KeyRadar", StringComparison.OrdinalIgnoreCase) ||
