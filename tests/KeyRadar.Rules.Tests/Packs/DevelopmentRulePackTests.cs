@@ -109,6 +109,45 @@ public sealed class DevelopmentRulePackTests
     }
 
     [Fact]
+    public void Debug_development_pack_rebuilds_for_a_new_version_and_is_stable_for_the_same_version()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var appProject = Path.Combine(repositoryRoot, "src", "KeyRadar.App", "KeyRadar.App.csproj");
+        var debugDirectory = Path.Combine(repositoryRoot, "src", "KeyRadar.App", "bin", "Debug", "net10.0-windows10.0.19041.0", "win-x64");
+        var intermediateDirectory = Path.Combine(repositoryRoot, "src", "KeyRadar.App", "obj", "Debug", "net10.0-windows10.0.19041.0", "win-x64");
+        var debugPack = Path.Combine(debugDirectory, "KeyRadar-Development-Rules.krpack");
+        var debugFingerprintSource = Path.Combine(intermediateDirectory, "DevelopmentRulePackFingerprint.g.cs");
+
+        try
+        {
+            DeleteFileIfExists(debugPack);
+            DeleteFileIfExists(debugFingerprintSource);
+            RunDotNet(repositoryRoot, "build", appProject, "-c", "Debug", "--no-restore", "--nologo", "-v:minimal", "-p:Version=1.0.0");
+            var initialPackFingerprint = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(debugPack)));
+
+            RunDotNet(repositoryRoot, "build", appProject, "-c", "Debug", "--no-restore", "--nologo", "-v:minimal", "-p:Version=1.0.1");
+            Assert.Equal("1.0.1", ReadDevelopmentPackVersion(debugPack));
+            Assert.NotEqual(initialPackFingerprint, Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(debugPack))));
+            AssertFingerprintMatchesPack(debugPack, debugFingerprintSource);
+
+            var packWriteTime = File.GetLastWriteTimeUtc(debugPack);
+            var fingerprintWriteTime = File.GetLastWriteTimeUtc(debugFingerprintSource);
+            var packFingerprint = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(debugPack)));
+            Thread.Sleep(20);
+            RunDotNet(repositoryRoot, "build", appProject, "-c", "Debug", "--no-restore", "--nologo", "-v:minimal", "-p:Version=1.0.1");
+
+            Assert.Equal("1.0.1", ReadDevelopmentPackVersion(debugPack));
+            Assert.Equal(packFingerprint, Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(debugPack))));
+            Assert.Equal(packWriteTime, File.GetLastWriteTimeUtc(debugPack));
+            Assert.Equal(fingerprintWriteTime, File.GetLastWriteTimeUtc(debugFingerprintSource));
+        }
+        finally
+        {
+            RunDotNet(repositoryRoot, "build", appProject, "-c", "Debug", "--no-restore", "--nologo", "-v:minimal", "-p:Version=1.0.0");
+        }
+    }
+
+    [Fact]
     public void Debug_rule_pack_is_safely_readable_and_preserves_system_and_nvidia_attribution()
     {
         var repositoryRoot = FindRepositoryRoot();
@@ -196,6 +235,20 @@ public sealed class DevelopmentRulePackTests
         {
             File.Delete(path);
         }
+    }
+
+    private static string ReadDevelopmentPackVersion(string packPath)
+    {
+        using var package = File.OpenRead(packPath);
+        var result = RulePackReader.ReadLocal(package);
+        Assert.True(result.IsSuccess, result.Message);
+        return result.Pack!.Version;
+    }
+
+    private static void AssertFingerprintMatchesPack(string packPath, string fingerprintSourcePath)
+    {
+        var compiledFingerprint = Regex.Match(File.ReadAllText(fingerprintSourcePath), "Sha256 = \"([0-9a-f]{64})\"").Groups[1].Value;
+        Assert.Equal(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(packPath))).ToLowerInvariant(), compiledFingerprint);
     }
 
     private static void RunDotNet(string workingDirectory, params string[] arguments)

@@ -27,6 +27,7 @@
     <DevelopmentRulePackDirectory>$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\</DevelopmentRulePackDirectory>
     <DevelopmentRulePackPath>$(DevelopmentRulePackDirectory)KeyRadar-Development-Rules.krpack</DevelopmentRulePackPath>
     <DevelopmentRulePackFingerprintSource>$(DevelopmentRulePackDirectory)DevelopmentRulePackFingerprint.g.cs</DevelopmentRulePackFingerprintSource>
+    <DevelopmentRulePackVersionStamp>$(DevelopmentRulePackDirectory)DevelopmentRulePackVersion.stamp</DevelopmentRulePackVersionStamp>
   </PropertyGroup>
 
   <ItemGroup>
@@ -38,6 +39,7 @@
     <DevelopmentRulePackInputs Include="$(MSBuildProjectDirectory)\..\..\eng\Build-DebugRulePack.ps1" />
     <DevelopmentRulePackInputs Include="$(MSBuildProjectDirectory)\..\..\rules\*.json" />
     <DevelopmentRulePackInputs Include="$(MSBuildProjectFullPath)" />
+    <DevelopmentRulePackInputs Include="$(DevelopmentRulePackVersionStamp)" />
     <Compile Include="$(DevelopmentRulePackFingerprintSource)" Visible="false" />
   </ItemGroup>
 
@@ -64,8 +66,14 @@
     <Copy SourceFiles="@(ElevatedScannerFiles)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
   </Target>
 
+  <Target Name="WriteDevelopmentRulePackVersionStamp">
+    <MakeDir Directories="$(DevelopmentRulePackDirectory)" />
+    <WriteLinesToFile File="$(DevelopmentRulePackVersionStamp)" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+  </Target>
+
   <Target Name="BuildDevelopmentRulePack"
           BeforeTargets="PrepareForBuild"
+          DependsOnTargets="WriteDevelopmentRulePackVersionStamp"
           Inputs="@(DevelopmentRulePackInputs)"
           Outputs="$(DevelopmentRulePackPath);$(DevelopmentRulePackFingerprintSource)">
     <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\eng\Build-DebugRulePack.ps1&quot; -RulesDirectory &quot;$(MSBuildProjectDirectory)\..\..\rules&quot; -OutputPath &quot;$(DevelopmentRulePackPath)&quot; -Version &quot;$(Version)&quot; -FingerprintSourcePath &quot;$(DevelopmentRulePackFingerprintSource)&quot;" />

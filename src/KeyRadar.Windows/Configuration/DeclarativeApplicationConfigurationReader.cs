@@ -274,6 +274,8 @@ public sealed class DeclarativeApplicationConfigurationReader(
 
 internal static class GestureDecoders
 {
+    private const int WinFormsKeysAllowedMask = 0x0000ffff | 0x00010000 | 0x00020000 | 0x00040000;
+
     public static bool TryDecode(ConfigurationGestureDecoder decoder, JsonElement value, JsonElement win, out HotkeyGesture gesture) =>
         decoder switch
         {
@@ -326,6 +328,7 @@ internal static class GestureDecoders
         {
             return TryDecodeWinFormsKeysString(text, win, out gesture);
         }
+        if ((encoded & ~WinFormsKeysAllowedMask) != 0) return false;
         if (!VirtualKeyNames.TryGet(encoded & 0xffff, out var key)) return false;
         var modifiers = HotkeyModifiers.None;
         if ((encoded & 0x20000) != 0) modifiers |= HotkeyModifiers.Control;

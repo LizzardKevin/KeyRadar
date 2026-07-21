@@ -128,6 +128,27 @@ public sealed class DeclarativeApplicationConfigurationReaderTests
         finally { Directory.Delete(root, true); }
     }
 
+    [Theory]
+    [InlineData(0x00100041)]
+    [InlineData(0x80041)]
+    [InlineData(-1)]
+    [InlineData(0x00070000)]
+    public async Task Winforms_decoder_rejects_numeric_keys_with_unknown_flags_or_without_a_key(int encoded)
+    {
+        var root = CreateRoot();
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "HotkeysConfig.json"),
+                $"{{\"Hotkeys\":[{{\"HotkeyInfo\":{{\"Hotkey\":{encoded},\"Win\":false}},\"TaskSettings\":{{\"Job\":14}}}}]}}",
+                TestContext.Current.CancellationToken);
+
+            var result = await Reader(root).ReadAsync(Process(), ShareXVariant(), TestContext.Current.CancellationToken);
+
+            Assert.Empty(result);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     [Fact]
     public async Task Source_entry_budget_is_shared_by_all_collections()
     {
