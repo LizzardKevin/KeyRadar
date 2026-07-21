@@ -57,7 +57,8 @@ public static class ElevatedScanProtocol
         foreach (var snapshot in snapshots)
         {
             var process = snapshot.Process;
-            if (process.Id <= 0 || process.Id == Environment.ProcessId || !seen.Add(process.Id) || IsKeyRadarInfrastructure(process.Name))
+            if (process.Id <= 0 || process.Id == Environment.ProcessId || !seen.Add(process.Id) ||
+                IsKeyRadarInfrastructure(process.Name) || !NeedsElevatedMetadata(process))
             {
                 continue;
             }
@@ -66,6 +67,19 @@ public static class ElevatedScanProtocol
         }
 
         return targets;
+    }
+
+    public static bool NeedsElevatedMetadata(ProcessDescriptor process)
+    {
+        ArgumentNullException.ThrowIfNull(process);
+
+        // A null version, publisher, or package can be a valid fact (for example an
+        // unsigned Win32 app or a non-packaged process). Only retry fields the normal
+        // scan explicitly could not read, or enum values that remain unknown.
+        return process.UnavailableMetadata != ProcessMetadataUnavailable.None ||
+            string.IsNullOrWhiteSpace(process.ExecutableName) ||
+            process.Architecture == ProcessArchitecture.Unknown ||
+            process.PrivilegeLevel == ProcessPrivilegeLevel.Unknown;
     }
 
     public static bool TryValidateCommand(
@@ -121,6 +135,7 @@ public static class ElevatedScanProtocol
 
 public interface IElevatedScanProcess
 {
+    int ProcessId { get; }
     bool HasExited { get; }
     void Terminate();
     Task WaitForExitAsync(CancellationToken cancellationToken);
@@ -138,7 +153,10 @@ public interface IElevatedScanTransport
 
 public interface IElevatedScanReception : IAsyncDisposable
 {
-    Task<ElevatedProcessSnapshot> ReceiveAsync(IReadOnlyList<ElevatedProcessTarget> allowlist, CancellationToken cancellationToken);
+    Task<ElevatedProcessSnapshot> ReceiveAsync(
+        int expectedHelperProcessId,
+        IReadOnlyList<ElevatedProcessTarget> allowlist,
+        CancellationToken cancellationToken);
     Task CancelAsync(CancellationToken cancellationToken);
 }
 
@@ -177,6 +195,10 @@ public sealed class ElevatedScanCoordinator(
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 process = launcher.Start(request);
+                if (process.ProcessId <= 0)
+                {
+                    return new ElevatedScanResult(normalSnapshots, ElevatedScanStatus.Unavailable);
+                }
                 cancellationToken.ThrowIfCancellationRequested();
             }
             catch (Win32Exception exception) when (exception.NativeErrorCode == 1223)
@@ -195,7 +217,7 @@ public sealed class ElevatedScanCoordinator(
             ElevatedProcessSnapshot snapshot;
             try
             {
-                snapshot = await reception.ReceiveAsync(allowlist, linkedCancellation.Token).ConfigureAwait(false);
+                snapshot = await reception.ReceiveAsync(process.ProcessId, allowlist, linkedCancellation.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (timeoutCancellation.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
@@ -292,6 +314,7 @@ public static class ApplicationSnapshotMerger
         CompanyName = Prefer(normal.CompanyName, elevated.CompanyName),
         PackageFamilyName = Prefer(normal.PackageFamilyName, elevated.PackageFamilyName),
         Distribution = Prefer(normal.Distribution, elevated.Distribution),
+        UnavailableMetadata = normal.UnavailableMetadata & elevated.UnavailableMetadata,
     };
 
     private static string? Prefer(string? current, string? elevated) =>
@@ -373,7 +396,16 @@ public static class ElevatedProcessSnapshotValidator
         IsText(process.PackageFamilyName, 260) &&
         IsText(process.Distribution, 64) &&
         Enum.IsDefined(process.Architecture) &&
-        Enum.IsDefined(process.PrivilegeLevel);
+        Enum.IsDefined(process.PrivilegeLevel) &&
+        (process.UnavailableMetadata & ~AllMetadataFields) == ProcessMetadataUnavailable.None;
+
+    private const ProcessMetadataUnavailable AllMetadataFields =
+        ProcessMetadataUnavailable.ExecutableIdentity |
+        ProcessMetadataUnavailable.Version |
+        ProcessMetadataUnavailable.PublisherOrCompany |
+        ProcessMetadataUnavailable.Architecture |
+        ProcessMetadataUnavailable.PrivilegeLevel |
+        ProcessMetadataUnavailable.PackageOrDistribution;
 
     private static bool IsName(string? value, int maximumLength) =>
         IsText(value, maximumLength) && !string.IsNullOrWhiteSpace(value);

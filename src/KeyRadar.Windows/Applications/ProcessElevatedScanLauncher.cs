@@ -32,6 +32,7 @@ public sealed class ProcessElevatedScanLauncher(string helperPath) : IElevatedSc
 
     private sealed class StartedProcess(Process process) : IElevatedScanProcess
     {
+        public int ProcessId => process.Id;
         public bool HasExited => process.HasExited;
 
         public void Terminate()

@@ -16,7 +16,7 @@ internal static partial class ProcessMetadataReader
         string? version = null;
         string? publisher = null;
         string? companyName = null;
-        string? packageFamilyName = null;
+        var unavailableMetadata = ProcessMetadataUnavailable.None;
 
         try
         {
@@ -30,9 +30,30 @@ internal static partial class ProcessMetadataReader
                 publisher = ReadAuthenticodePublisher(executablePath);
             }
         }
-        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or NotSupportedException)
+        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or NotSupportedException or UnauthorizedAccessException)
         {
             // Protected processes expose only their process name.
+            unavailableMetadata |= ProcessMetadataUnavailable.ExecutableIdentity |
+                ProcessMetadataUnavailable.Version |
+                ProcessMetadataUnavailable.PublisherOrCompany;
+        }
+
+        var architecture = ReadArchitecture(process);
+        if (architecture == ProcessArchitecture.Unknown)
+        {
+            unavailableMetadata |= ProcessMetadataUnavailable.Architecture;
+        }
+
+        var privilegeLevel = ReadPrivilege(process);
+        if (privilegeLevel == ProcessPrivilegeLevel.Unknown)
+        {
+            unavailableMetadata |= ProcessMetadataUnavailable.PrivilegeLevel;
+        }
+
+        var (packageFamilyName, packageMetadataUnavailable) = ReadPackageFamilyName(process);
+        if (packageMetadataUnavailable)
+        {
+            unavailableMetadata |= ProcessMetadataUnavailable.PackageOrDistribution;
         }
 
         return new ProcessDescriptor(
@@ -41,11 +62,12 @@ internal static partial class ProcessMetadataReader
             executableName,
             version,
             publisher,
-            ReadArchitecture(process),
-            ReadPrivilege(process),
+            architecture,
+            privilegeLevel,
             companyName,
-            packageFamilyName = ReadPackageFamilyName(process),
-            packageFamilyName is null ? null : "microsoft-store");
+            packageFamilyName,
+            packageFamilyName is null ? null : "microsoft-store",
+            unavailableMetadata);
     }
 
     private static string? ReadAuthenticodePublisher(string executablePath)
@@ -64,15 +86,20 @@ internal static partial class ProcessMetadataReader
         }
     }
 
-    private static unsafe string? ReadPackageFamilyName(Process process)
+    private static unsafe (string? Value, bool Unavailable) ReadPackageFamilyName(Process process)
     {
         try
         {
             uint length = 0;
             var status = GetPackageFamilyName(process.Handle, ref length, null);
-            if (status != 122 || length is 0 or > 256)
+            if (status == AppModelErrorNoPackage)
             {
-                return null;
+                return (null, false);
+            }
+
+            if (status != ErrorInsufficientBuffer || length is 0 or > 256)
+            {
+                return (null, true);
             }
 
             var value = new char[length];
@@ -81,19 +108,27 @@ internal static partial class ProcessMetadataReader
                 status = GetPackageFamilyName(process.Handle, ref length, valuePointer);
             }
 
+            if (status == AppModelErrorNoPackage)
+            {
+                return (null, false);
+            }
+
             if (status != 0)
             {
-                return null;
+                return (null, true);
             }
 
             var terminator = Array.IndexOf(value, '\0');
-            return new string(value, 0, terminator >= 0 ? terminator : value.Length);
+            return (new string(value, 0, terminator >= 0 ? terminator : value.Length), false);
         }
         catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
-            return null;
+            return (null, true);
         }
     }
+
+    private const int ErrorInsufficientBuffer = 122;
+    private const int AppModelErrorNoPackage = 15700;
 
     private static ProcessArchitecture ReadArchitecture(Process process)
     {

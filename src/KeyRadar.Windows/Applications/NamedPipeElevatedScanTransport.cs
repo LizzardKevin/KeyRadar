@@ -1,11 +1,20 @@
 using System.IO.Pipes;
+using Microsoft.Win32.SafeHandles;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 
 namespace KeyRadar.Windows.Applications;
 
-public sealed class NamedPipeElevatedScanTransport : IElevatedScanTransport
+public sealed partial class NamedPipeElevatedScanTransport : IElevatedScanTransport
 {
-    public IElevatedScanReception Begin(ElevatedScanRequest request) => new Reception(request);
+    private readonly Func<SafePipeHandle, int?> _clientProcessIdReader;
+
+    public NamedPipeElevatedScanTransport(Func<SafePipeHandle, int?>? clientProcessIdReader = null)
+    {
+        _clientProcessIdReader = clientProcessIdReader ?? GetClientProcessId;
+    }
+
+    public IElevatedScanReception Begin(ElevatedScanRequest request) => new Reception(request, _clientProcessIdReader);
 
     public static async Task<ElevatedScanHelperSession> ReceiveCommandAsync(
         ElevatedScanRequest request,
@@ -36,7 +45,9 @@ public sealed class NamedPipeElevatedScanTransport : IElevatedScanTransport
 
     private const int MaximumPayloadBytes = 4 * 1024 * 1024;
 
-    private sealed class Reception(ElevatedScanRequest request) : IElevatedScanReception
+    private sealed class Reception(
+        ElevatedScanRequest request,
+        Func<SafePipeHandle, int?> clientProcessIdReader) : IElevatedScanReception
     {
         private readonly NamedPipeServerStream _server = new(
             request.PipeName,
@@ -47,10 +58,16 @@ public sealed class NamedPipeElevatedScanTransport : IElevatedScanTransport
         private bool _commandSent;
 
         public async Task<ElevatedProcessSnapshot> ReceiveAsync(
+            int expectedHelperProcessId,
             IReadOnlyList<ElevatedProcessTarget> allowlist,
             CancellationToken cancellationToken)
         {
             await _server.WaitForConnectionAsync(cancellationToken).ConfigureAwait(false);
+            if (expectedHelperProcessId <= 0 || clientProcessIdReader(_server.SafePipeHandle) != expectedHelperProcessId)
+            {
+                throw new UnauthorizedAccessException("The named-pipe client is not the launched elevated helper.");
+            }
+
             if (!_commandSent)
             {
                 var command = new ElevatedScanCommand(
@@ -78,6 +95,15 @@ public sealed class NamedPipeElevatedScanTransport : IElevatedScanTransport
 
         public ValueTask DisposeAsync() => _server.DisposeAsync();
     }
+
+    private static int? GetClientProcessId(SafePipeHandle pipeHandle) =>
+        GetNamedPipeClientProcessId(pipeHandle, out var processId) && processId <= int.MaxValue
+            ? (int)processId
+            : null;
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetNamedPipeClientProcessId(SafePipeHandle namedPipe, out uint clientProcessId);
 
     private static async Task WatchForCancellationAsync(Stream stream, CancellationTokenSource cancellation)
     {

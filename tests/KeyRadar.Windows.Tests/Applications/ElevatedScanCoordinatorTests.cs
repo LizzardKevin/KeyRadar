@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO.Pipes;
 using System.Xml.Linq;
 using KeyRadar.Windows.Applications;
 
@@ -25,6 +26,28 @@ public sealed class ElevatedScanCoordinatorTests
         Assert.Equal("Publisher", merged.Process.Publisher);
         Assert.Equal(ProcessPrivilegeLevel.Elevated, merged.Process.PrivilegeLevel);
         Assert.Equal(ApplicationPresence.Foreground, merged.Presence);
+    }
+
+    [Fact]
+    public void Successful_elevated_metadata_clears_only_the_completed_unavailable_fields()
+    {
+        var normal = new[]
+        {
+            new ApplicationSnapshot(
+                new ProcessDescriptor(42, "ShareX", "ShareX.exe", Architecture: ProcessArchitecture.Unknown, PrivilegeLevel: ProcessPrivilegeLevel.Unknown,
+                    UnavailableMetadata: ProcessMetadataUnavailable.Architecture | ProcessMetadataUnavailable.PrivilegeLevel),
+                ApplicationPresence.Foreground),
+        };
+        var elevated = new[]
+        {
+            new ProcessDescriptor(42, "ShareX", "ShareX.exe", Architecture: ProcessArchitecture.X64, PrivilegeLevel: ProcessPrivilegeLevel.Elevated),
+        };
+
+        var merged = Assert.Single(ApplicationSnapshotMerger.Merge(normal, elevated));
+
+        Assert.Equal(ProcessMetadataUnavailable.None, merged.Process.UnavailableMetadata);
+        Assert.Equal(ProcessArchitecture.X64, merged.Process.Architecture);
+        Assert.Equal(ProcessPrivilegeLevel.Elevated, merged.Process.PrivilegeLevel);
     }
 
     [Fact]
@@ -166,16 +189,49 @@ public sealed class ElevatedScanCoordinatorTests
     {
         var snapshots = new[]
         {
-            new ApplicationSnapshot(new ProcessDescriptor(1, "KeyRadar", "KeyRadar.exe"), ApplicationPresence.Background),
-            new ApplicationSnapshot(new ProcessDescriptor(2, "KeyRadar.ElevatedScanner", "KeyRadar.ElevatedScanner.exe"), ApplicationPresence.Background),
-            new ApplicationSnapshot(new ProcessDescriptor(3, "KeyRadar.Updater", "KeyRadar.Updater.exe"), ApplicationPresence.Background),
-            new ApplicationSnapshot(new ProcessDescriptor(4, "KeyRadar.NativeHost.x64", "KeyRadar.NativeHost.x64.exe"), ApplicationPresence.Background),
-            new ApplicationSnapshot(new ProcessDescriptor(5, "ShareX", "ShareX.exe"), ApplicationPresence.Background),
+            new ApplicationSnapshot(new ProcessDescriptor(1, "KeyRadar", "KeyRadar.exe", UnavailableMetadata: ProcessMetadataUnavailable.PrivilegeLevel), ApplicationPresence.Background),
+            new ApplicationSnapshot(new ProcessDescriptor(2, "KeyRadar.ElevatedScanner", "KeyRadar.ElevatedScanner.exe", UnavailableMetadata: ProcessMetadataUnavailable.PrivilegeLevel), ApplicationPresence.Background),
+            new ApplicationSnapshot(new ProcessDescriptor(3, "KeyRadar.Updater", "KeyRadar.Updater.exe", UnavailableMetadata: ProcessMetadataUnavailable.PrivilegeLevel), ApplicationPresence.Background),
+            new ApplicationSnapshot(new ProcessDescriptor(4, "KeyRadar.NativeHost.x64", "KeyRadar.NativeHost.x64.exe", UnavailableMetadata: ProcessMetadataUnavailable.PrivilegeLevel), ApplicationPresence.Background),
+            new ApplicationSnapshot(new ProcessDescriptor(5, "ShareX", "ShareX.exe", Architecture: ProcessArchitecture.X64, PrivilegeLevel: ProcessPrivilegeLevel.Standard), ApplicationPresence.Background),
         };
 
         var allowlist = ElevatedScanProtocol.CreateAllowlist(snapshots);
 
-        Assert.Collection(allowlist, target => Assert.Equal(5, target.Id));
+        Assert.Empty(allowlist);
+    }
+
+    [Fact]
+    public void Allowlist_contains_only_processes_with_rule_matching_metadata_unavailable()
+    {
+        var snapshots = new[]
+        {
+            new ApplicationSnapshot(
+                new ProcessDescriptor(5, "Complete", "Complete.exe", "1.0", "Publisher", ProcessArchitecture.X64, ProcessPrivilegeLevel.Standard, "Company"),
+                ApplicationPresence.Background),
+            new ApplicationSnapshot(
+                new ProcessDescriptor(6, "Restricted", "Restricted.exe", Architecture: ProcessArchitecture.Unknown, PrivilegeLevel: ProcessPrivilegeLevel.Unknown,
+                    UnavailableMetadata: ProcessMetadataUnavailable.ExecutableIdentity | ProcessMetadataUnavailable.Version | ProcessMetadataUnavailable.PublisherOrCompany | ProcessMetadataUnavailable.PackageOrDistribution),
+                ApplicationPresence.Background),
+        };
+
+        var allowlist = ElevatedScanProtocol.CreateAllowlist(snapshots);
+
+        var target = Assert.Single(allowlist);
+        Assert.Equal(6, target.Id);
+    }
+
+    [Fact]
+    public void Allowlist_does_not_retry_legitimately_absent_optional_metadata()
+    {
+        var snapshots = new[]
+        {
+            new ApplicationSnapshot(
+                new ProcessDescriptor(5, "UnsignedWin32", "UnsignedWin32.exe", Architecture: ProcessArchitecture.X64, PrivilegeLevel: ProcessPrivilegeLevel.Standard),
+                ApplicationPresence.Background),
+        };
+
+        Assert.Empty(ElevatedScanProtocol.CreateAllowlist(snapshots));
     }
 
     [Fact]
@@ -226,12 +282,65 @@ public sealed class ElevatedScanCoordinatorTests
         });
 
         using var receiveCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        var receive = reception.ReceiveAsync([new ElevatedProcessTarget(7, null)], receiveCancellation.Token);
+        var receive = reception.ReceiveAsync(Environment.ProcessId, [new ElevatedProcessTarget(7, null)], receiveCancellation.Token);
         await commandReceived.Task.WaitAsync(receiveCancellation.Token);
         await reception.CancelAsync(receiveCancellation.Token);
 
         Assert.True(await helper.WaitAsync(receiveCancellation.Token));
         await Assert.ThrowsAnyAsync<Exception>(async () => await receive);
+    }
+
+    [Fact]
+    public async Task Pipe_rejects_a_racing_same_user_client_before_it_receives_the_scan_command()
+    {
+        var request = ElevatedScanRequest.Create(TimeSpan.FromSeconds(1));
+        var transport = new NamedPipeElevatedScanTransport(_ => Environment.ProcessId + 1);
+        await using var reception = transport.Begin(request);
+        await using var client = new NamedPipeClientStream(".", request.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+
+        await client.ConnectAsync(cancellation.Token);
+        var receive = reception.ReceiveAsync(Environment.ProcessId, [new ElevatedProcessTarget(7, null)], cancellation.Token);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(async () => await receive);
+        await reception.DisposeAsync();
+        var buffer = new byte[1];
+        Assert.Equal(0, await client.ReadAsync(buffer, cancellation.Token));
+    }
+
+    [Fact]
+    public async Task Pipe_accepts_the_expected_helper_pid_and_sends_its_command()
+    {
+        var request = ElevatedScanRequest.Create(TimeSpan.FromSeconds(1));
+        var transport = new NamedPipeElevatedScanTransport(_ => Environment.ProcessId);
+        await using var reception = transport.Begin(request);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        var helper = Task.Run(async () =>
+        {
+            await using var session = await NamedPipeElevatedScanTransport.ReceiveCommandAsync(request, cancellation.Token);
+            await NamedPipeElevatedScanTransport.SendSnapshotAsync(
+                session.Stream,
+                ElevatedProcessSnapshot.Success(request.Nonce, []),
+                cancellation.Token);
+            return session.Command;
+        }, cancellation.Token);
+
+        var snapshot = await reception.ReceiveAsync(Environment.ProcessId, [], cancellation.Token);
+
+        Assert.Empty(snapshot.Processes);
+        Assert.Empty((await helper).Processes);
+    }
+
+    [Fact]
+    public async Task Helper_pid_validation_failure_keeps_the_limited_snapshot_unmodified()
+    {
+        var normal = new[] { new ApplicationSnapshot(new ProcessDescriptor(42, "ShareX", "ShareX.exe"), ApplicationPresence.Background) };
+        var coordinator = new ElevatedScanCoordinator(new StubLauncher(), new PidRejectingTransport(), TimeSpan.FromSeconds(1));
+
+        var result = await coordinator.ScanAndMergeAsync(normal, CancellationToken.None);
+
+        Assert.Equal(ElevatedScanStatus.Unavailable, result.Status);
+        Assert.Same(normal, result.Snapshots);
     }
 
     [Fact]
@@ -321,6 +430,16 @@ public sealed class ElevatedScanCoordinatorTests
     }
 
     [Fact]
+    public void Snapshot_validation_rejects_unknown_metadata_unavailability_flags()
+    {
+        var snapshot = ElevatedProcessSnapshot.Success(
+            "expected",
+            [new ProcessDescriptor(1, "a", "a.exe", UnavailableMetadata: (ProcessMetadataUnavailable)0x8000)]);
+
+        Assert.False(ElevatedProcessSnapshotValidator.TryValidate(snapshot, "expected", out _));
+    }
+
+    [Fact]
     public void Main_application_manifest_remains_as_invoker()
     {
         var manifest = XDocument.Load(Path.Combine(RepositoryRoot(), "src", "KeyRadar.App", "app.manifest"));
@@ -353,6 +472,7 @@ public sealed class ElevatedScanCoordinatorTests
 
     private sealed class StubProcess(Exception? terminateException = null) : IElevatedScanProcess
     {
+        public int ProcessId => 4242;
         public bool HasExited => false;
         public bool Terminated { get; private set; }
         public void Terminate()
@@ -368,6 +488,7 @@ public sealed class ElevatedScanCoordinatorTests
 
     private sealed class SlowProcess(Exception terminateException) : IElevatedScanProcess
     {
+        public int ProcessId => 4242;
         public bool HasExited => false;
         public void Terminate() => throw terminateException;
         public Task WaitForExitAsync(CancellationToken cancellationToken) =>
@@ -426,7 +547,7 @@ public sealed class ElevatedScanCoordinatorTests
         {
             public ValueTask DisposeAsync() => ValueTask.CompletedTask;
             public Task CancelAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-            public Task<ElevatedProcessSnapshot> ReceiveAsync(IReadOnlyList<ElevatedProcessTarget> allowlist, CancellationToken cancellationToken) => Task.FromResult(response);
+            public Task<ElevatedProcessSnapshot> ReceiveAsync(int expectedHelperProcessId, IReadOnlyList<ElevatedProcessTarget> allowlist, CancellationToken cancellationToken) => Task.FromResult(response);
         }
     }
 
@@ -438,7 +559,7 @@ public sealed class ElevatedScanCoordinatorTests
         {
             public ValueTask DisposeAsync() => ValueTask.CompletedTask;
             public Task CancelAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-            public async Task<ElevatedProcessSnapshot> ReceiveAsync(IReadOnlyList<ElevatedProcessTarget> allowlist, CancellationToken cancellationToken)
+            public async Task<ElevatedProcessSnapshot> ReceiveAsync(int expectedHelperProcessId, IReadOnlyList<ElevatedProcessTarget> allowlist, CancellationToken cancellationToken)
             {
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
                 return ElevatedProcessSnapshot.Success(string.Empty, []);
@@ -455,7 +576,7 @@ public sealed class ElevatedScanCoordinatorTests
             public ValueTask DisposeAsync() => ValueTask.CompletedTask;
             public Task CancelAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-            public async Task<ElevatedProcessSnapshot> ReceiveAsync(IReadOnlyList<ElevatedProcessTarget> allowlist, CancellationToken cancellationToken)
+            public async Task<ElevatedProcessSnapshot> ReceiveAsync(int expectedHelperProcessId, IReadOnlyList<ElevatedProcessTarget> allowlist, CancellationToken cancellationToken)
             {
                 cancellation.Cancel();
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
@@ -472,7 +593,7 @@ public sealed class ElevatedScanCoordinatorTests
         {
             public async ValueTask DisposeAsync() => await Task.Delay(TimeSpan.FromMilliseconds(1400));
             public Task CancelAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-            public Task<ElevatedProcessSnapshot> ReceiveAsync(IReadOnlyList<ElevatedProcessTarget> allowlist, CancellationToken cancellationToken) =>
+            public Task<ElevatedProcessSnapshot> ReceiveAsync(int expectedHelperProcessId, IReadOnlyList<ElevatedProcessTarget> allowlist, CancellationToken cancellationToken) =>
                 Task.FromResult(ElevatedProcessSnapshot.Success(request.Nonce, []));
         }
     }
@@ -492,11 +613,24 @@ public sealed class ElevatedScanCoordinatorTests
                 return Task.CompletedTask;
             }
 
-            public async Task<ElevatedProcessSnapshot> ReceiveAsync(IReadOnlyList<ElevatedProcessTarget> allowlist, CancellationToken cancellationToken)
+            public async Task<ElevatedProcessSnapshot> ReceiveAsync(int expectedHelperProcessId, IReadOnlyList<ElevatedProcessTarget> allowlist, CancellationToken cancellationToken)
             {
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
                 return ElevatedProcessSnapshot.Success(string.Empty, []);
             }
+        }
+    }
+
+    private sealed class PidRejectingTransport : IElevatedScanTransport
+    {
+        public IElevatedScanReception Begin(ElevatedScanRequest request) => new Reception();
+
+        private sealed class Reception : IElevatedScanReception
+        {
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+            public Task CancelAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+            public Task<ElevatedProcessSnapshot> ReceiveAsync(int expectedHelperProcessId, IReadOnlyList<ElevatedProcessTarget> allowlist, CancellationToken cancellationToken) =>
+                throw new UnauthorizedAccessException("Unexpected pipe client PID.");
         }
     }
 }
