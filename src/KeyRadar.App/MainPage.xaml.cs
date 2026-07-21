@@ -264,11 +264,18 @@ public sealed partial class MainPage : Page
                 rawRunningRuleHotkeys.Where(rule => !WindowsSystemHotkeyIdentity.IsSystemApplication(rule.ApplicationId)),
                 applicationPresenceByEvidenceIdentity))
             .ToArray();
-        runningRuleHotkeys = LocalConfigurationOverridePolicy.FilterStaticDefaults(runningRuleHotkeys, localConfigurations).ToArray();
+        var effectiveHotkeys = CurrentEffectiveHotkeyProjection.Project(
+            runningRuleHotkeys,
+            localConfigurations);
         var attribution = HotkeyAttributionCatalog.Create(
             occupancyResults,
-            runningRuleHotkeys,
-            localConfigurations,
+            effectiveHotkeys.Rules,
+            effectiveHotkeys.LocalConfigurations,
+            hardwareEnvironment.Profiles);
+        var diagnosticAttribution = HotkeyAttributionCatalog.Create(
+            occupancyResults,
+            effectiveHotkeys.DiagnosticRules,
+            effectiveHotkeys.LocalConfigurations,
             hardwareEnvironment.Profiles);
         if (windowsRules is not null || windowsSession.PrintScreenOpensSnippingTool == true)
         {
@@ -301,10 +308,11 @@ public sealed partial class MainPage : Page
                 process.Id,
                 rules.ApplicationId,
                 rules.VariantId).Value;
-            var configured = localConfigurations
+            var configured = effectiveHotkeys.LocalConfigurations
                 .Where(item => item.OwnerIdentity?.Equals(selectedIdentity, StringComparison.OrdinalIgnoreCase) == true)
                 .ToArray();
-            var ruleRows = rules.Hotkeys
+            var ruleRows = effectiveHotkeys.Rules
+                .Where(hotkey => hotkey.OwnerIdentity?.Equals(selectedIdentity, StringComparison.OrdinalIgnoreCase) == true)
                 .Where(hotkey => CurrentStateHotkeyEligibilityPolicy.IsEligible(presence, hotkey.Scope))
                 .Select(hotkey =>
             {
@@ -317,17 +325,18 @@ public sealed partial class MainPage : Page
 
                 return HotkeyRowViewModel.Create(
                     hotkey.Gesture.ToString(),
-                    local is null ? hotkey.Function.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name) : UiText.LocalizeExternal(local.Function),
+                    local is null ? hotkey.Function : UiText.LocalizeExternal(local.Function),
                     ownerLabel,
                     local?.Scope ?? hotkey.Scope,
                     local is null ? hotkey.Confidence : OwnershipConfidence.LocalConfiguration,
                     process.Id,
                     availabilityLabel,
-                    hotkey.Sources,
                     evidenceLabel: local is null ? null : UiText.Pick("证据：", "Evidence: ") + UiText.LocalizeExternal(local.Evidence));
             });
             var configuredOnlyRows = configured
-                .Where(local => rules.Hotkeys.All(hotkey => hotkey.Gesture != local.Gesture))
+                .Where(local => effectiveHotkeys.Rules.All(hotkey =>
+                    hotkey.OwnerIdentity?.Equals(selectedIdentity, StringComparison.OrdinalIgnoreCase) != true ||
+                    hotkey.Gesture != local.Gesture))
                 .Select(local => HotkeyRowViewModel.Create(
                     local.Gesture.ToString(),
                     UiText.LocalizeExternal(local.Function),
@@ -558,7 +567,7 @@ public sealed partial class MainPage : Page
                 () => CompletedScanExportSnapshot.Create(
                     BuildDiagnosticApplications(completedGroups, snapshots),
                     occupancyResults,
-                    attribution.DiagnosticItems),
+                    diagnosticAttribution.DiagnosticItems),
                 scanCancellationToken,
                 () =>
                 {

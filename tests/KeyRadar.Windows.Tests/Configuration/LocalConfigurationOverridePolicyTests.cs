@@ -48,4 +48,24 @@ public sealed class LocalConfigurationOverridePolicyTests
         Assert.Contains(filtered, rule => rule.ApplicationId == "other");
         Assert.Contains(filtered, rule => rule.Confidence == OwnershipConfidence.UserDeclared);
     }
+
+    [Fact]
+    public void Local_command_mapping_does_not_replace_the_same_command_in_another_variant()
+    {
+        var rules = new[]
+        {
+            new RunningRuleHotkey("nvidia-app", HotkeyGesture.Parse("Alt+R"), "Performance", HotkeyScope.Global, OwnershipConfidence.OfficialDefault, "official", "42:nvidia-app", "overlay", "performance-overlay-toggle"),
+            new RunningRuleHotkey("nvidia-app", HotkeyGesture.Parse("Alt+Shift+R"), "Performance", HotkeyScope.Global, OwnershipConfidence.OfficialDefault, "official", "42:nvidia-app", "legacy", "performance-overlay-toggle"),
+        };
+        var local = new[]
+        {
+            new LocalConfigurationHotkey("nvidia-app", HotkeyGesture.Parse("Alt+I"), "Performance", HotkeyScope.Global, "config", "42:nvidia-app", "overlay", "performance-overlay-toggle"),
+        };
+
+        var filtered = LocalConfigurationOverridePolicy.FilterStaticDefaults(rules, local);
+
+        var remaining = Assert.Single(filtered);
+        Assert.Equal("legacy", remaining.VariantId);
+        Assert.Equal(HotkeyGesture.Parse("Alt+Shift+R"), remaining.Gesture);
+    }
 }

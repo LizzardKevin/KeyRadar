@@ -51,15 +51,43 @@ public static class LocalConfigurationOverridePolicy
     {
         var configured = localConfigurations
             .Where(item => !string.IsNullOrWhiteSpace(item.CommandId))
-            .Select(item => $"{item.OwnerIdentity ?? item.ApplicationId}\n{item.CommandId}")
+            .Select(item => OverrideIdentity(item.OwnerIdentity ?? item.ApplicationId, item.VariantId, item.CommandId!))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         return rules.Where(rule => !IsStaticDefault(rule.Confidence) ||
             string.IsNullOrWhiteSpace(rule.CommandId) ||
-            !configured.Contains($"{rule.OwnerIdentity ?? rule.ApplicationId}\n{rule.CommandId}")).ToArray();
+            !configured.Contains(OverrideIdentity(rule.OwnerIdentity ?? rule.ApplicationId, rule.VariantId, rule.CommandId))).ToArray();
     }
+
+    private static string OverrideIdentity(string ownerIdentity, string? variantId, string commandId) =>
+        $"{ownerIdentity}\n{variantId ?? string.Empty}\n{commandId}";
 
     private static bool IsStaticDefault(OwnershipConfidence confidence) =>
         confidence is OwnershipConfidence.OfficialDefault or OwnershipConfidence.Suspected;
+}
+
+/// <summary>
+/// The presentation-safe hotkey inputs for the current desktop state. A trusted
+/// local mapping replaces only its matching static default, while raw rules and
+/// probes remain available to diagnostic code outside this projection.
+/// </summary>
+public sealed record CurrentEffectiveHotkeySet(
+    IReadOnlyList<RunningRuleHotkey> Rules,
+    IReadOnlyList<LocalConfigurationHotkey> LocalConfigurations,
+    IReadOnlyList<RunningRuleHotkey> DiagnosticRules);
+
+public static class CurrentEffectiveHotkeyProjection
+{
+    public static CurrentEffectiveHotkeySet Project(
+        IEnumerable<RunningRuleHotkey> rules,
+        IEnumerable<LocalConfigurationHotkey> localConfigurations)
+    {
+        var rawRules = rules.ToArray();
+        var configured = localConfigurations.ToArray();
+        return new CurrentEffectiveHotkeySet(
+            LocalConfigurationOverridePolicy.FilterStaticDefaults(rawRules, configured),
+            configured,
+            rawRules);
+    }
 }
 
 public sealed record DiscoveredHotkey(
